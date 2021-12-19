@@ -54,8 +54,7 @@ platform.ping();
 //nodejs server side app
 import express from 'express';
 import cors from 'cors';
-import ws = require('../WebsocketLiveserver/backend/WebsocketServer');
-const WebsocketServer = ws.WebsocketServer;
+const WebsocketServer = require('../WebsocketLiveserver/backend/WebsocketServer');
 
 const app = express();
 
