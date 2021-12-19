@@ -2,7 +2,7 @@
 const WebSocket = require('ws')
 const https = require('https')
 const http = require('http')
-const ws = require('./WebsocketController')
+const WebsocketController = require('./WebsocketController')
 
 // Create Brainstorm Server Instance
 class WebsocketServer{
@@ -37,7 +37,7 @@ class WebsocketServer{
     
     
     // Create Data Server
-    this.controller = new ws.WebsocketController(app, this.wss);
+    this.controller = new WebsocketController(app, this.wss);
 
 
     this.server.onListen = onListen

@@ -1,8 +1,8 @@
 {
     "name": "websocketliveserver-backend",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "description": "Websockets with user communication, access controls, and notifications. Clientside and serverside data management plus mongodb integration.",
-    "main": "index.js",
+    "main": "WebsocketServer.js",
     "directories": {
       "example": "example"
     },
