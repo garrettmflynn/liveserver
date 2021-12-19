@@ -122,4 +122,4 @@ class WebsocketServer{
     }
 }
 
-    exports.WebsocketServer = WebsocketServer
+module.exports = WebsocketServer

@@ -4,7 +4,7 @@ const WebRTCService = require('datastreams-api/src/server/webrtc.service.js')
 const OffloadService = require('datastreams-api/src/server/offload.service.js')
 const OSCManager = require('./OSCManager.js');
 
-export class WebsocketController {
+class WebsocketController {
     
     collectionNames = [
         'profile',
@@ -2151,3 +2151,6 @@ export class WebsocketController {
 
 
 }
+
+
+module.exports = WebsocketController;
