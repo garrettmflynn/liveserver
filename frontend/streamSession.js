@@ -1,5 +1,7 @@
 import {StateManager} from 'anotherstatemanager'
+//Joshua Brewster, Garrett Flynn AGPL v3.0
 
+//Brains@Play session streaming functions
 export class streamUtils {
     constructor(userinfo, socket) {
         this.state = new StateManager({
