@@ -24,7 +24,7 @@ Made for [Brains@Play](https://github.com/brainsatplay/brainsatplay) and [MyAlyc
 
 ```
 //ES6 style
-import { UserPlatform } from websocketliveserver-frontend
+import { UserPlatform } from 'websocketliveserver-frontend'
 
 let userdata = {
     _id:'123456', //we are using randomly generated ones from realm/mongodb
@@ -54,8 +54,7 @@ platform.ping();
 //nodejs server side app
 import express from 'express';
 import cors from 'cors';
-import ws = require('../WebsocketLiveserver/backend/WebsocketServer');
-const WebsocketServer = ws.WebsocketServer;
+const WebsocketServer = require('websocketliveserver-backend');
 
 const app = express();
 
