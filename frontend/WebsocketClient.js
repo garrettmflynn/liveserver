@@ -1,4 +1,5 @@
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
+import { streamUtils } from "./streamSession";
 
 export class WebsocketClient {
     constructor(url, auth) {
@@ -18,15 +19,21 @@ export class WebsocketClient {
 
         this.connected = false;
         this.sendQueue = [];
+        this.streamUtils;
+
 
         if (url.protocol === 'http:') {
             this.socket = new WebSocket(
                 'ws://' + url.hostname, // We're always using :80
                 subprotocol);
+
+            //this.streamUtils = new streamUtils(auth,socket);
         } else if (url.protocol === 'https:') {
             this.socket = new WebSocket(
                 'wss://' + url.hostname, // We're always using :80
                 subprotocol);
+
+            //this.streamUtils = new streamUtils(auth,socket);
         } else {
             console.log('invalid protocol');
             return;
@@ -37,14 +44,16 @@ export class WebsocketClient {
         };
 
         this.socket.onopen = () => {
-            console.log('websocket opened')
+            console.log('websocket opened');
             this.connected = true
+            //this.streamUtils.info.connected = true;
             this.sendQueue.forEach(f => f())
         };
 
         this.socket.onmessage = this.onmessage
         this.socket.onclose = (msg) => {
             this.connected = false
+            //this.streamUtils.info.connected = false;
             console.log('websocket closed')
         }
 
@@ -77,6 +86,8 @@ export class WebsocketClient {
 
         //console.log(res);
         res = JSON.parse(res.data);
+
+        //this.streamUtils.processSocketMessage(res);
     
         if (res.callbackId) {
             this.functionQueue[res.callbackId](res) // Run callback

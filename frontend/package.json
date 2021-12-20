@@ -21,6 +21,7 @@
     "author": "Joshua Brewster, Garrett Flynn",
     "license": "AGPL-3.0-or-later",
     "dependencies": {
+      "anotherstatemanager":"^1.0.1"
     },
     "bugs": {
       "url": "https://github.com/brainsatplay/websocketliveserver"
