@@ -1,8 +1,18 @@
 //TODO: Disentangle this stuff to be more modular (so these fitbit dependencies can be removed)
 
+export function randomId(tag = '') {
+    return `${tag+Math.floor(Math.random()+Math.random()*Math.random()*10000000000000000)}`;
+}
+
 export class DataTablet {
 
-    constructor(platform) {
+    constructor(props={},threaded=false) {
+
+        this.threaded = threaded;
+        if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
+            this.threaded = 2;
+        }
+
         this.data = {
             byTime:{}, //everything is arranged by time
             notes:{},
@@ -17,12 +27,13 @@ export class DataTablet {
             fnirs:{}
         }
 
-        this.platform = platform;
+        Object.assign(this.data,props);
 
         this.dataSorts = new Map(); //what to do with data based on struct or data type
+
         this.setSort(
             'event',
-            (dataObj,newdata,tablet)=>{
+            (dataObj,newdata,tablet=this)=>{
                 if(!this.data.events[dataObj.timestamp])
                     this.data.events[dataObj.timestamp] = [dataObj];
                 else this.data.events[dataObj.timestamp].push(dataObj);
@@ -39,7 +50,7 @@ export class DataTablet {
 
         this.setSort(
             ['notes','note','link'],
-            (dataObj,newdata,tablet) => {
+            (dataObj,newdata,tablet=this) => {
                 if(!this.data.notes[dataObj.timestamp])
                     this.data.notes[dataObj.timestamp] = [dataObj];
                 else this.data.notes[dataObj.timestamp].push(dataObj);
@@ -54,25 +65,114 @@ export class DataTablet {
 
         //this.setSort();
 
+        this.id = randomId('dataTablet');
 
+        if(this.threaded === true) {
+            let module = this.dynamicImport('magicworker');
+            Promise.resolve(module).then((m) => {
+                this.workermgr = new m.WorkerManager();
+                this.workerId = this.workermgr.addWorker(m.magicworker);
+    
+                this.workermgr.runWorkerFunction('transferClassObject',{tabletClass:DataTablet.toString()},this.id,workerId);
+
+                this.workermgr.addWorkerFunction('makeTablet',(self,args,origin) => {
+                    self.tablet = new self.tabletClass(args[0]);
+
+                    self.tablet.onSorted = (newdata) => {
+                        postMessage({foo:'onSorted',output:newdata});
+                    }
+                    return true;
+                });
+
+                this.workermgr.addWorkerFunction('runSort',(self,args,origin) => {
+                    if(Array.isArray(args[0])) {
+                        args.forEach((arg) => {
+                            self.tablet.runSort(...arg);
+                        });
+                    } else {
+                        self.tablet.runSort(...args);
+                    }
+                    return true;
+                });
+
+                this.workermgr.addWorkerFunction('setSort',(self,args,origin) => {
+                    self.tablet.setSort(...args);
+                    return true;
+                });
+
+                this.workermgr.addWorkerFunction('getSort',(self,args,origin) => {
+                    if(Array.isArray(args)) {
+                        let results = [];
+                        args.forEach((arg) => {
+                            let sort = self.tablet.getSort(arg);
+                            if(typeof sort === 'function') sort = sort.toString();
+                            results.push(sort);
+                        });
+                        return results;
+                    } 
+                });
+
+                this.workermgr.runWorkerFunction('makeTablet', props, this.id, this.workerId);
+    
+            });
+           
+        }
+
+
+    }
+
+    
+    dynamicImport = async (url) => {
+
+        let getImportFunc = `async (url) => {return await import(url)}`
+        let getImport = eval(`(${getImportFunc})`);
+        let module = await getImport(url)
+        return module;
     }
 
     runSort(key,dataObj={},newdata=[],tablet=this) {
-        let result;
-        let sort = this.getSort(key);
-        if(sort) result = sort(dataObj,newdata,tablet);
-        else return false;
+        if(this.threaded === false) {
+            let result;
+            let sort = this.getSort(key);
+            if(sort) result = sort(dataObj,newdata,tablet);
+            else return false;
+        } else {
+            this.workermgr.runWorkerFunction('runSort',[key,dataObj,newdata],this.id,this.workerId);
+        }
     }
 
     setSort(key,response=(dataObj)=>{return true;}) {
-        if(Array.isArray(key))
-            key.forEach((k) => {this.dataSorts.set(k,response);});
-        else
-            this.dataSorts.set(key,response);
+        if(this.threaded === false) {
+            if(Array.isArray(key))
+                key.forEach((k) => {this.dataSorts.set(k,response);});
+            else
+                this.dataSorts.set(key,response);
+        } else {
+            this.workermgr.runWorkerFunction('setSort',[key,response.toString()],this.id,this.workerId);
+        }
     }
 
     getSort(key) {
-        return this.dataSorts.get(key);
+        if(this.threaded === false) {
+            return this.dataSorts.get(key);
+        } else {
+            return this.workermgr.runWorkerFunction('getSort',[key],this.id,this.workerId);
+        }
+    }
+
+    /* Barebones struct format, append any additional props */
+    Struct(additionalProps={}, structType='struct', parentStruct=undefined,parentUser=undefined) {
+        let struct = {
+            _id: randomId(structType+'defaultId'),   //random id associated for unique identification, used for lookup and indexing
+            structType: structType,     //this is how you will look it up by type in the server
+            ownerId: parentUser?._id,     //owner user
+            timestamp: Date.now(),      //date of creation
+            parent: {structType:parentStruct?.structType,_id:parentStruct?._id}, //parent struct it's associated with (e.g. if it needs to spawn with it)
+        }
+
+        if(!parentStruct?._id) delete struct.parent;
+        if(Object.keys(additionalProps).length > 0) Object.assign(struct,additionalProps);
+        return struct;
     }
 
     async sortStructsIntoTable(datastructs=[]) {
@@ -159,53 +259,65 @@ export class DataTablet {
     onSorted(newdata=[]) {}
 
     getDataByTimestamp(timestamp,ownerId) {
-        let result = this.data.byTime[timestamp];
-        if(ownerId && result) result = result.filter((o)=>{if(!ownerId) return true; else if(ownerId === o.ownerId) return true;});
-        return result;
+        
+            let result = this.data.byTime[timestamp];
+            if(ownerId && result) result = result.filter((o)=>{if(!ownerId) return true; else if(ownerId === o.ownerId) return true;});
+            if (this.threaded === 2) {
+
+            } else {
+                return result;
+            } 
     }
 
     getDataByTimeRange(begin,end,type,ownerId) {
-        let result = {};
-        if(type) {
-            for(const key in this.data[type]) {
-                let t = parseInt(key);
-                if(t > begin && t < end){
-                    result[key] = [...this.data[type][key]];
-                }
-            }
-            if(type === 'sleep') {
-                result = this.filterSleepResults(result);
-            }
-            
-        }
-        else {
-            for(const key in this.data.byTime) {
-                let t = parseInt(key);
-                if(t > begin && t < end){
-                    result[key] = [...this.data.byTime[key]];
-                }
-            }
-        }
-        if(ownerId && result) {
-            for(const key in result) {
-                let popidx = [];
-                result[key] = result[key];
-                result[key].forEach((o,i) => {
-                    if(o.ownerId !== ownerId) {
-                        popidx.push(i);
+       
+            let result = {};
+            if(type) {
+                for(const key in this.data[type]) {
+                    let t = parseInt(key);
+                    if(t > begin && t < end){
+                        result[key] = [...this.data[type][key]];
                     }
-                });
-                popidx.reverse().forEach((idx) => {
-                    result[key].splice(idx,1);
-                });
-                if(result[key].length === 0) delete result[key];
+                }
+                if(type === 'sleep') {
+                    result = this.filterSleepResults(result);
+                }
+                
             }
-        }
-        return result;
+            else {
+                for(const key in this.data.byTime) {
+                    let t = parseInt(key);
+                    if(t > begin && t < end){
+                        result[key] = [...this.data.byTime[key]];
+                    }
+                }
+            }
+            if(ownerId && result) {
+                for(const key in result) {
+                    let popidx = [];
+                    result[key] = result[key];
+                    result[key].forEach((o,i) => {
+                        if(o.ownerId !== ownerId) {
+                            popidx.push(i);
+                        }
+                    });
+                    popidx.reverse().forEach((idx) => {
+                        result[key].splice(idx,1);
+                    });
+                    if(result[key].length === 0) delete result[key];
+                }
+            }
+
+            if(this.threaded === 2) {
+
+            } else {
+                return result;
+            }
     }
 
     getDataByType(type,timestamp,ownerId) {
         if(!this.data[type]) return undefined;
+
         let result = {...this.data[type]};
         if(timestamp) result = [...result[timestamp]];
 
@@ -227,8 +339,13 @@ export class DataTablet {
         if(type === 'sleep') {
             result = this.filterSleepResults(result);
         }
+        if(this.threaded === 2) {
+
+        } 
+        else {
+            return result;
+        }
         
-        return result;
     }
 
     filterSleepResults(unfiltered = {}) {

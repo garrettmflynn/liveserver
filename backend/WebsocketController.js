@@ -666,13 +666,13 @@ class WebsocketController {
                     if(copy._id) delete copy._id;
                     //if(struct.structType === 'notification') console.log(notificaiton);
                     if(struct.id){ 
-                        if(struct.id.includes('dummyId')) {
+                        if(struct.id.includes('defaultId')) {
                             await this.app.get('mongoose').collection(struct.structType).insertOne(copy);   
                             firstwrite = true; 
                         }
                         else await this.app.get('mongoose').collection(struct.structType).updateOne({ id: struct.id }, {$set: copy}, {upsert: true}); //prevents redundancy in some cases (e.g. server side notifications)
                     } else if (struct._id) {
-                        if(struct._id.includes('dummyId')) {
+                        if(struct._id.includes('defaultId')) {
                             await this.app.get('mongoose').collection(struct.structType).insertOne(copy);   
                             firstwrite = true; 
                         }
@@ -798,7 +798,7 @@ class WebsocketController {
             if(copy._id) delete copy._id;
 
             console.log('RETURNS PRFILe', struct)
-            if(struct._id.includes('dummyId')) {
+            if(struct._id.includes('defaultId')) {
                 await this.app.get('mongoose').collection(struct.structType).insertOne(copy);
             }
             else await this.app.get('mongoose').collection('profile').updateOne({ _id: new ObjectId(struct._id) }, {$set: copy}, {upsert: true}); 
@@ -885,7 +885,7 @@ class WebsocketController {
             if(copy._id) delete copy._id;
             //console.log(struct)
             if(mode === 'mongo'){
-                if(struct._id.includes('dummyId')) {
+                if(struct._id.includes('defaultId')) {
                     await this.app.get('mongoose').collection(struct.structType).insertOne(copy);
                 }
                 else await this.app.get('mongoose').collection('group').updateOne({ _id: new ObjectId(struct._id) }, {$set: copy}, {upsert: true}); 
@@ -1301,7 +1301,7 @@ class WebsocketController {
             this.setLocalData(copy);
         }
 
-        if(authStruct._id.includes('dummyId') && mode === 'mongo') {
+        if(authStruct._id.includes('defaultId') && mode === 'mongo') {
             let replacedAuth = await this.app.get('mongoose').collection('authorization').findOne(copy);
             if(replacedAuth) {
                 authStruct._id = replacedAuth._id.toString();

@@ -12,7 +12,7 @@ export class UserPlatform {
         this.currentUser = userinfo;
         this.socket;
         this.socketResult = {};
-        this.tablet = new DataTablet(this); //DataTablet (for alyce)
+        this.tablet = new DataTablet(); //DataTablet (for alyce)
 
         if(typeof socket === 'string' && userinfo) { //
             this.setupSocket(socket, userinfo);
@@ -281,7 +281,7 @@ export class UserPlatform {
     /* Barebones struct format, append any additional props */
     Struct(additionalProps={}, structType='struct', parentStruct=undefined,parentUser=undefined) {
         let struct = {
-            _id: randomId(structType+'dummyId'),   //random id associated for unique identification, used for lookup and indexing
+            _id: randomId('defaultId'+structType),   //random id associated for unique identification, used for lookup and indexing
             structType: structType,     //this is how you will look it up by type in the server
             ownerId: parentUser?._id,     //owner user
             timestamp: Date.now(),      //date of creation
@@ -893,6 +893,8 @@ export class UserPlatform {
         return struct;
     }
 
+    //not final formatting for all of this (it's pretty goofy)
+    
     structRefProps = {
         structType:'', //collection
         id:''          //lookup id
