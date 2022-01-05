@@ -1000,6 +1000,7 @@ export class UserPlatform {
         authorId:'',
         replyTo:'',
         message:'',
+        rating:0,
         replies: new Array(),
         users: new Array(),
         attachments: new Array(),
