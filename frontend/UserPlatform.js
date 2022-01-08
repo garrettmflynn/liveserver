@@ -8,11 +8,11 @@ export function randomId(tag = '') {
 
 export class UserPlatform {
     constructor(userinfo, socket='https://localhost:80') {
-        this.collections = new Map();
         this.currentUser = userinfo;
         this.socket;
         this.socketResult = {};
         this.tablet = new DataTablet(); //DataTablet (for alyce)
+        this.collections = this.tablet.collections;
 
         if(typeof socket === 'string' && userinfo) { //
             this.setupSocket(socket, userinfo);
@@ -187,7 +187,7 @@ export class UserPlatform {
                     
                     console.log('currentUser', u)
                     this.currentUser = u;  
-                    console.log('collections', this.collections);
+                    console.log('collections', this.tablet.collections);
                 });
             }
         });
@@ -746,96 +746,13 @@ export class UserPlatform {
     }
 
     setLocalData (structs) {
-
-        let setInCollection = (s) => {
-            let type = s.structType;
-        
-            let collection = this.collections.get(type);
-            if(!collection) {
-                collection = new Map();
-                this.collections.set(type,collection);
-            }
-            collection.set(s._id,s);
-            this.onCollectionSet(type,collection);
-        }
-
-        if(Array.isArray(structs)) {
-            structs.forEach((s)=>{
-                setInCollection(s)
-            });
-        }
-        else setInCollection(structs)
+        this.tablet.setLocalData(structs);
     }
 
-    //customize what to do with the updated collection after setting
-    onCollectionSet = (typ,collection) => {
-    
-    }
 
     //pull a struct by collection, owner, and key/value pair from the local platform, leave collection blank to pull all ownerId associated data
     getLocalData(collection, query) {
-
-        // Split Query
-        let ownerId, key, value;
-        if (typeof query === 'object'){
-            ownerId = query.ownerId
-            // TODO: Make more robust. Does not support more than one key (aside from ownerId)
-            const keys = Object.keys(query).filter(k => k != 'ownerId')
-            key = keys[0]
-            value = query[key]
-        } else value = query
-        
-        if (!collection && !ownerId && !key && !value) return [];
-
-        let result = [];
-        if(!collection && (ownerId || key)) {
-            this.collections.forEach((c) => { //search all collections
-                if((key === '_id' || key === 'id') && value) {
-                    let found = c.get(value);
-                    if(found) result.push(found);
-                }
-                else {
-                    c.forEach((struct) => {
-                        if(key && value) {
-                            if(struct[key] === value && struct.ownerId === ownerId) {
-                                result.push(struct);
-                            }
-                        }
-                        else if(struct.ownerId === ownerId) {
-                            result.push(struct);
-                        }
-                    });
-                }
-            });
-            return result;
-        }
-        else {
-            let c = this.collections.get(collection);
-            if(!c) return result; 
-
-            if(!key && !ownerId) {
-                c.forEach((struct) => {result.push(struct);})
-                return result; //return the whole collection
-            }
-            
-            if((key === '_id' || key === 'id') && value) return c.get(value); //collections store structs by id so just get the one struct
-            else {
-                c.forEach((struct,k) => {
-                    if(key && value && !ownerId) {
-                        if(struct[key] === value) result.push(struct);
-                    }   
-                    else if(ownerId && !key) {
-                        if(struct.ownerId === ownerId) result.push(struct);
-                    } 
-                    else if (ownerId && key && value) {
-                        if(struct.ownerId === ownerId && struct[key]) {
-                            if(struct[key] === value) result.push(struct);
-                        }
-                    }
-                });
-            }
-        }
-        return result;                            //return an array of results
+        this.tablet.getLocalData(collection,query);
     }
 
     //get auths where you have granted somebody peer access
@@ -873,7 +790,7 @@ export class UserPlatform {
     deleteLocalData(struct) {
         if(!struct) throw new Error('Struct not supplied')
         if(!struct.structType || !struct._id) return false;
-        this.collections.get(struct.structType).delete(struct._id);
+        this.tablet.collections.get(struct.structType).delete(struct._id);
         return true;
     }
 
