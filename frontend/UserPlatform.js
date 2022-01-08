@@ -2,10 +2,6 @@ import { WebsocketClient } from "./WebsocketClient";
 import { DS, DataTablet } from 'brainsatplay-data'
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 
-export function randomId(tag = '') {
-    return `${tag+Math.floor(Math.random()+Math.random()*Math.random()*10000000000000000)}`;
-}
-
 export class UserPlatform {
     constructor(userinfo, socket='https://localhost:80') {
         this.currentUser = userinfo;
@@ -278,10 +274,14 @@ export class UserPlatform {
         parent: {structType:'',id:''}, //parent struct it's associated with (e.g. if it needs to spawn with it)
     };
     
+    randomId(tag = '') {
+        return `${tag+Math.floor(Math.random()+Math.random()*Math.random()*10000000000000000)}`;
+    }    
+
     /* Barebones struct format, append any additional props */
-    Struct(additionalProps={}, structType='struct', parentStruct=undefined,parentUser=undefined) {
+    Struct(structType='struct', additionalProps={}, parentStruct=undefined,parentUser=undefined) {
         let struct = {
-            _id: randomId('defaultId'+structType),   //random id associated for unique identification, used for lookup and indexing
+            _id: this.randomId('defaultId'+structType),   //random id associated for unique identification, used for lookup and indexing
             structType: structType,     //this is how you will look it up by type in the server
             ownerId: parentUser?._id,     //owner user
             timestamp: Date.now(),      //date of creation
