@@ -1,5 +1,5 @@
 import { WebsocketClient } from "./WebsocketClient";
-import { DS, DataTablet } from './brainsatplay-data'
+import { DS, DataTablet } from 'brainsatplay-data'
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 
 export function randomId(tag = '') {
