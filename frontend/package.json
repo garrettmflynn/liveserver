@@ -1,6 +1,6 @@
 {
     "name": "websocketliveserver-frontend",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "Websockets with user communication, access controls, and notifications. Clientside and serverside data management plus mongodb integration.",
     "main": "index.js",
     "directories": {
@@ -22,7 +22,8 @@
     "license": "AGPL-3.0-or-later",
     "dependencies": {
       "anotherstatemanager":"^1.0.1",
-      "magicworker":"^1.0.2"
+      "magicworker":"^1.0.4",
+      "brainsatplay-data":"^0.0.2"
     },
     "bugs": {
       "url": "https://github.com/brainsatplay/websocketliveserver"

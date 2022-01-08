@@ -1,5 +1,5 @@
 import { WebsocketClient } from "./WebsocketClient";
-import { DataTablet } from "./DataTablet";
+import { DS, DataTablet } from './brainsatplay-data'
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 
 export function randomId(tag = '') {
@@ -301,7 +301,7 @@ export class UserPlatform {
         props={}, //add any props you want to set, adding users[] with ids will tell who to notify if this struct is updated
         updateServer = true
     ) {
-        let newStruct = this.Struct(parentUser, structType, parentStruct, props);
+        let newStruct = DS.Struct(structType, props, parentUser, parentStruct);
 
         if(updateServer) this.updateServerData([newStruct]);
 
@@ -888,162 +888,20 @@ export class UserPlatform {
     }
 
     //create a struct with the prepared props to be filled out
-    createStruct(props,structType,parentStruct,parentUser=this.currentUser) {
-        let struct = this.Struct(props,structType,parentStruct,parentUser)
+    createStruct(structType,props,parentStruct,parentUser=this.currentUser) {
+        let struct = DS.Struct(structType,props,parentUser,parentStruct)
         return struct;
     }
 
-    //not final formatting for all of this (it's pretty goofy)
-    
-    structRefProps = {
-        structType:'', //collection
-        id:''          //lookup id
-    }
-
-    profileProps = {
-        structType:'profile',
-        name:      '', 
-        username:  '',
-        firstName: '', 
-        lastName:  '', 
-        email:     '', 
-        sex:       '',
-        birthday:  '',
-        type:      '',
-        userRoles: [],
-        id:        '', //references the token id which is behind a collection permission
-        timestamp: Date.now(), //should have some kind of timestamp thing on the token for when it was created
-        ...this.structProps
-    }
-
-    authorizationProps = {
-        structType:'authorization', //collection
-        authorizedId:    '',
-        authorizedName:  '',
-        authorizerId:    '',
-        authorizerName:  '',
-        authorizations:new Array(), //authorization types e.g. what types of data the person has access to
-        structs:new Array(), //specific structs, contains structrefs
-        excluded:new Array(), 
-        groups:new Array(),
-        status:'PENDING',
-        expires:         '', //PENDING for non-approved auths
-        associatedAuthId:'', //other authorization id belonging to other user
-        ...this.structProps
-        
-    }
-
-    groupProps = {
-        structType:'group', //collection
-        name:"",
-        details:"",
-        admins:new Array(),
-        peers:new Array(),
-        clients:new Array(), //date of expiration, or never. Data that never expires should generally only be patient controlled stuff so its transparent
-        users:new Array(), //all users (for notifying)   
-        ...this.structProps    
-    }
-
-    dataInstanceProps = {
-        structType:'dataInstance',
-        title:"",
-        author:"",
-        expires:"NEVER", //date of expiration, or never. Data that never expires should generally only be patient controlled stuff so its transparent
-        type:"", //graph, file, table, fitbit_hr, fitbit_diet, etc.
-        data:new Array(), //arrays, objects, links, API refrences, pdfs, csvs, xls, etc.
-        timestamp:Date.now(), //time of creation
-        ...this.structProps
-    }
-
-    eventProps = {
-        structType:'event',
-        event:"",  //event type e.g. relapse, hospitalization
-        authorId:"", //
-        startTime:"",  //event began
-        endTime:"",    //event ended
-        grade:"",  //severity
-        notes:"", //additional details
-        attachments:new Array(),
-        users:new Array(), //users to be informed (i.e. peers)
-        data:new Array(), //arrays of linked data
-        ...this.structProps
-    }
-
-    discussionProps = {
-        structType: 'discussion',
-        topic: '',
-        category: '',
-        authorId: '',
-        message: '',
-        attachments: new Array(),
-        comments: new Array(),
-        replies: new Array(),
-        users: new Array(),
-        ...this.structProps
-    }
-
-    chatroomProps = {
-        structType:'chatroom',
-        message:'',
-        authorId:'',
-        attachments: new Array(),
-        comments: new Array(),
-        replies: new Array(),
-        users: new Array(),
-        audioChatActive: false,
-        videoChatActive: false,
-        ...this.structProps
-    }
-
-    commentProps = {
-        structType:'comment',
-        authorId:'',
-        replyTo:'',
-        message:'',
-        rating:0,
-        replies: new Array(),
-        users: new Array(),
-        attachments: new Array(),
-        ...this.structProps
-    }
-
-    notificationProps = {
-        structType:'notification',
-        note:'',
-        parentUserId:'',
-        ...this.structProps
-    }
-
-    scheduleProps = {
-        structType:'schedule',
-        title:'',
-        author:'',
-        attachments: new Array(),
-        dates: new Array(),
-        ...this.structProps
-    }
-
-    dateProps = {
-        structType:'date',
-        timeSet:'',
-        notes:'',
-        recurs:'NEVER',
-        attachments: new Array(),
-        ...this.structProps
-    }
-
-    userStruct (props=this.profileProps, currentUser=false) {
-        let user = this.createStruct(props,'profile');
+    userStruct (props={}, currentUser=false) {
+        let user = DS.ProfileStruct(props,undefined,props);
 
         user.id = props._id; //references the token id
         user.ownerId = props._id;
-        for(const prop in user) {
-            if(Object.keys(this.profileProps).indexOf(prop) < 0 && Object.keys(this.structProps).indexOf(prop) < 0) {
+        for(const prop in props) {
+            if(Object.keys(dummy).indexOf(prop) < 0) {
                 delete user[prop];
             } //delete non-dependent data (e.g. tokens we only want to keep in a secure collection)
-        }
-        for(const prop in this.profileProps) {
-            if(!user[prop]) user[prop] = JSON.parse(JSON.stringify(this.profileProps[prop]));
         }
         if(currentUser) this.currentUser = user;
         return user;
@@ -1061,7 +919,7 @@ export class UserPlatform {
         groups=[],
         expires=''
     ) => {
-        const newAuthorization = this.createStruct(undefined,'authorization',undefined,parentUser);  
+        const newAuthorization = this.createStruct('authorization',undefined,undefined,parentUser);  
         newAuthorization.authorizedId = authorizedUserId; // Only pass ID
         newAuthorization.authorizedName = authorizedUserName; //set name
         newAuthorization.authorizerId = authorizerUserId; // Only pass ID
@@ -1088,7 +946,7 @@ export class UserPlatform {
         peers=[], 
         clients=[], 
         updateServer=true) => {
-        let newGroup = this.createStruct(undefined,'group',undefined,parentUser); //auto assigns instances to assigned users' data views
+        let newGroup = this.createStruct('group',undefined,undefined,parentUser); //auto assigns instances to assigned users' data views
 
         newGroup.name = name;
         newGroup.details = details;
@@ -1108,7 +966,7 @@ export class UserPlatform {
     }
 
     addData = (parentUser= this.userStruct(), author='', title='', type='', data=[], expires='', updateServer=true) => {
-        let newDataInstance = this.createStruct(undefined,'dataInstance',undefined,parentUser); //auto assigns instances to assigned users' data views
+        let newDataInstance = this.createStruct('dataInstance',undefined,undefined,parentUser); //auto assigns instances to assigned users' data views
         newDataInstance.author = author;
         newDataInstance.title = title;
         newDataInstance.type = type;
@@ -1126,7 +984,7 @@ export class UserPlatform {
     addEvent = (parentUser=this.userStruct(), author='', event='', notes='', startTime=0, endTime=0, grade='', attachments=[], users=[], updateServer=true) => {
         if(users.length === 0) users = this.getLocalUserPeerIds(parentUser);
         
-        let newEvent = this.createStruct(undefined,'event',undefined,parentUser);
+        let newEvent = this.createStruct('event',undefined,undefined,parentUser);
         newEvent.author = author;
         newEvent.event = event;
         newEvent.notes = notes;
@@ -1154,7 +1012,7 @@ export class UserPlatform {
         
         if(users.length === 0) users = this.getLocalUserPeerIds(parentUser); //adds the peer ids if none other provided
         
-        let newDiscussion = this.createStruct(undefined,'discussion',undefined,parentUser);
+        let newDiscussion = this.createStruct('discussion',undefined,undefined,parentUser);
         newDiscussion.topic = topic;
         newDiscussion.category = category;
         newDiscussion.message = message;
@@ -1175,7 +1033,7 @@ export class UserPlatform {
     addChatroom = (parentUser=this.userStruct(), authorId='', message='', attachments=[], users=[], updateServer=true) => {
         if(users.length === 0) users = this.getLocalUserPeerIds(parentUser); //adds the peer ids if none other provided
         
-        let newChatroom = this.createStruct(undefined,'chatroom',undefined,parentUser);
+        let newChatroom = this.createStruct('chatroom',undefined,undefined,parentUser);
         newChatroom.message = message;
         newChatroom.attachments = attachments;
         newChatroom.authorId = authorId;
@@ -1200,7 +1058,7 @@ export class UserPlatform {
         attachments=[],
         updateServer=true
         ) => {
-            let newComment = this.createStruct(undefined,'comment',roomStruct,parentUser);
+            let newComment = this.createStruct('comment',undefined,roomStruct,parentUser);
             newComment.authorId = authorId;
             newComment.replyTo = replyTo?._id;
             newComment.message = message;
