@@ -93,7 +93,7 @@ export class WebsocketController {
 
       this.USERS.set(socketId, newuser);
 
-      //add any additional properties sent
+      //add any additional properties sent. remote.service.js has more functions for using these
       if(msg.props) {
         newuser.props = msg.props;
       }
@@ -213,6 +213,8 @@ export class WebsocketController {
 
 
   addDefaultCallbacks() {
+
+    //'self' and 'this' scope are the same here
       this.callbacks.push(
           {   
               case: 'ping',
@@ -223,17 +225,17 @@ export class WebsocketController {
           { //generic send message between two users (userId, message, other data)
               case:'sendMessage',
               aliases:['message','sendMsg'],
-              callback:(self,args,origin)=>{
+              callback:(self,args,origin,user)=>{
                   return this.sendMsg(args[0],args[1],args[2]);
               }
           },
-            {
-              case:'logout',
-              aliases:['removeUser'],
-              callback:(self,args,origin,user) => {
-                  self.removeUser(user,user._id);
-              }
-            },
+          {
+            case:'logout',
+            aliases:['removeUser'],
+            callback:(self,args,origin,user) => {
+                self.removeUser(user,user._id);
+            }
+          },
       );
   }
 

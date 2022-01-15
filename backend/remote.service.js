@@ -19,6 +19,8 @@ export class WebsocketRemoteStreaming {
     }
 
     addDefaultCallbacks() {
+        
+        //FYI "this" scope references this class, "self" scope references the controller scope.
         this.controller.callbacks.push(
             {
                 case:'getUsers',
