@@ -205,15 +205,21 @@ export class WebsocketController {
         if(this.DEBUG) console.log('command', command);
         
         let eventSetting = this.checkEvents(command,origin,u);
+        if(typeof args === 'object' && !Array.isArray(args)) {
+          if(args.eventName) { //pipe events to the event manager system
+            this.EVENTS.callback(args);
+          }
+        }
+        else {
+          let data = this.runCallback(command,args,origin,u);
 
-        let data = this.runCallback(command,args,origin,u);
+          let dict = {msg: command, data:data }
+          if (callbackId) dict.callbackId = callbackId;
 
-        let dict = {msg: command, data:data }
-        if (callbackId) dict.callbackId = callbackId;
-
-        // console.log(toSend)
-        if(eventSetting) this.EVENTS.emit(eventSetting.eventName,dict,u);
-        else u.socket.send(JSON.stringify(dict));
+          // console.log(toSend)
+          if(eventSetting) this.EVENTS.emit(eventSetting.eventName,dict,u);
+          else u.socket.send(JSON.stringify(dict));
+        }
     }
 
     addCallback(functionName,callback=(self,args,origin,user)=>{}) {

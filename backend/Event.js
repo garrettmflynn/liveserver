@@ -35,9 +35,13 @@ export class Events {
         return this.state.subscribeTrigger(eventName,response);
     }
 
+    subscribe = this.subEvent
+
     unsubEvent(eventName, sub) {
         return this.state.unsubscribeTrigger(eventName,sub);
     }
+
+    unsubscribe = this.unsubEvent
 
     //add an event name, can optionally add them to any threads too from the main thread
     addEvent(eventName,origin=undefined,functionName=undefined,id=undefined) {
@@ -84,13 +88,15 @@ export class Events {
         this.state.setState({[eventName]:input}); //local event 
     }
 
-    workerCallback = (msg) => {
+    callback = (msg) => {
         if(typeof msg === 'object') {
             if(msg.eventName !== undefined && msg.output !== undefined) {
                 this.state.setState({[msg.eventName]:msg.output});
             }
         }
     }
+
+    workerCallback = this.callback;
 
     export = () => {
         return this;
