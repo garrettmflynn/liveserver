@@ -17,7 +17,9 @@ export class WebsocketClient {
         let subprotocol = [];
         
         if(auth._id) subprotocol.push('id&' + encodeForSubprotocol(auth._id));
-        else if (auth._id) subprotocol.push('id&' + encodeForSubprotocol(auth._id));
+        else if (auth.id) subprotocol.push('id&' + encodeForSubprotocol(auth.id));
+
+        if(auth.username) subprotocol.push('username&' + encodeForSubprotocol(auth.username));
 
         this.connected = false;
         this.sendQueue = [];

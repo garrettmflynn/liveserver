@@ -19,6 +19,7 @@ export class WebsocketController {
             webrtc:true,
             osc:true,
             debug:true 
+            //safe:true
           }) {
         this.USERS = new Map(); //live sockets
         this.COLLECTIONS = new Map();
@@ -37,6 +38,8 @@ export class WebsocketController {
         this.callbacks = [];
 
         this.addDefaultCallbacks();
+
+        if(!options.safe) this.addUnsafeCallbacks(); //addfunc, setValues, addevent, etc. All potentially compromising for production
         
         if(options.db)
           this.useDB = true;   //local or mongodb
@@ -54,7 +57,6 @@ export class WebsocketController {
         if(this.useRemoteService)
           this.remoteService = new WebsocketRemoteStreaming(this);
 
-
         if(this.useWebRTC)
           this.webrtc = new WebRTCService(wss);
 
@@ -63,133 +65,286 @@ export class WebsocketController {
 
     }
 
-    addDefaultCallbacks() {
-        this.callbacks.push(
-            {   
-                case: 'ping',
-                callback:(self,args,origin,user) => {
-                    return 'pong';
-                }
-            },
-            { //generic send message between two users (userId, message, other data)
-                case:'sendMessage',
-                aliases:['message','sendMsg'],
-                callback:(self,args,origin)=>{
-                    return this.sendMsg(args[0],args[1],args[2]);
-                }
-            },
-            { //add a local function, can implement whole algorithm pipelines on-the-fly
-              case: 'addfunc', callback: (self, args, origin, user) => { //arg0 = name, arg1 = function string (arrow or normal)
-                let newFunc = this.parseFunctionFromText(args[1]);
+    //handled automatically by the WebsocketServer
+    addUser(msg,socket,availableProps=[]) {
+      let socketId = this.randomId('userLoggedIn');
+      let id;
+      if(msg.id) id = msg.id;
+      else if (msg._id) id = msg._id;
+      else return false;
+
+      if(this.DEBUG) console.log('adding user', id);
+      let newuser = {
+          id:id, 
+          _id:id, //second reference (for mongodb parity)
+          username:msg.username,
+          socket, 
+          props: {},
+          updatedPropnames: [],
+          sessions:[],
+          lastUpdate:Date.now(),
+          lastTransmit:0,
+          latency:0,
+      };
+
+      if(this.useOSC)
+          newuser.osc = new OSCManager(socket),
+
+      this.USERS.set(socketId, newuser);
+      availableProps?.forEach((prop,i) => {
+          newuser.props[prop] = '';
+      });
       
-                let newCallback = { case: args[0], callback: newFunc };
+      if(this.webrtc) try {this.webrtc.addUser(socket,id)} catch (e) {console.error(e)}
+
       
-                let found = self.callbacks.findIndex(c => { if (c.case === newCallback.case) return c });
-                if (found != -1) self.callbacks[found] = newCallback;
-                else self.callbacks.push(newCallback);
+      this.setWSBehavior(socketId, socket);
+  }
+
+  removeUser(user={},id) {
+      let u = this.USERS.get(id);
+
+      if(u) {
+          if(u.socket) {
+              if(this.webrtc) try {this.webrtc.removeUser(u.socket)} catch (e) {console.error(e)}
+              if(u.socket.readyState === 1 || u.socket.readyState === "1") 
+                  u.socket.terminate();
+          }
+          this.USERS.delete(id);
+          return true;
+      } return false;
+  }
+
+  
+  setWSBehavior(id, socket) {
+      if (socket != null){
+
+          socket.on('message', (msg="") => {
+              let parsed = JSON.parse(msg);
+
+
+              // Send Message through WebRTC Service
+              if(this.webrtc) {
+                  if (parsed.service === 'webrtc') try {this.webrtc.onmessage(msg, socket)} catch (e) {console.error(e)}
+              }
+      
+              // console.log(msg);
+              else if(Array.isArray(parsed)) { //push arrays of requests instead of single objects (more optimal potentially, though fat requests can lock up servers)
+                  parsed.forEach((obj) => {
+                      if(typeof obj === 'object' && !Array.isArray(obj)) { //if we got an object process it as most likely user data
+                          let hasData = false;
+                          if('userData' in obj) hasData = true;
+
+                          if(obj._id) obj.id = obj._id; //just in case
+                          if(hasData) {
+                              //should generalize this more
+                              if(this.remoteService) this.remoteService.updateUserData(obj);
+                          }
+                          else if(obj.id && obj.cmd) {
+                              this.processCommand(obj.id,obj.cmd,obj.args, obj.callbackId);
+                          }
+                          else if(obj.cmd) {
+                              this.processCommand(id, obj.cmd, obj.args, obj.callbackId)
+                          }
+                      
+                      }
+                      else if (Array.isArray(obj)) { //handle commands sent as arrays [username,cmd,arg1,arg2]
+                          this.processCommand(id,obj[0],obj.slice(1), obj.callbackId);  
+                      }
+                      else if (typeof obj === 'string') { //handle string commands with spaces, 'username command arg1 arg2'
+                          let cmd = obj.split(' ');
+                          this.processCommand(id,cmd[0],cmd.slice(1), obj.callbackId);
+                      }
+                       else {
+                          // console.log(parsed);
+                      }
+                  })
+              }
+              else if(parsed.cmd) {
+                  this.processCommand(id, parsed.cmd, parsed.args, parsed.callbackId)
+              }
+              else if (Array.isArray(parsed)) { //handle commands sent as arrays [username,cmd,arg1,arg2]
+                  this.processCommand(id,parsed[0],parsed.slice(1), undefined);  
+              }
+              else if (typeof parsed === 'string') { //handle string commands with spaces, 'username command arg1 arg2'
+                  let cmd = parsed.split(' ');
+                  this.processCommand(id,cmd[0],cmd.slice(1), undefined);
+              } else {
+                  // console.log(parsed);
+              }
+          });
+
+          socket.on('close', (s) => {
+              // console.log('session closed: ', id);
+              this.removeUser(id);
+              if(this.webrtc) try {this.webrtc.removeUser(socket)} catch (e) {console.error(e)}
+          });
+      }
+      return socket;
+  }
+  
+  //pass user Id or object
+  sendMsg(user='',msg='',data=undefined) {
+
+      let toSend = { msg: msg };
+      if(data) toSend.data = data;
+
+      if(typeof user === 'string') {
+          let u;
+          this.USERS.forEach((obj) => {
+              if(obj.id === user) u = obj;
+          })
+          if(u) {
+              if(u.socket.readyState === 1 || u.socket.readyState === "1") {
+                  //console.log('sending', u.id, toSend);
+                  u.socket.send(JSON.stringify(toSend));
+                  return true;
+              } else return false;
+          }
+      } else if (typeof user === 'object') {
+          if(user.socket.readyState === 1 || user.socket.readyState === "1") user.socket.send(JSON.stringify(toSend));
+          return true;
+      }
+      return false;
+  }
+
+
+  addDefaultCallbacks() {
+      this.callbacks.push(
+          {   
+              case: 'ping',
+              callback:(self,args,origin,user) => {
+                  return 'pong';
+              }
+          },
+          { //generic send message between two users (userId, message, other data)
+              case:'sendMessage',
+              aliases:['message','sendMsg'],
+              callback:(self,args,origin)=>{
+                  return this.sendMsg(args[0],args[1],args[2]);
+              }
+          },
+            {
+              case:'logout',
+              aliases:['removeUser'],
+              callback:(self,args,origin,user) => {
+                  self.removeUser(user,user._id);
+              }
+            },
+      );
+  }
+
+    //potentially unsafe server callbacks which let you write
+    // arbitrary functions, events, and data to the server memory
+    addUnsafeCallbacks() {
+      this.callbacks.push(
+        
+        { //add a local function, can implement whole algorithm pipelines on-the-fly
+          case: 'addfunc', callback: (self, args, origin, user) => { //arg0 = name, arg1 = function string (arrow or normal)
+            let newFunc = this.parseFunctionFromText(args[1]);
+  
+            let newCallback = { case: args[0], callback: newFunc };
+  
+            let found = self.callbacks.findIndex(c => { if (c.case === newCallback.case) return c });
+            if (found != -1) self.callbacks[found] = newCallback;
+            else self.callbacks.push(newCallback);
+            return true;
+          }
+        },
+        { //set locally accessible values, just make sure not to overwrite the defaults in the callbackManager
+          case: 'setValues', callback: (self, args, origin, user) => {
+            if (typeof args === 'object') {
+              Object.keys(args).forEach((key) => {
+                self[key] = args[key]; //variables will be accessible in functions as this.x or this['x']
+              });
+              return true;
+            } else return false;
+          }
+        },
+        { //append array values
+          case: 'appendValues', callback: (self, args, origin, user) => {
+            if (typeof args === 'object') {
+              Object.keys(args).forEach((key) => {
+                if(!self[key]) self[key] = args[key];
+                else if (Array.isArray(args[key])) self[key].push(args[key]); //variables will be accessible in functions as this.x or this['x']
+                else self[key] = args[key];
+              });
+              return true;
+            } else return false;
+          }
+        },
+        { //for use with transfers
+          case: 'setValuesFromArrayBuffers', callback: (self, args, origin, user) => {
+            if (typeof args === 'object') {
+              Object.keys(args).forEach((key) => { 
+                if(args[key].__proto__.__proto__.constructor.name === 'TypedArray') self[key] = Array.from(args[key]);
+                else self[key] = args[key];
+              });
+              return true;
+            } else return false;
+          }
+        },
+        { //for use with transfers
+          case: 'appendValuesFromArrayBuffers', callback: (self, args, origin, user) => {
+            if (typeof args === 'object') {
+              Object.keys(args).forEach((key) => {
+                if(!self[key] && args[key].__proto__.__proto__.constructor.name === 'TypedArray') self[key] = Array.from(args[key]);
+                else if(!self[key]) self[key] = args[key];
+                else if(args[key].__proto__.__proto__.constructor.name === 'TypedArray') self[key].push(Array.from(args[key]));
+                else if(Array.isArray(args[key])) self[key].push(args[key]); //variables will be accessible in functions as this.x or this['x']
+                else self[key] = args[key];
+              });
+              return true;
+            } else return false;
+          }
+        },
+        { //parses a stringified class prototype (class x{}.toString()) containing function methods for use on the worker
+          case: 'transferClassObject', callback: (self, args, origin, user) => {
+            if (typeof args === 'object') {
+              Object.keys(args).forEach((key) => {
+                if(typeof args[key] === 'string') {
+                  let obj = args[key];
+                  if(args[key].indexOf('class') === 0) obj = eval('('+args[key]+')');
+                  self[key] = obj; //variables will be accessible in functions as this.x or this['x']
+                  //console.log(self,key,obj);
+                  if (self.threeUtil) self.threeUtil[key] = obj;
+                }
+              });
+              return true;
+            } else return false;
+          }
+        },
+        { //add an event to the event manager, this helps building automated pipelines between threads
+            case: 'addevent', callback: (self, args, origin, user) => { //args[0] = eventName, args[1] = case, only fires event if from specific same origin
+              self.EVENTSETTINGS.push({ eventName: args[0], case: args[1], port:args[2], origin: origin });
+              //console.log(args);
+              if(args[2]){ 
+                let port = args[2];
+                port.onmessage = onmessage; //attach the port onmessage event
+                this[args[0]+'port'] = port;
                 return true;
               }
-            },
-            { //set locally accessible values, just make sure not to overwrite the defaults in the callbackManager
-              case: 'setValues', callback: (self, args, origin, user) => {
-                if (typeof args === 'object') {
-                  Object.keys(args).forEach((key) => {
-                    self[key] = args[key]; //variables will be accessible in functions as this.x or this['x']
-                  });
-                  return true;
-                } else return false;
-              }
-            },
-            { //append array values
-              case: 'appendValues', callback: (self, args, origin, user) => {
-                if (typeof args === 'object') {
-                  Object.keys(args).forEach((key) => {
-                    if(!self[key]) self[key] = args[key];
-                    else if (Array.isArray(args[key])) self[key].push(args[key]); //variables will be accessible in functions as this.x or this['x']
-                    else self[key] = args[key];
-                  });
-                  return true;
-                } else return false;
-              }
-            },
-            { //for use with transfers
-              case: 'setValuesFromArrayBuffers', callback: (self, args, origin, user) => {
-                if (typeof args === 'object') {
-                  Object.keys(args).forEach((key) => { 
-                    if(args[key].__proto__.__proto__.constructor.name === 'TypedArray') self[key] = Array.from(args[key]);
-                    else self[key] = args[key];
-                  });
-                  return true;
-                } else return false;
-              }
-            },
-            { //for use with transfers
-              case: 'appendValuesFromArrayBuffers', callback: (self, args, origin, user) => {
-                if (typeof args === 'object') {
-                  Object.keys(args).forEach((key) => {
-                    if(!self[key] && args[key].__proto__.__proto__.constructor.name === 'TypedArray') self[key] = Array.from(args[key]);
-                    else if(!self[key]) self[key] = args[key];
-                    else if(args[key].__proto__.__proto__.constructor.name === 'TypedArray') self[key].push(Array.from(args[key]));
-                    else if(Array.isArray(args[key])) self[key].push(args[key]); //variables will be accessible in functions as this.x or this['x']
-                    else self[key] = args[key];
-                  });
-                  return true;
-                } else return false;
-              }
-            },
-            { //parses a stringified class prototype (class x{}.toString()) containing function methods for use on the worker
-              case: 'transferClassObject', callback: (self, args, origin, user) => {
-                if (typeof args === 'object') {
-                  Object.keys(args).forEach((key) => {
-                    if(typeof args[key] === 'string') {
-                      let obj = args[key];
-                      if(args[key].indexOf('class') === 0) obj = eval('('+args[key]+')');
-                      self[key] = obj; //variables will be accessible in functions as this.x or this['x']
-                      //console.log(self,key,obj);
-                      if (self.threeUtil) self.threeUtil[key] = obj;
-                    }
-                  });
-                  return true;
-                } else return false;
-              }
-            },
-            { //add an event to the event manager, this helps building automated pipelines between threads
-                case: 'addevent', callback: (self, args, origin, user) => { //args[0] = eventName, args[1] = case, only fires event if from specific same origin
-                  self.EVENTSETTINGS.push({ eventName: args[0], case: args[1], port:args[2], origin: origin });
-                  //console.log(args);
-                  if(args[2]){ 
-                    let port = args[2];
-                    port.onmessage = onmessage; //attach the port onmessage event
-                    this[args[0]+'port'] = port;
-                    return true;
-                  }
-                  return false;
-                }
-              },
-              { //internal event subscription, look at Event.js for usage, its essentially a function trigger manager for creating algorithms
-                case: 'subevent', callback: (self, args, origin, user) => { //args[0] = eventName, args[1] = response function(self,args,origin) -> lets you reference self for setting variables
-                  if(typeof args[0] !== 'string') return false;
-                  
-                  let response = this.parseFunctionFromText(args[1]);
-                  let eventSetting = this.checkEvents(args[0]); //this will contain the port setting if there is any
-                  //console.log(args, eventSetting)
-                  return self.EVENTS.subEvent(args[0], (output) => {
-                    response(self,output,origin,eventSetting?.port,eventSetting?.eventName); //function wrapper so you can access self from the event subscription
-                  });
-                }
-              },
-              { //internal event unsubscribe
-                case: 'unsubevent', callback: (self, args, origin, user) => { //args[0] = eventName, args[1] = case, only fires event if from specific same origin
-                  return self.EVENTS.unsubEvent(args[0], args[1]);
-                }
-              },
-              {
-                  case:'logout',
-                  callback:(self,args,origin,user) => {
-                      self.removeUser(user,user._id);
-                  }
-              },
-        );
+              return false;
+            }
+          },
+          { //internal event subscription, look at Event.js for usage, its essentially a function trigger manager for creating algorithms
+            case: 'subevent', callback: (self, args, origin, user) => { //args[0] = eventName, args[1] = response function(self,args,origin) -> lets you reference self for setting variables
+              if(typeof args[0] !== 'string') return false;
+              
+              let response = this.parseFunctionFromText(args[1]);
+              let eventSetting = this.checkEvents(args[0]); //this will contain the port setting if there is any
+              //console.log(args, eventSetting)
+              return self.EVENTS.subEvent(args[0], (output) => {
+                response(self,output,origin,eventSetting?.port,eventSetting?.eventName); //function wrapper so you can access self from the event subscription
+              });
+            }
+          },
+          { //internal event unsubscribe
+            case: 'unsubevent', callback: (self, args, origin, user) => { //args[0] = eventName, args[1] = case, only fires event if from specific same origin
+              return self.EVENTS.unsubEvent(args[0], args[1]);
+            }
+          }
+      );
     }
 
 
@@ -317,149 +472,6 @@ export class WebsocketController {
         return output;
     }
 
-
-    addUser(msg,socket,availableProps=[]) {
-        let socketId = this.randomId('userLoggedIn');
-        let id;
-        if(msg.id) id = msg.id;
-        else if (msg._id) id = msg._id;
-        else return false;
-
-        if(this.DEBUG) console.log('adding user', id);
-        let newuser = {
-            id:id, 
-            _id:id, //second reference (for mongodb parity)
-            username:msg.username,
-            socket, 
-            props: {},
-            updatedPropnames: [],
-            sessions:[],
-            lastUpdate:Date.now(),
-            lastTransmit:0,
-            latency:0,
-        };
-
-        if(this.useOSC)
-            newuser.osc = new OSCManager(socket),
-
-        this.USERS.set(socketId, newuser);
-        availableProps?.forEach((prop,i) => {
-            newuser.props[prop] = '';
-        });
-        
-        if(this.webrtc) try {this.webrtc.addUser(socket,id)} catch (e) {console.error(e)}
-
-        
-        this.setWSBehavior(socketId, socket);
-    }
-
-    removeUser(user={},id) {
-        let u = this.USERS.get(id);
-
-        if(u) {
-            if(u.socket) {
-                if(this.webrtc) try {this.webrtc.removeUser(u.socket)} catch (e) {console.error(e)}
-                if(u.socket.readyState === 1 || u.socket.readyState === "1") 
-                    u.socket.terminate();
-            }
-            this.USERS.delete(id);
-            return true;
-        } return false;
-    }
-
-    
-    setWSBehavior(id, socket) {
-        if (socket != null){
-
-            socket.on('message', (msg="") => {
-                let parsed = JSON.parse(msg);
-
-
-                // Send Message through WebRTC Service
-                if(this.webrtc) {
-                    if (parsed.service === 'webrtc') try {this.webrtc.onmessage(msg, socket)} catch (e) {console.error(e)}
-                }
-        
-                // console.log(msg);
-                else if(Array.isArray(parsed)) { //push arrays of requests instead of single objects (more optimal potentially, though fat requests can lock up servers)
-                    parsed.forEach((obj) => {
-                        if(typeof obj === 'object' && !Array.isArray(obj)) { //if we got an object process it as most likely user data
-                            let hasData = false;
-                            if('userData' in obj) hasData = true;
-
-                            if(obj._id) obj.id = obj._id; //just in case
-                            if(hasData) {
-                                //should generalize this more
-                                if(this.remoteService) this.remoteService.updateUserData(obj);
-                            }
-                            else if(obj.id && obj.cmd) {
-                                this.processCommand(obj.id,obj.cmd,obj.args, obj.callbackId);
-                            }
-                            else if(obj.cmd) {
-                                this.processCommand(id, obj.cmd, obj.args, obj.callbackId)
-                            }
-                        
-                        }
-                        else if (Array.isArray(obj)) { //handle commands sent as arrays [username,cmd,arg1,arg2]
-                            this.processCommand(id,obj[0],obj.slice(1), obj.callbackId);  
-                        }
-                        else if (typeof obj === 'string') { //handle string commands with spaces, 'username command arg1 arg2'
-                            let cmd = obj.split(' ');
-                            this.processCommand(id,cmd[0],cmd.slice(1), obj.callbackId);
-                        }
-                         else {
-                            // console.log(parsed);
-                        }
-                    })
-                }
-                else if(parsed.cmd) {
-                    this.processCommand(id, parsed.cmd, parsed.args, parsed.callbackId)
-                }
-                else if (Array.isArray(parsed)) { //handle commands sent as arrays [username,cmd,arg1,arg2]
-                    this.processCommand(id,parsed[0],parsed.slice(1), undefined);  
-                }
-                else if (typeof parsed === 'string') { //handle string commands with spaces, 'username command arg1 arg2'
-                    let cmd = parsed.split(' ');
-                    this.processCommand(id,cmd[0],cmd.slice(1), undefined);
-                } else {
-                    // console.log(parsed);
-                }
-            });
-
-            socket.on('close', (s) => {
-                // console.log('session closed: ', id);
-                this.removeUser(id);
-                if(this.webrtc) try {this.webrtc.removeUser(socket)} catch (e) {console.error(e)}
-            });
-        }
-        return socket;
-    }
-
-    
-    
-    sendMsg(user='',msg='',data=undefined) {
-
-        let toSend = { msg: msg };
-        if(data) toSend.data = data;
-
-        if(typeof user === 'string') {
-            let u;
-            this.USERS.forEach((obj) => {
-                if(obj.id === user) u = obj;
-            })
-            if(u) {
-                if(u.socket.readyState === 1 || u.socket.readyState === "1") {
-                    //console.log('sending', u.id, toSend);
-                    u.socket.send(JSON.stringify(toSend));
-                    return true;
-                } else return false;
-            }
-        } else if (typeof user === 'object') {
-            if(user.socket.readyState === 1 || user.socket.readyState === "1") user.socket.send(JSON.stringify(toSend));
-            return true;
-        }
-        return false;
-    }
 
     randomId(tag = '') {
         return `${tag+Math.floor(Math.random()+Math.random()*Math.random()*10000000000000000)}`;

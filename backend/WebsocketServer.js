@@ -100,12 +100,22 @@ class WebsocketServer{
         // Connect Websocket
         this.wss.on('connection',  async (ws, msg, req) => {
             ws.id = Math.floor(Math.random() * 10000000);
-            this.controller.addUser(msg, ws);
+            //connection msg should look like:
+            /*
+              msg = {
+                id:'abc123' //unique identifier, or use _id:
+                username:'agentsmith' //ideally a unique username
+              }
+            */
+            if(msg.id) {
+              this.controller.addUser(msg, ws); //adds a user from a socket
+              ws.send(JSON.stringify({msg:'user added'}));
+            }
+            
             
             // console.log('user session started: ', msg);
             // ws.isAlive = true;
             // ws.on('pong', function(){this.isAlive = true;});
-            ws.send(JSON.stringify({msg:'done'}));
         });   
         
         // const interval = setInterval(() => {
