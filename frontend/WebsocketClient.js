@@ -68,16 +68,16 @@ export class WebsocketClient {
 
         socket.onopen = () => {
             console.log('websocket opened');
-            this.connected = true
+            this.connected = true;
             //this.streamUtils.info.connected = true;
-            this.sendQueue.forEach(f => f())
+            this.sendQueue.forEach(f => f());
         };
 
         socket.onmessage = this.onmessage
         socket.onclose = (msg) => {
-            this.connected = false
+            this.connected = false;
             //this.streamUtils.info.connected = false;
-            console.log('websocket closed')
+            console.log('websocket closed');
         }
 
         let id = "socket_"+Math.floor(Math.random()*10000000000);
@@ -114,6 +114,8 @@ export class WebsocketClient {
             return this.send(dict,callback,id);
         }
     }
+
+    runFunction = this.run;
     
     //a way to set variables on a thread
     setValues(values={},origin,id) {
