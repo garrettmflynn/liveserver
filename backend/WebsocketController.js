@@ -11,8 +11,8 @@ const OSCManager = require('./OSCManager.js');
 export class WebsocketController {
     
     constructor(
-          options = { //default options
-            wss:WebsocketServer, 
+          options = {      //default options
+            wss:undefined, //Websocket.Server instance
             db: {
               app:app,
               mode:'mongo'
@@ -53,7 +53,7 @@ export class WebsocketController {
 
         //should use an options object for these to pass in appropriate stuff e.g. the mongoose app
         if(this.useDB)
-          this.dbService = new WebsocketDB(this,options.db.mode,options.db.app,true);
+          this.dbService = new WebsocketDB(this,options.db.mode,options.app,true);
         
         if(this.useRemoteService)
           this.remoteService = new WebsocketRemoteStreaming(this);

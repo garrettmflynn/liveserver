@@ -6,10 +6,14 @@ const WebsocketController = require('./WebsocketController')
 
 // Create Brainstorm Server Instance
 class WebsocketServer{
-    constructor(app, config={},onListen=()=>{},onError=(e)=>{console.error(e)}){
+    constructor(
+      app, 
+      config={},
+      onListen=()=>{},
+      onError=(e)=>{console.error(e)}){
 
       this.url = 'localhost'
-      this.database = app.get('mongoose')
+      this.database = app.get('mongoose') 
       
       if (config.port != null) this.port = config.port 
       else this.port = '80'
@@ -18,15 +22,16 @@ class WebsocketServer{
       if (config.credentials != null) this.credentials = config.credentials 
       else this.credentials = {}
           
-      // Create Server
-      if (this.protocol === 'https'){
-          if (this.credentials.key != null && this.credentials.cert !== null){
-              this.server = https.createServer(this.credentials, app)
-          } else {
-              // console.log('invalid credentials. Reverting to HTTP protocol.')
-              this.protocol = 'http'
-              this.server = http.createServer(app)
-          }
+      // Create HTTP Server
+      if (this.protocol === 'https'){ 
+        //https requires credentials
+        if (this.credentials.key != null && this.credentials.cert !== null){
+            this.server = https.createServer(this.credentials, app)
+        } else {
+            // console.log('invalid credentials. Reverting to HTTP protocol.')
+            this.protocol = 'http'
+            this.server = http.createServer(app)
+        }
       } else {
           this.protocol = 'http'
           this.server = http.createServer(app)
@@ -35,12 +40,11 @@ class WebsocketServer{
       // Create Websocket Server
       this.wss = new WebSocket.Server({ clientTracking: false, noServer: true }); // Use for Production
       
-      
       // Create Data Server
       this.controller = new WebsocketController({
-        wss:this.wss, 
+        wss:this.wss, //Websocket.Server instance
+        app:app, //express app
         db:{
-          app:app,
           mode:'mongo'
         },
         remoteService:true,
