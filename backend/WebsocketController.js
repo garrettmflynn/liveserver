@@ -23,7 +23,7 @@ export class WebsocketController {
             debug:true 
             //safe:true
           }) {
-        this.USERS = new Map(); //live sockets
+        this.USERS = new Map(); //live sockets and basic user info
         this.COLLECTIONS = new Map();
         this.EVENTS = new Events();
         this.EVENTSETTINGS = [];

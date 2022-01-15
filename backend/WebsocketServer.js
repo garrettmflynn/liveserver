@@ -83,7 +83,7 @@ class WebsocketServer{
         
             if (subprotocols.id == null) {
               subprotocols.id = 'user'+Math.floor(Math.random()*1000000000);
-              subprotocols.username = subprotocols.id;
+              if(!subprotocols.username) subprotocols.username = subprotocols.id;
             }
     
             let id = subprotocols['id']
