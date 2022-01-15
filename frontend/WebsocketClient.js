@@ -22,7 +22,7 @@ export class WebsocketClient {
         if(auth.username) subprotocol.push('username&' + encodeForSubprotocol(auth.username));
         if(auth.password) subprotocol.push('password&' + encodeForSubprotocol(auth.password));
         if(auth.origin)   subprotocol.push('origin&'   + encodeForSubprotocol(auth.origin));
-        if(auth.props)    subprotocol.push('props&'   + encodeForSubprotocol(auth.origin));
+        if(auth.props)    subprotocol.push('props&'    + encodeForSubprotocol(auth.props));
 
         this.connected = false;
         this.sendQueue = [];
