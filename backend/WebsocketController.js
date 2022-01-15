@@ -64,52 +64,78 @@ export class WebsocketController {
         if(this.useOSC)
           this.addOSCCallbacks();
 
+
+        if(this.DEBUG) console.log('Server callbacks available: ', this.runCallback('list')); //list available functions
     }
 
-    //handled automatically by the WebsocketServer
-    addUser(socket,userinfo={}) {
-      let id = this.randomId('user');
-       
-      let newuser = {
-        id:id, 
-        _id:id, //second reference (for mongodb parity)
-        username:id,
-        origin:id,
-        socket, 
-        props: {},
-        updatedPropnames: [],
-        sessions:[],
-        lastUpdate:Date.now(),
-        lastTransmit:0,
-        latency:0,
+
+    async processCommand(socketId="", command="",args=[], origin, callbackId, mode=this.mode) {
+      let u = this.USERS.get(socketId);
+      if(!u || !command) return;
+      if(this.DEBUG) console.log('command', command);
+      
+      let eventSetting = this.checkEvents(command,origin,u);
+      if(typeof args === 'object' && !Array.isArray(args)) {
+        if(args.eventName) { //pipe events to the event manager system
+          this.EVENTS.callback(args);
+        }
+      }
+      else {
+        let data = this.runCallback(command,args,origin,u);
+
+        let dict = {msg: command, data:data }
+        if (callbackId) dict.callbackId = callbackId;
+
+        // console.log(toSend)
+        if(eventSetting) this.EVENTS.emit(eventSetting.eventName,dict,u);
+        else u.socket.send(JSON.stringify(dict));
+      }
+  }
+
+  //handled automatically by the WebsocketServer
+  addUser(socket,userinfo={}) {
+    let id = this.randomId('user');
+      
+    let newuser = {
+      id:id, 
+      _id:id, //second reference (for mongodb parity)
+      username:id,
+      origin:id,
+      socket, 
+      props: {},
+      updatedPropnames: [],
+      sessions:[],
+      lastUpdate:Date.now(),
+      lastTransmit:0,
+      latency:0,
     };
 
-      Object.assign(newuser,userinfo); //assign any supplied info
+    Object.assign(newuser,userinfo); //assign any supplied info
 
-      if(userinfo.id) {
-        userinfo._id = userinfo.id;
-        id = userinfo.id;
-      }
-      else if (userinfo._id) {
-        userinfo.id = userinfo._id;
-        id = userinfo._id;
-      }
+    if(userinfo.id) {
+      userinfo._id = userinfo.id;
+      id = userinfo.id;
+    }
+    else if (userinfo._id) {
+      userinfo.id = userinfo._id;
+      id = userinfo._id;
+    }
 
-      if(this.DEBUG) console.log('Adding User, Id:', id);
+    if(this.DEBUG) console.log('Adding User, Id:', id);
 
-      if(this.useOSC)
-          newuser.osc = new OSCManager(socket),
+    if(this.useOSC)
+        newuser.osc = new OSCManager(socket),
 
-      this.USERS.set(id, newuser);
+    this.USERS.set(id, newuser);
 
-      //add any additional properties sent. remote.service.js has more functions for using these
-  
-      if(this.webrtc) try {this.webrtc.addUser(socket,id)} catch (e) {console.error(e)}
+    //add any additional properties sent. remote.service.js has more functions for using these
 
-      
-      this.setWSBehavior(socket,id);
+    if(this.webrtc) try {this.webrtc.addUser(socket,id)} catch (e) {console.error(e)}
 
-      return id; //returns the generated id so you can look up
+    
+    this.setWSBehavior(socket,id);
+
+    return id; //returns the generated id so you can look up
   }
 
   removeUser(user={}) {
@@ -338,7 +364,6 @@ export class WebsocketController {
     // arbitrary functions, events, and data to the server memory
     addUnsafeCallbacks() {
       this.callbacks.push(
-        
         { //add a local function, can implement whole algorithm pipelines on-the-fly
           case: 'addfunc', callback: (self, args, origin, user) => { //arg0 = name, arg1 = function string (arrow or normal)
             let newFunc = this.parseFunctionFromText(args[1]);
@@ -474,30 +499,6 @@ export class WebsocketController {
       );
     }
 
-
-    async processCommand(socketId="", command="",args=[], origin, callbackId, mode=this.mode) {
-        let u = this.USERS.get(socketId);
-        if(!u || !command) return;
-        if(this.DEBUG) console.log('command', command);
-        
-        let eventSetting = this.checkEvents(command,origin,u);
-        if(typeof args === 'object' && !Array.isArray(args)) {
-          if(args.eventName) { //pipe events to the event manager system
-            this.EVENTS.callback(args);
-          }
-        }
-        else {
-          let data = this.runCallback(command,args,origin,u);
-
-          let dict = {msg: command, data:data }
-          if (callbackId) dict.callbackId = callbackId;
-
-          // console.log(toSend)
-          if(eventSetting) this.EVENTS.emit(eventSetting.eventName,dict,u);
-          else u.socket.send(JSON.stringify(dict));
-        }
-    }
-
     addCallback(functionName,callback=(self,args,origin,user)=>{}) {
         if(!functionName || !callback) return false;
         this.removeCallback(functionName); //removes existing callback if it is there
@@ -520,15 +521,20 @@ export class WebsocketController {
         else return false;
     }
 
-    async runCallback(functionName,input=[],origin,user) {
+    async runCallback(
+      functionName,
+      input=[],
+      origin,
+      user
+    ) {
         let output = undefined;
         await Promise.all(this.callbacks.map(async (o,i) => {
             if (o.case === functionName) {
-                if (input) output = await o.callback(this, input, origin, user);
+                output = await o.callback(this, input, origin, user);
                 return true;
             } else if (o.aliases) {
                 if(o.aliases.indexOf(functionName) > -1) {
-                    if (input) output = await o.callback(this, input, origin, user);
+                    output = await o.callback(this, input, origin, user);
                     return true;
                 }
             } 
