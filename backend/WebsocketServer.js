@@ -76,7 +76,7 @@ class WebsocketServer{
               subprotocols[arr[0]] = arr[1]
             })
         
-            if (subprotocols.id == null) subprotocols.id = 'guest'
+            if (subprotocols.id == null) subprotocols.id = 'guest'+Math.floor(Math.random()*1000000000);
     
             let id = subprotocols['id']
         
