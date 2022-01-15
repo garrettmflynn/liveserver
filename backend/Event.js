@@ -13,6 +13,8 @@
 
 import {StateManager} from 'anotherstatemanager'
 
+//could generalize this for the workers vs sockets better
+// and to enable crosstalk
 export class Events {
     constructor(manager=undefined) {
 
