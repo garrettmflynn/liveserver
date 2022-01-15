@@ -28,6 +28,7 @@ export class WebsocketController {
 
         this.addDefaultCallbacks();
         
+        //should use an options object for these to pass in appropriate stuff e.g. the mongoose app
         this.dbService = new WebsocketDB(this,app,'mongo',true);
         this.remoteService = new WebsocketRemoteStreaming(this);
 
