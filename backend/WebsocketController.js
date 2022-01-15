@@ -69,8 +69,14 @@ export class WebsocketController {
     addUser(msg,socket) {
       let socketId = this.randomId('userLoggedIn');
       let id;
-      if(msg.id) id = msg.id;
-      else if (msg._id) id = msg._id;
+      if(msg.id) {
+        id = msg.id;
+        socketId = id; //sets socketId to unique id instead for easier lookup
+      }
+      else if (msg._id) {
+        id = msg._id;
+        socketId = id; //sets socketId to unique id instead for easier lookup
+      }
       else return false;
 
       if(this.DEBUG) console.log('adding user', id);
@@ -80,6 +86,7 @@ export class WebsocketController {
           username:msg.username,
           origin:msg.origin,
           socket, 
+          socketId:socketId, //randomly generated if unique id isn't supplied, else just matches id
           props: {},
           updatedPropnames: [],
           sessions:[],
@@ -282,7 +289,8 @@ export class WebsocketController {
                       updatedPropNames:u.updatedPropNames,
                       lastUpdate:u.lastUpdate,
                       lastTransmit:u.lastTransmit,
-                      latency:u.latency
+                      latency:u.latency,
+                      socketId:u.socketId
                     }
                   }
                 }
@@ -295,7 +303,8 @@ export class WebsocketController {
                     updatedPropNames:user.updatedPropNames,
                     lastUpdate:user.lastUpdate,
                     lastTransmit:user.lastTransmit,
-                    latency:user.latency
+                    latency:user.latency,
+                    socketId:user.socketId
                   }
                 }
               }
