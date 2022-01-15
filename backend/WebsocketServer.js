@@ -6,20 +6,25 @@ const WebsocketController = require('./WebsocketController')
 
 // Create Brainstorm Server Instance
 class WebsocketServer{
-    constructor(app, config={},onListen=()=>{},onError=(e)=>{console.error(e)}){
+    constructor(
+      app, 
+      config={},
+      onListen=()=>{},
+      onError=(e)=>{console.error(e)}){
 
-    this.url = 'localhost'
-    this.database = app.get('mongoose')
-    
-     if (config.port != null) this.port = config.port 
-     else this.port = '80'
-     if (config.protocol != null) this.protocol = config.protocol 
-     else this.protocol = 'http'
-     if (config.credentials != null) this.credentials = config.credentials 
-     else this.credentials = {}
-        
-    // Create Server
-    if (this.protocol === 'https'){
+      this.url = 'localhost'
+      this.database = app.get('mongoose') 
+      
+      if (config.port != null) this.port = config.port 
+      else this.port = '80'
+      if (config.protocol != null) this.protocol = config.protocol 
+      else this.protocol = 'http'
+      if (config.credentials != null) this.credentials = config.credentials 
+      else this.credentials = {}
+          
+      // Create HTTP Server
+      if (this.protocol === 'https'){ 
+        //https requires credentials
         if (this.credentials.key != null && this.credentials.cert !== null){
             this.server = https.createServer(this.credentials, app)
         } else {
@@ -27,21 +32,30 @@ class WebsocketServer{
             this.protocol = 'http'
             this.server = http.createServer(app)
         }
-    } else {
-        this.protocol = 'http'
-        this.server = http.createServer(app)
-    }
-    
-    // Create Websocket Server
-    this.wss = new WebSocket.Server({ clientTracking: false, noServer: true }); // Use for Production
-    
-    
-    // Create Data Server
-    this.controller = new WebsocketController(app, this.wss);
+      } else {
+          this.protocol = 'http'
+          this.server = http.createServer(app)
+      }
+      
+      // Create Websocket Server
+      this.wss = new WebSocket.Server({ clientTracking: false, noServer: true }); // Use for Production
+      
+      // Create Data Server
+      this.controller = new WebsocketController({
+        wss:this.wss, //Websocket.Server instance
+        app:app, //express app
+        db:{
+          mode:'mongo'
+        },
+        remoteService:true,
+        webrtc:true,
+        osc:true,
+        debug:true
+      });
 
 
-    this.server.onListen = onListen
-    this.server.onError = onError
+      this.server.onListen = onListen
+      this.server.onError = onError
     }
 
     async init() {
@@ -67,7 +81,10 @@ class WebsocketServer{
               subprotocols[arr[0]] = arr[1]
             })
         
-            if (subprotocols.id == null) subprotocols.id = 'guest'
+            if (subprotocols.id == null) {
+              subprotocols.id = 'user'+Math.floor(Math.random()*1000000000);
+              if(!subprotocols.username) subprotocols.username = subprotocols.id;
+            }
     
             let id = subprotocols['id']
         
@@ -91,12 +108,22 @@ class WebsocketServer{
         // Connect Websocket
         this.wss.on('connection',  async (ws, msg, req) => {
             ws.id = Math.floor(Math.random() * 10000000);
-            this.controller.addUser(msg, ws);
+            //connection msg should look like:
+            /*
+              msg = {
+                id:'abc123' //unique identifier, or use _id:
+                username:'agentsmith' //ideally a unique username
+              }
+            */
+            if(msg.id) {
+              this.controller.addUser(msg, ws); //adds a user from a socket
+              ws.send(JSON.stringify({msg:'user added'}));
+            }
+            
             
             // console.log('user session started: ', msg);
             // ws.isAlive = true;
             // ws.on('pong', function(){this.isAlive = true;});
-            ws.send(JSON.stringify({msg:'done'}));
         });   
         
         // const interval = setInterval(() => {
