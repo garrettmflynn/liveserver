@@ -67,49 +67,47 @@ export class WebsocketController {
     }
 
     //handled automatically by the WebsocketServer
-    addUser(msg,socket) {
-      let socketId = this.randomId('userLoggedIn');
-      let id;
-      if(msg.id) {
-        id = msg.id;
-        socketId = id; //sets socketId to unique id instead for easier lookup
+    addUser(userinfo,socket) {
+      let id = this.randomId('user');
+       
+      let newuser = {
+        id:id, 
+        _id:id, //second reference (for mongodb parity)
+        username:id,
+        origin:id,
+        socket, 
+        props: {},
+        updatedPropnames: [],
+        sessions:[],
+        lastUpdate:Date.now(),
+        lastTransmit:0,
+        latency:0,
+    };
+
+      Object.assign(newuser,userinfo); //assign any supplied info
+
+      if(userinfo.id) {
+        userinfo._id = userinfo.id;
+        id = userinfo.id;
       }
-      else if (msg._id) {
-        id = msg._id;
-        socketId = id; //sets socketId to unique id instead for easier lookup
+      else if (userinfo._id) {
+        userinfo.id = userinfo._id;
+        id = userinfo._id;
       }
-      else return false;
 
       if(this.DEBUG) console.log('adding user', id);
-      let newuser = {
-          id:id, 
-          _id:id, //second reference (for mongodb parity)
-          username:msg.username,
-          origin:msg.origin,
-          socket, 
-          socketId:socketId, //randomly generated if unique id isn't supplied, else just matches id
-          props: {},
-          updatedPropnames: [],
-          sessions:[],
-          lastUpdate:Date.now(),
-          lastTransmit:0,
-          latency:0,
-      };
 
       if(this.useOSC)
           newuser.osc = new OSCManager(socket),
 
-      this.USERS.set(socketId, newuser);
+      this.USERS.set(id, newuser);
 
       //add any additional properties sent. remote.service.js has more functions for using these
-      if(msg.props) {
-        newuser.props = msg.props;
-      }
-      
+  
       if(this.webrtc) try {this.webrtc.addUser(socket,id)} catch (e) {console.error(e)}
 
       
-      this.setWSBehavior(socketId, socket);
+      this.setWSBehavior(id, socket);
   }
 
   removeUser(user={}) {
@@ -290,8 +288,7 @@ export class WebsocketController {
                       updatedPropNames:u.updatedPropNames,
                       lastUpdate:u.lastUpdate,
                       lastTransmit:u.lastTransmit,
-                      latency:u.latency,
-                      socketId:u.socketId
+                      latency:u.latency
                     }
                   }
                 }
@@ -304,8 +301,7 @@ export class WebsocketController {
                     updatedPropNames:user.updatedPropNames,
                     lastUpdate:user.lastUpdate,
                     lastTransmit:user.lastTransmit,
-                    latency:user.latency,
-                    socketId:user.socketId
+                    latency:user.latency
                   }
                 }
               }

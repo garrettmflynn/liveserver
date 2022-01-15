@@ -16,6 +16,7 @@ export class WebsocketClient {
 
         let subprotocol = [];
         
+        //some basic expected info, will autogenerate the necessary stuff if none supplied
         if(auth._id) subprotocol.push('id&' + encodeForSubprotocol(auth._id));
         else if (auth.id) subprotocol.push('id&' + encodeForSubprotocol(auth.id));
 
@@ -23,6 +24,13 @@ export class WebsocketClient {
         if(auth.password) subprotocol.push('password&' + encodeForSubprotocol(auth.password));
         if(auth.origin)   subprotocol.push('origin&'   + encodeForSubprotocol(auth.origin));
         if(auth.props)    subprotocol.push('props&'    + encodeForSubprotocol(auth.props));
+
+        //a dict of generic subprotocol keys and values 
+        if(auth.subprotocols) {
+            for(const prop in auth.subprotocols) {
+                subprotocol.push(prop+'&' + encodeForSubprotocol(auth.subprotocols[prop]));
+            }
+        }
 
         this.connected = false;
         this.sendQueue = [];
