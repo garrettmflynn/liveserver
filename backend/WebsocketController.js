@@ -231,7 +231,15 @@ export class WebsocketController {
                   return this.sendMsg(args[0],args[1],args[2]);
               }
           },
-          { //set user props for yourself or someone else (by user unique id)
+          { //set user details for yourself
+              case:'setUserServerDetails',
+              callback:(self,args,origin,user)=>{
+                if(args[0]) user.username = args[0];
+                if(args[1]) user.password = args[1];
+                if(args[2]) user.props = args[2];
+              }
+          },
+          { //assign user props for yourself or someone else (by user unique id)
               case:'setProps',
               callback:(self,args,origin,user)=>{
                 if(typeof args === 'object' && !Array.isArray(args)) {
@@ -256,7 +264,7 @@ export class WebsocketController {
                 else return user.props;
               }
           },
-          { //get all details of a user or of yourself
+          { //get basic details of a user or of yourself
               case:'getUser',
               callback:(self,args,origin,user)=>{
                 if(args[0]) {
