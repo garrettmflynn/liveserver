@@ -37,7 +37,8 @@ class WebsocketServer{
       
       
       // Create Data Server
-      this.controller = new WebsocketController(this.wss, {
+      this.controller = new WebsocketController({
+        wss:this.wss, 
         db:{
           app:app,
           mode:'mongo'

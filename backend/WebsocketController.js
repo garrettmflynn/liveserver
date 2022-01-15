@@ -7,10 +7,12 @@ import { WebsocketRemoteStreaming } from './remote.service.js';
 const WebRTCService = require('datastreams-api/src/server/webrtc.service.js');
 const OSCManager = require('./OSCManager.js');
 
+//Instantiated by the WebsocketServer to handle callbacks
 export class WebsocketController {
     
-    constructor(wss, 
+    constructor(
           options = { //default options
+            wss:WebsocketServer, 
             db: {
               app:app,
               mode:'mongo'
@@ -23,12 +25,11 @@ export class WebsocketController {
           }) {
         this.USERS = new Map(); //live sockets
         this.COLLECTIONS = new Map();
-        this.APP = app; //mongoose reference
-        this.MODE = defaultMode;
         this.EVENTS = new Events();
         this.EVENTSETTINGS = [];
         // this.serverInstances=appnames;
 		
+        this.options = options; //settings and utility classes
 
         //this.subscriptionLoop();
 
@@ -58,7 +59,7 @@ export class WebsocketController {
           this.remoteService = new WebsocketRemoteStreaming(this);
 
         if(this.useWebRTC)
-          this.webrtc = new WebRTCService(wss);
+          this.webrtc = new WebRTCService(options.wss);
 
         if(this.useOSC)
           this.addOSCCallbacks();
