@@ -30,10 +30,10 @@ export class WebsocketClient {
         this.functionQueue = {}
 
         
-        this.events = new Events(this);
-        this.subEvent = (eventName, result=(_)=>{})=>{this.events.subEvent(eventName,result);}
-        this.unsubEvent = (eventName, sub) => {this.events.unsubEvent(eventName,sub)};
-        this.addEvent = (eventName, origin, functionName, id) => {this.events.addEvent(eventName, origin, functionName, id)};
+        this.EVENTS = new Events(this);
+        this.subEvent = (eventName, result=(_)=>{})=>{this.EVENTS.subEvent(eventName,result);}
+        this.unsubEvent = (eventName, sub) => {this.EVENTS.unsubEvent(eventName,sub)};
+        this.addEvent = (eventName, origin, functionName, id) => {this.EVENTS.addEvent(eventName, origin, functionName, id)};
 
     }
 
