@@ -40,15 +40,19 @@ export class Events {
     }
 
     //add an event name, can optionally add them to any threads too from the main thread
-    addEvent(eventName,origin=undefined,foo=undefined,workerId=undefined) {
+    addEvent(eventName,origin=undefined,functionName=undefined,id=undefined) {
         this.state.setState({[eventName]:undefined});
         if(this.manager !== undefined) {
-            if(origin !== undefined || foo !== undefined) {
-                if(workerId !== undefined) {
-                    this.manager.post({origin:origin,foo:'addevent',input:[eventName,foo]},workerId);
-                } else {
+            if(origin !== undefined || functionName !== undefined) {
+                if(id !== undefined) {
+                    this.manager.post({origin:origin,foo:'addevent',input:[eventName,functionName]},id);
+                } else if (this.manager?.workers) {
                     this.manager.workers.forEach((w)=>{
-                        this.manager.post({origin:origin,foo:'addevent',input:[eventName,foo]},w.id); //add it to all of them since we're assuming we're rotating threads
+                        this.manager.post({origin:origin,foo:'addevent',input:[eventName,functionName]},w.id); //add it to all of them since we're assuming we're rotating threads
+                    });
+                } else if (this.manager?.sockets) {
+                    this.manager.sockets.forEach((s)=>{
+                        this.manager.post({origin:origin,foo:'addevent',input:[eventName,functionName]},s.id); //add it to all of them since we're assuming we're rotating threads
                     });
                 }
             }
@@ -60,14 +64,17 @@ export class Events {
         this.state.unsubscribeAllTriggers(eventName);
     }
 
-    //use this to set values by event name, will post messages on threads too
-    emit(eventName, input, workerId=undefined,transfer=undefined,port=undefined) {
+    //use this to set values by event name, will post messages on threads or sockets too
+    emit(eventName, input, idOrObj=undefined,transfer=undefined,port=undefined) {
         let output = {eventName:eventName, output:input};
         
         if(!input || !eventName) return;
         if (this.manager !== undefined) { //when emitting values for workers, input should be an object like {input:0, foo'abc', origin:'here'} for correct worker callback usage
-            if(workerId !== undefined) this.manager.post(output,workerId,transfer);
-            else {this.manager.workers.forEach((w)=>{this.manager.post(output,w.id,transfer);});}
+            if(id !== undefined) this.manager.post(output,idOrObj,transfer);
+            else if (this.manager?.workers) {this.manager.workers.forEach((w)=>{this.manager.post(output,w.id,transfer);});}
+            else if (this.manager?.sockets) {this.manager.sockets.forEach((s)=>{this.manager.post(output,s.id,transfer);});}
+        } else if (typeof idOrObj === 'object') {
+            if(idOrObj.socket) idOrObj.socket.send(JSON.stringify(input)); //passed from WebsocketController
         } else if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
         // run this in global scope of window or worker. since window.self = window, we're ok
             //if(port) console.log(port,output);

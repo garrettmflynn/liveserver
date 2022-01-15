@@ -106,7 +106,7 @@ export class WebsocketClient {
         this.run('setValues',values,origin,id);
     }
 
-    send = (msg, callback = (data) => {console.log('DEFAULT', data)}, id) => {
+    send = (msg, callback = (data) => {}, id) => {
         return new Promise((resolve)=>{//console.log(msg);
             const resolver = (res) => 
             {    
@@ -135,6 +135,7 @@ export class WebsocketClient {
         });
     }
 
+    post = this.send; //alias
 
     onmessage = (res) => {
 
@@ -203,6 +204,5 @@ export class WebsocketClient {
         else return false;
     }
 
-    post = this.send; //alias
     terminate = this.close; //alias
 }
