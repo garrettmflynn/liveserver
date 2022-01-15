@@ -67,7 +67,7 @@ export class WebsocketController {
     }
 
     //handled automatically by the WebsocketServer
-    addUser(userinfo,socket) {
+    addUser(socket,userinfo={}) {
       let id = this.randomId('user');
        
       let newuser = {
@@ -95,7 +95,7 @@ export class WebsocketController {
         id = userinfo._id;
       }
 
-      if(this.DEBUG) console.log('adding user', id);
+      if(this.DEBUG) console.log('Adding User, Id:', id);
 
       if(this.useOSC)
           newuser.osc = new OSCManager(socket),
@@ -107,7 +107,9 @@ export class WebsocketController {
       if(this.webrtc) try {this.webrtc.addUser(socket,id)} catch (e) {console.error(e)}
 
       
-      this.setWSBehavior(id, socket);
+      this.setWSBehavior(socket,id);
+
+      return id; //returns the generated id so you can look up
   }
 
   removeUser(user={}) {
@@ -127,7 +129,7 @@ export class WebsocketController {
   }
 
   
-  setWSBehavior(id, socket) {
+  setWSBehavior(socket,id) {
       if (socket != null){
 
           socket.on('message', (msg="") => {
@@ -230,6 +232,15 @@ export class WebsocketController {
                   return 'pong';
               }
           },
+          { //return a list of function calls available on the server
+            case: 'list', callback: (self, args, origin) => {
+              let list = [];
+              this.callbacks.forEach((obj) => {
+                list.push(obj.case);
+              });
+              return list;
+            }
+          },
           { //generic send message between two users (userId, message, other data)
               case:'sendMessage',
               aliases:['message','sendMsg'],
@@ -273,6 +284,12 @@ export class WebsocketController {
                 }
                 else return user.props;
               }
+          },
+          { //lists user keys
+            case:'listUsers',
+            callback:(self,args,origin,user)=>{
+              return Array.from(this.USERS.keys());
+            }
           },
           { //get basic details of a user or of yourself
               case:'getUser',

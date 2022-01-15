@@ -124,11 +124,9 @@ class WebsocketServer{
                 username:'agentsmith' //ideally a unique username
               }
             */
-            if(msg.id) {
-              this.controller.addUser(msg, ws); //adds a user from a socket
-              ws.send(JSON.stringify({msg:'user added'}));
-            }
             
+            let id = this.controller.addUser(ws,msg); //adds a user from a socket
+            ws.send(JSON.stringify({msg:`User added: ${id}`,id:id}));
             
             // console.log('user session started: ', msg);
             // ws.isAlive = true;
