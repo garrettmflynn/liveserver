@@ -66,7 +66,7 @@ export class WebsocketController {
     }
 
     //handled automatically by the WebsocketServer
-    addUser(msg,socket,availableProps=[]) {
+    addUser(msg,socket) {
       let socketId = this.randomId('userLoggedIn');
       let id;
       if(msg.id) id = msg.id;
@@ -78,6 +78,7 @@ export class WebsocketController {
           id:id, 
           _id:id, //second reference (for mongodb parity)
           username:msg.username,
+          origin:msg.origin,
           socket, 
           props: {},
           updatedPropnames: [],
@@ -91,9 +92,11 @@ export class WebsocketController {
           newuser.osc = new OSCManager(socket),
 
       this.USERS.set(socketId, newuser);
-      availableProps?.forEach((prop,i) => {
-          newuser.props[prop] = '';
-      });
+
+      //add any additional properties sent
+      if(msg.props) {
+        newuser.props = msg.props;
+      }
       
       if(this.webrtc) try {this.webrtc.addUser(socket,id)} catch (e) {console.error(e)}
 

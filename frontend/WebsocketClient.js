@@ -20,6 +20,9 @@ export class WebsocketClient {
         else if (auth.id) subprotocol.push('id&' + encodeForSubprotocol(auth.id));
 
         if(auth.username) subprotocol.push('username&' + encodeForSubprotocol(auth.username));
+        if(auth.password) subprotocol.push('password&' + encodeForSubprotocol(auth.password));
+        if(auth.origin)   subprotocol.push('origin&'   + encodeForSubprotocol(auth.origin));
+        if(auth.props)    subprotocol.push('props&'   + encodeForSubprotocol(auth.origin));
 
         this.connected = false;
         this.sendQueue = [];
