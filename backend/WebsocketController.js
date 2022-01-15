@@ -104,18 +104,20 @@ export class WebsocketController {
       this.setWSBehavior(socketId, socket);
   }
 
-  removeUser(user={},id) {
-      let u = this.USERS.get(id);
-
-      if(u) {
-          if(u.socket) {
-              if(this.webrtc) try {this.webrtc.removeUser(u.socket)} catch (e) {console.error(e)}
-              if(u.socket.readyState === 1 || u.socket.readyState === "1") 
-                  u.socket.terminate();
-          }
-          this.USERS.delete(id);
-          return true;
-      } return false;
+  removeUser(user={}) {
+    let u = user;  
+    if(typeof user === 'string')
+      let u = this.USERS.get(user);
+    
+    if(u) {
+        if(u.socket) {
+            if(this.webrtc) try {this.webrtc.removeUser(u.socket)} catch (e) {console.error(e)}
+            if(u.socket.readyState === 1 || u.socket.readyState === "1") 
+                u.socket.terminate();
+        }
+        this.USERS.delete(user._id);
+        return true;
+    } return false;
   }
 
   
@@ -211,7 +213,7 @@ export class WebsocketController {
       return false;
   }
 
-
+  //some basic server callbacks to interact with the base communication features
   addDefaultCallbacks() {
 
     //'self' and 'this' scope are the same here
@@ -229,11 +231,69 @@ export class WebsocketController {
                   return this.sendMsg(args[0],args[1],args[2]);
               }
           },
+          { //set user props for yourself or someone else (by user unique id)
+              case:'setProps',
+              callback:(self,args,origin,user)=>{
+                if(typeof args === 'object' && !Array.isArray(args)) {
+                  Object.assign(user.props,args);
+                  return true;
+                }
+                else if (Array.isArray(args) && typeof args[1] === 'object') {
+                  let u = this.USERS.get(args[0]);
+                  if(u) Object.assign(u.props,args[1]);
+                  return true;
+                }
+                return false;
+              }
+          },
+          { //get props of a user by id or of yourself
+              case:'getProps',
+              callback:(self,args,origin,user)=>{
+                if(args[0]) {
+                  let u = this.USERS.get(args[0]);
+                  if(u) return u.props;
+                }
+                else return user.props;
+              }
+          },
+          { //get all details of a user or of yourself
+              case:'getUser',
+              callback:(self,args,origin,user)=>{
+                if(args[0]) {
+                  let u = this.USERS.get(args[0]);
+                  if(u) {
+                    return {
+                      _id:u._id,
+                      username:u.username,
+                      origin:u.origin,
+                      props:u.props,
+                      updatedPropNames:u.updatedPropNames,
+                      lastUpdate:u.lastUpdate,
+                      lastTransmit:u.lastTransmit,
+                      latency:u.latency
+                    }
+                  }
+                }
+                else {
+                  return {
+                    _id:user._id,
+                    username:user.username,
+                    origin:user.origin,
+                    props:user.props,
+                    updatedPropNames:user.updatedPropNames,
+                    lastUpdate:user.lastUpdate,
+                    lastTransmit:user.lastTransmit,
+                    latency:user.latency
+                  }
+                }
+              }
+          },
           {
             case:'logout',
             aliases:['removeUser'],
             callback:(self,args,origin,user) => {
-                self.removeUser(user,user._id);
+              if(args[0]) self.removeUser(args[0])
+              else self.removeUser(user);
             }
           },
       );
