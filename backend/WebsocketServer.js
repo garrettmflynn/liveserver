@@ -8,40 +8,49 @@ const WebsocketController = require('./WebsocketController')
 class WebsocketServer{
     constructor(app, config={},onListen=()=>{},onError=(e)=>{console.error(e)}){
 
-    this.url = 'localhost'
-    this.database = app.get('mongoose')
-    
-     if (config.port != null) this.port = config.port 
-     else this.port = '80'
-     if (config.protocol != null) this.protocol = config.protocol 
-     else this.protocol = 'http'
-     if (config.credentials != null) this.credentials = config.credentials 
-     else this.credentials = {}
-        
-    // Create Server
-    if (this.protocol === 'https'){
-        if (this.credentials.key != null && this.credentials.cert !== null){
-            this.server = https.createServer(this.credentials, app)
-        } else {
-            // console.log('invalid credentials. Reverting to HTTP protocol.')
-            this.protocol = 'http'
-            this.server = http.createServer(app)
-        }
-    } else {
-        this.protocol = 'http'
-        this.server = http.createServer(app)
-    }
-    
-    // Create Websocket Server
-    this.wss = new WebSocket.Server({ clientTracking: false, noServer: true }); // Use for Production
-    
-    
-    // Create Data Server
-    this.controller = new WebsocketController(app, this.wss);
+      this.url = 'localhost'
+      this.database = app.get('mongoose')
+      
+      if (config.port != null) this.port = config.port 
+      else this.port = '80'
+      if (config.protocol != null) this.protocol = config.protocol 
+      else this.protocol = 'http'
+      if (config.credentials != null) this.credentials = config.credentials 
+      else this.credentials = {}
+          
+      // Create Server
+      if (this.protocol === 'https'){
+          if (this.credentials.key != null && this.credentials.cert !== null){
+              this.server = https.createServer(this.credentials, app)
+          } else {
+              // console.log('invalid credentials. Reverting to HTTP protocol.')
+              this.protocol = 'http'
+              this.server = http.createServer(app)
+          }
+      } else {
+          this.protocol = 'http'
+          this.server = http.createServer(app)
+      }
+      
+      // Create Websocket Server
+      this.wss = new WebSocket.Server({ clientTracking: false, noServer: true }); // Use for Production
+      
+      
+      // Create Data Server
+      this.controller = new WebsocketController(this.wss, {
+        db:{
+          app:app,
+          mode:'mongo'
+        },
+        remoteService:true,
+        webrtc:true,
+        osc:true,
+        debug:true
+      });
 
 
-    this.server.onListen = onListen
-    this.server.onError = onError
+      this.server.onListen = onListen
+      this.server.onError = onError
     }
 
     async init() {

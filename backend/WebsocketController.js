@@ -9,7 +9,17 @@ const OSCManager = require('./OSCManager.js');
 
 export class WebsocketController {
     
-    constructor(app, wss, debug=true) {
+    constructor(wss, 
+          options = { //default options
+            db: {
+              app:app,
+              mode:'mongo'
+            },
+            remoteService:true,
+            webrtc:true,
+            osc:true,
+            debug:true 
+          }) {
         this.USERS = new Map(); //live sockets
         this.COLLECTIONS = new Map();
         this.APP = app; //mongoose reference
@@ -22,18 +32,28 @@ export class WebsocketController {
         //this.subscriptionLoop();
 
         // this.server = new OffloadService(wss)
-        this.DEBUG = debug;
+        this.DEBUG = options.debug;
 
         this.callbacks = [];
 
         this.addDefaultCallbacks();
         
-        //should use an options object for these to pass in appropriate stuff e.g. the mongoose app
-        this.dbService = new WebsocketDB(this,app,'mongo',true);
-        this.remoteService = new WebsocketRemoteStreaming(this);
+        if(options.db)
+          this.useDB = true;   //local or mongodb
+        if(options.remoteService)
+          this.useRemoteService = true; //multiplayer
+        if(options.webrtc)
+          this.useWebRTC = true; //web real time chat
+        if(options.osc)
+          this.useOSC = true; //audio format streams
 
-        this.useWebRTC = true;
-        this.useOSC = true;
+        //should use an options object for these to pass in appropriate stuff e.g. the mongoose app
+        if(this.useDB)
+          this.dbService = new WebsocketDB(this,options.db.mode,options.db.app,true);
+        
+        if(this.useRemoteService)
+          this.remoteService = new WebsocketRemoteStreaming(this);
+
 
         if(this.useWebRTC)
           this.webrtc = new WebRTCService(wss);

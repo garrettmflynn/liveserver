@@ -19,12 +19,13 @@ export class WebsocketDB {
         'date'
     ];
 
-    constructor (WebsocketController,app,defaultMode='mongo',debug=true) {
+    constructor (WebsocketController,defaultMode='mongo',app,debug=true) {
         if(!WebsocketController) { console.error('Requires a WebsocketController instance.'); return; }
         this.controller = WebsocketController;
         this.app = app;
         this.collections = new Map();
         this.mode = defaultMode;
+        if(!app) this.mode = 'local';
         this.DEBUG = debug;
 
         this.addDefaultCallbacks();
