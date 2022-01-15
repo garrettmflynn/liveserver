@@ -14,6 +14,8 @@ export class WebsocketRemoteStreaming {
         this.LOOPING = true;
     
         this.addDefaultCallbacks();
+
+        this.subscriptionLoop();
     }
 
     addDefaultCallbacks() {
@@ -999,7 +1001,7 @@ export class WebsocketRemoteStreaming {
 
 
 	subscriptionLoop = () => {
-        if(this.looping === true) {
+        if(this.LOOPING === true) {
             let time = Date.now();
             //Should have delay interval checks for each subscription update for rate limiting
             this.updateUserSubscriptions(time);
