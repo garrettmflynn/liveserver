@@ -1,6 +1,8 @@
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 //import { streamUtils } from "./streamSession";
 
+import {Events} from './Event.js'
+
 export class WebsocketClient {
     constructor(url, auth) {
 
@@ -26,6 +28,13 @@ export class WebsocketClient {
 
         this.responses = [];
         this.functionQueue = {}
+
+        
+        this.events = new Events(this);
+        this.subEvent = (eventName, result=(_)=>{})=>{this.events.subEvent(eventName,result);}
+        this.unsubEvent = (eventName, sub) => {this.events.unsubEvent(eventName,sub)};
+        this.addEvent = (eventName, origin, functionName, id) => {this.events.addEvent(eventName, origin, functionName, id)};
+
     }
 
     addSocket(url, subprotocol) {
