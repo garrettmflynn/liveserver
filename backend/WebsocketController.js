@@ -237,6 +237,10 @@ export class WebsocketController {
                 if(args[0]) user.username = args[0];
                 if(args[1]) user.password = args[1];
                 if(args[2]) user.props = args[2];
+                if(args[3]) {
+                  user._id = args[3]; //not very wise to do in our schema
+                  user.id = args[3];
+                } 
               }
           },
           { //assign user props for yourself or someone else (by user unique id)
