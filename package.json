@@ -1,0 +1,43 @@
+{
+  "name": "@brainsatplay/liveserver",
+  "version": "0.0.0",
+  "main": "./dist/index.js",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "src/*"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "scripts": {
+    "start": "concurrently \"yarn backend\" \"cd docs && yarn && yarn run start\" -k --kill-others-on-fail -p \"{name}|\" -n \"BE,FE\" -c \"green,blue\"",
+    "frontend": "cd docs && yarn && yarn run start",
+    "backend": "node builder.config run",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "cd docs && yarn && yarn build",
+    "package": "webpack --config browser.config.js --mode production"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brainsatplay/LiveServer.git"
+  },
+  "author": "Joshua Brewster, Garrett Flynn",
+  "license": "AGPL-3.0-or-later",
+  "dependencies": {},
+  "bugs": {
+    "url": "https://github.com/brainsatplay/LiveServer/issues"
+  },
+  "homepage": "https://github.com/brainsatplay/LiveServer#readme",
+  "devDependencies": {
+    "@babel/core": "^7.16.7",
+    "babel-loader": "^8.2.3",
+    "build-dev": "^0.0.10",
+    "concurrently": "^7.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.17.2",
+    "mongoose": "^6.1.6",
+    "webpack": "^5.66.0",
+    "webpack-cli": "^4.9.1"
+  }
+}

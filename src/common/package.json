@@ -1,0 +1,23 @@
+{
+  "name": "@brainsatplay/liveserver-common",
+  "version": "0.0.0",
+  "private": true,
+  "main":"index.js",
+  "type": "module",
+  "workspaces": [
+    "./*"
+  ],
+    "scripts": {
+      "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "author": "Joshua Brewster, Garrett Flynn",
+    "license": "AGPL-3.0-or-later",
+    "dependencies": {
+      "anotherstatemanager": "^1.0.3"
+    },
+    "bugs": {
+      "url": "https://github.com/brainsatplay/liveserver"
+    },
+    "homepage": "https://github.com/brainsatplay/liveserver#readme"
+  }
+  

@@ -1,4 +1,4 @@
-# Websocket Live Server Utilities
+# Brains@Play Live Server Utilities
 
 These tools help us create socket servers for live communications.
 
@@ -20,11 +20,11 @@ Made for [Brains@Play](https://github.com/brainsatplay/brainsatplay) and [MyAlyc
 
 ### Frontend
 
-`npm i websocketliveserver-frontend`
+`npm i liveserver-frontend`
 
 ```
 //ES6 style
-import { UserPlatform } from 'websocketliveserver-frontend'
+import { UserPlatform } from 'liveserver-frontend'
 
 let userdata = {
     _id:'123456', //we are using randomly generated ones from realm/mongodb
@@ -48,13 +48,13 @@ platform.ping();
 
 ### Backend
 
-`npm i websocketliveserver-backend`
+`npm i liveserver-backend`
 
 ```
 //nodejs server side app
 import express from 'express';
 import cors from 'cors';
-const WebsocketServer = require('websocketliveserver-backend');
+const WebsocketServer = require('liveserver-backend');
 
 const app = express();
 

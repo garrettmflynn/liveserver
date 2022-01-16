@@ -1,0 +1,16 @@
+{
+  "name": "@brainsatplay/websocket",
+  "version": "0.0.0",
+  "main": "index.js",
+  "type": "module",
+  "repository": "https://github.com/brainsatplay/LiveServer",
+  "author": "Joshua Brewster, Garrett Flynn",
+  "license": "AGPL-3.0-or-later",
+  "private": false,
+  "dependencies": {
+    "@brainsatplay/liveserver-common": "0.0.0",
+    "datastreams-api": "^0.0.4",
+    "mongodb": "^4.3.0",
+    "ws": "^8.4.2"
+  }
+}

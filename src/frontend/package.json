@@ -1,0 +1,33 @@
+{
+  "name": "liveserver-frontend",
+  "version": "0.0.11",
+  "description": "Websockets with user communication, access controls, and notifications. Clientside and serverside data management plus mongodb integration.",
+  "main": "index.js",
+  "directories": {
+    "example": "example"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brainsatplay/liveserver.git"
+  },
+  "keywords": [
+    "websocket",
+    "liveserver",
+    "users"
+  ],
+  "author": "Joshua Brewster, Garrett Flynn",
+  "license": "AGPL-3.0-or-later",
+  "dependencies": {
+    "@brainsatplay/liveserver-common": "0.0.0",
+    "anotherstatemanager": "^1.0.3",
+    "brainsatplay-data": "^0.0.9",
+    "magicworker": "^1.0.8"
+  },
+  "bugs": {
+    "url": "https://github.com/brainsatplay/liveserver"
+  },
+  "homepage": "https://github.com/brainsatplay/liveserver#readme"
+}
