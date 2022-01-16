@@ -146,62 +146,56 @@ class WebsocketController {
     } return false;
   }
 
+     
+  handleData = (obj) => {
+    if(typeof obj === 'object' && !Array.isArray(obj)) { //if we got an object process it as most likely user data
+      let hasData = false;
+      if('userData' in obj) hasData = true;
+
+      if(obj._id) obj.id = obj._id; //just in case
+      
+      if(hasData) {
+          if(this.remoteService) this.remoteService.updateUserData(obj);
+          //should generalize this more
+      }
+      else if(obj.id && obj.cmd) {
+          this.processCommand(obj.id,obj.cmd,obj.args, undefined, obj.callbackId);
+      }
+      else if(obj.cmd) {
+          this.processCommand(id, obj.cmd, obj.args, undefined, obj.callbackId)
+      }
+  
+    }
+    else if (Array.isArray(obj)) { //handle commands sent as arrays [username,cmd,arg1,arg2]
+        this.processCommand(id,obj[0],obj.slice(1), undefined, obj.callbackId);  
+    }
+    else if (typeof obj === 'string') { //handle string commands with spaces, 'username command arg1 arg2'
+        let cmd = obj.split(' ');
+        this.processCommand(id,cmd[0],cmd.slice(1), undefined, obj.callbackId);
+    }
+    else {
+        // console.log(parsed);
+    }
+  }
+
   
   setWSBehavior(socket,id) {
       if (socket != null){
 
           socket.on('message', (json="") => {
               let parsed = JSON.parse(json);
-
+              
               // Send Message through WebRTC Service
               if(this.webrtc && parsed.service === 'webrtc') {
                   try {this.webrtc.onmessage(json, socket)} catch (e) {console.error(e)}
               }
-      
               // console.log(json);
               else if(Array.isArray(parsed)) { //push arrays of requests instead of single objects (more optimal potentially, though fat requests can lock up servers)
                   parsed.forEach((obj) => {
-                      if(typeof obj === 'object' && !Array.isArray(obj)) { //if we got an object process it as most likely user data
-                          let hasData = false;
-                          if('userData' in obj) hasData = true;
-
-                          if(obj._id) obj.id = obj._id; //just in case
-                          if(hasData) {
-                              //should generalize this more
-                              if(this.remoteService) this.remoteService.updateUserData(obj);
-                          }
-                          else if(obj.id && obj.cmd) {
-                              this.processCommand(obj.id,obj.cmd,obj.args, undefined, obj.callbackId);
-                          }
-                          else if(obj.cmd) {
-                              this.processCommand(id, obj.cmd, obj.args, undefined, obj.callbackId)
-                          }
-                      
-                      }
-                      else if (Array.isArray(obj)) { //handle commands sent as arrays [username,cmd,arg1,arg2]
-                          this.processCommand(id,obj[0],obj.slice(1), undefined, obj.callbackId);  
-                      }
-                      else if (typeof obj === 'string') { //handle string commands with spaces, 'username command arg1 arg2'
-                          let cmd = obj.split(' ');
-                          this.processCommand(id,cmd[0],cmd.slice(1), undefined, obj.callbackId);
-                      }
-                       else {
-                          // console.log(parsed);
-                      }
+                    this.handleData(obj)
                   })
               }
-              else if(parsed.cmd) {
-                  this.processCommand(id, parsed.cmd, parsed.args, undefined, parsed.callbackId)
-              }
-              else if (Array.isArray(parsed)) { //handle commands sent as arrays [username,cmd,arg1,arg2]
-                  this.processCommand(id,parsed[0],parsed.slice(1), undefined);  
-              }
-              else if (typeof parsed === 'string') { //handle string commands with spaces, 'username command arg1 arg2'
-                  let cmd = parsed.split(' ');
-                  this.processCommand(id,cmd[0],cmd.slice(1), undefined);
-              } else {
-                  // console.log(parsed);
-              }
+              else this.handleData(parsed);
           });
 
           socket.on('close', (s) => {

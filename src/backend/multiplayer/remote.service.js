@@ -295,16 +295,16 @@ export class WebsocketRemoteStreaming {
 
             this.appSubscriptions.forEach((o,i) => {
 
-                let u = o.users[data.id]
-                let s = o.spectators[data.id]
+                let u = o.users[data.id];
+                let s = o.spectators[data.id];
                 if(u != null && o.updatedUsers.indexOf(data.id) < 0 && s == null) {
                     o.updatedUsers.push(data.id);
                 }
             });
 
             this.hostSubscriptions.forEach((o,i) => {
-                let u = o.users[data.id]
-                let s = o.spectators[data.id]
+                let u = o.users[data.id];
+                let s = o.spectators[data.id];
 
                 if(u != null && o.updatedUsers.indexOf(data.id) < 0 && s == null) {
                     o.updatedUsers.push(data.id);
