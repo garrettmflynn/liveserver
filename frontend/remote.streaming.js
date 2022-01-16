@@ -1,6 +1,69 @@
 import {StateManager} from 'anotherstatemanager'
 //Joshua Brewster, Garrett Flynn AGPL v3.0
 
+//Allows you to stream data asynchronously with automatic buffering settings
+//This hooks in with functions on the remote service backend.
+export class remoteStreaming {
+	constructor(socket, userinfo) {
+
+		this.socket = socket;
+		this.user = userinfo;
+
+		this.LOOPING = true;
+		this.delay = 50; //ms update throttle
+
+		this.state = new StateManager(
+			{
+				commandResult: {},
+				sessionInfo: undefined,
+			},
+			undefined,
+			false
+		); //triggered-only state
+	
+		this.streamSettings = {};
+
+		this.STREAMLATEST = 0;
+			
+	//	 stream1:{
+	// 		object:{},
+	// 		keys:['key'],
+	// 		settings:{
+	//      	mode:0,
+	//			key:{
+	//				mode:0
+	// 				lastRead:0,	
+	//			}
+	//	 }
+		
+	}
+
+	addStream(name,object={},keys=[],settings={}) {
+
+		for(const prop in settings) {
+			settings[prop].lastRead = 0;
+			if(!settings[prop].mode) settings.mode = this.STREAMLATEST; //streams all the latest buffered data for the key
+			
+		}
+		
+		this.streamSettings[name] = {
+			object,
+			keys,
+			settings
+		};
+
+	}
+
+	streamLoop() {
+		if(this.LOOPING) {
+
+			
+			setTimeout(()=>{this.streamLoop()},this.delay);
+		}
+	}
+
+}
+
 //Brains@Play session streaming functions
 export class streamUtils {
     constructor(userinfo, socket) {
@@ -38,7 +101,7 @@ export class streamUtils {
 		this.state.data[id + "_flag"] = true;
 
 		// Add New Data from Self into Game State
-		let sub = this.state.subscribe(id, (newData) => {
+		let sub = this.state.subscribeTrigger(id, (newData) => {
 
 			this.state.data[id + "_flag"] = true;
 			if (sessionId) {
@@ -78,7 +141,7 @@ export class streamUtils {
 		} else {
 			if (type === 'sequential') manager.unsubscribeSequential(id, responseIdx); //unsub state
 			else if (type === 'trigger') manager.unsubscribeTrigger(id, responseIdx); //unsub state
-			else manager.unsubscribe(id, responseIdx); //unsub state
+			else manager.unsubscribeTrigger(id, responseIdx); //unsub state
 		}
 	}
 
@@ -239,7 +302,7 @@ export class streamUtils {
 				this.state.updateState(id + "_" + p, null)
 			});
 			//wait for result, if user found then add the user
-			let sub = this.state.subscribe('commandResult', (newResult) => {
+			let sub = this.state.subscribeTrigger('commandResult', (newResult) => {
 				if (typeof newResult === 'object') {
 					if (newResult.msg === 'getUserDataResult') {
 						if (newResult.id === id) {
@@ -249,10 +312,10 @@ export class streamUtils {
 							}
 						}
 						onsuccess(newResult.userData);
-						this.state.unsubscribe('commandResult', sub);
+						this.state.unsubscribeTrigger('commandResult', sub);
 					}
 					else if (newResult.msg === 'userNotFound' && newResult.id === id) {
-						this.state.unsubscribe('commandResult', sub);
+						this.state.unsubscribeTrigger('commandResult', sub);
 						console.log("User not found: ", id);
 					}
 				}
@@ -265,7 +328,7 @@ export class streamUtils {
 		if (this.socket !== null && this.socket.readyState === 1) {
 			this.socket.send(JSON.stringify({cmd:'unsubscribeFromUser',args:[id,userProps]}));
 
-			let sub = this.state.subscribe('commandResult', (newResult) => {
+			let sub = this.state.subscribeTrigger('commandResult', (newResult) => {
 				if (newResult.msg === 'unsubscribed' && newResult.id === id) {
 					for (const prop in this.state.data) {
 						if (prop.indexOf(id) > -1) {
@@ -273,7 +336,7 @@ export class streamUtils {
 						}
 					}
 					onsuccess(newResult);
-					this.state.unsubscribe('commandResult', sub);
+					this.state.unsubscribeTrigger('commandResult', sub);
 				}
 			});
 		}
@@ -283,16 +346,16 @@ export class streamUtils {
 		if (this.socket !== null && this.socket.readyState === 1) {
 			this.socket.send(JSON.stringify({cmd:'getUsers',args:[appname]}));
 			//wait for response, check result, if session is found and correct props are available, then add the stream props locally necessary for session
-			let sub = this.state.subscribe('commandResult', (newResult) => {
+			let sub = this.state.subscribeTrigger('commandResult', (newResult) => {
 				if (typeof newResult === 'object') {
 					if (newResult.msg === 'getUsersResult') {// && newResult.appname === appname) {						
 						onsuccess(newResult.userData); //list userData, then subscribe to session by id
-						this.state.unsubscribe('commandResult', sub);
+						this.state.unsubscribeTrigger('commandResult', sub);
 						return newResult.userData
 					}
 				}
 				else if (newResult.msg === 'usersNotFound') {//} & newResult.appname === appname) {
-					this.state.unsubscribe('commandResult', sub);
+					this.state.unsubscribeTrigger('commandResult', sub);
 					console.log("Users not found: ", appname);
 					return []
 				}
@@ -307,16 +370,16 @@ export class streamUtils {
 		if (remotePort == null) remotePort = localPort
 
 		this.socket.send(JSON.stringify({cmd:'startOSC',args:[localAddress, localPort, remoteAddress, remotePort]}));
-		let sub = this.state.subscribe('commandResult', (newResult) => {
+		let sub = this.state.subscribeTrigger('commandResult', (newResult) => {
 			if (typeof newResult === 'object') {
 				if (newResult.msg === 'oscInfo') {
 					onsuccess(newResult.oscInfo);
-					this.state.unsubscribe('commandResult', sub);
+					this.state.unsubscribeTrigger('commandResult', sub);
 					return newResult.oscInfo
 				}
 			}
 			else if (newResult.msg === 'oscError') {
-				this.state.unsubscribe('commandResult', sub);
+				this.state.unsubscribeTrigger('commandResult', sub);
 				console.log("OSC Error", newResult.oscError);
 				return []
 			}
@@ -334,16 +397,16 @@ export class streamUtils {
 		if (this.socket !== null && this.socket.readyState === 1) {
 			this.socket.send(JSON.stringify({cmd:'getSessions',args:[appname]}));
 			//wait for response, check result, if session is found and correct props are available, then add the stream props locally necessary for session
-			let sub = this.state.subscribe('commandResult', (newResult) => {
+			let sub = this.state.subscribeTrigger('commandResult', (newResult) => {
 				if (typeof newResult === 'object') {
 					if (newResult.msg === 'getSessionsResult' && newResult.appname === appname) {
 						onsuccess(newResult);
-						this.state.unsubscribe('commandResult', sub);
+						this.state.unsubscribeTrigger('commandResult', sub);
 						return newResult.sessions
 					}
 				}
 				else if (newResult.msg === 'appNotFound' & newResult.appname === appname) {
-					this.state.unsubscribe('commandResult', sub);
+					this.state.unsubscribeTrigger('commandResult', sub);
 					console.log("App not found: ", appname);
 					return []
 				}
@@ -356,9 +419,9 @@ export class streamUtils {
 		if (this.socket !== null && this.socket.readyState === 1 && !this.info.subscriptions.includes(sessionid)) {
 			this.socket.send(JSON.stringify({cmd:'getSessionInfo',args:[sessionid]}));
 			//wait for response, check result, if session is found and correct props are available, then add the stream props locally necessary for session
-			let sub = this.state.subscribe('commandResult', (newResult) => {
+			let sub = this.state.subscribeTrigger('commandResult', (newResult) => {
 				if (typeof newResult === 'object') {
-					this.state.unsubscribe('commandResult', sub);
+					this.state.unsubscribeTrigger('commandResult', sub);
 					if (newResult.msg === 'getSessionInfoResult' && newResult.sessioninfo._id === sessionid) {
 						let configured = true;
 						if (spectating === false) {
@@ -379,7 +442,7 @@ export class streamUtils {
 						}
 					}
 					else if (newResult.msg === 'sessionNotFound' & newResult.id === sessionid) {
-						this.state.unsubscribe('commandResult', sub);
+						this.state.unsubscribeTrigger('commandResult', sub);
 						console.log("Session not found: ", sessionid);
 					}
 				}
@@ -403,7 +466,7 @@ export class streamUtils {
 		//send unsubscribe command
 		if (this.socket !== null && this.socket.readyState === 1) {
 			this.socket.send(JSON.stringify({cmd:'leaveSession',args:[sessionid]}));
-			let sub = this.state.subscribe('commandResult', (newResult) => {
+			let sub = this.state.subscribeTrigger('commandResult', (newResult) => {
 				if (newResult.msg === 'leftSession' && newResult.id === sessionid) {
 					for (const prop in this.state.data) {
 						if (prop.indexOf(sessionid) > -1) {
@@ -412,7 +475,7 @@ export class streamUtils {
 						}
 					}
 					onsuccess(newResult);
-					this.state.unsubscribe('commandResult', sub);
+					this.state.unsubscribeTrigger('commandResult', sub);
 				}
 			});
 		}
