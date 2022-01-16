@@ -1,7 +1,20 @@
 import StateManager from 'anotherstatemanager'
-console.log(StateManager)
-//Joshua Brewster, Garrett Flynn AGPL v3.0
 
+//Joshua Brewster, Garrett Flynn AGPL v3.0
+export class multiplayerStreaming {
+	constructor(userinfo, socket) {
+		
+		this.socket = socket;
+		this.user = userinfo;
+		
+		this.state = new StateManager({
+			commandResult: {},
+			sessionInfo: undefined,
+		});
+
+
+	}
+}
 
 //Brains@Play session streaming functions
 export class streamUtils {

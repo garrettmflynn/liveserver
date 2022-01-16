@@ -9,15 +9,6 @@ export class dataStreaming {
 		this.LOOPING = true;
 		this.delay = 50; //ms update throttle
 
-		this.state = new StateManager(
-			{
-				commandResult: {},
-				sessionInfo: undefined,
-			},
-			undefined,
-			false
-		); //triggered-only state
-	
 		this.streamSettings = {};
 
 		this.streamFunctions = {
