@@ -151,7 +151,7 @@ export class dataStreaming {
 			}
 
 			if(Object.keys(updateObj.userData).length > 0)	
-				this.socket.send({cmd:'',args:JSON.stringify(updateObj)});
+				this.socket.send(JSON.stringify(updateObj));
 			
 			setTimeout(()=>{this.streamLoop()},this.delay);
 		}
