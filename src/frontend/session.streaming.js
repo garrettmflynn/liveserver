@@ -1,8 +1,9 @@
 import StateManager from 'anotherstatemanager'
+import { dataStreaming } from './data.streaming';
 
 //Joshua Brewster, Garrett Flynn AGPL v3.0
-export class multiplayerStreaming {
-	constructor(userinfo, socket) {
+export class sessionStreaming {
+	constructor(socket, userinfo={id:'user'+Math.floor(Math.random()*10000000000)}) {
 		
 		this.socket = socket;
 		this.user = userinfo;
@@ -12,12 +13,33 @@ export class multiplayerStreaming {
 			sessionInfo: undefined,
 		});
 
+        this.id = Math.floor(Math.random() * 10000000000) // Give the session an ID
+		
+		this.apps = {};
+		this.subscriptions = {};
+
+		this.datastream = new dataStreaming(socket,userinfo);
+
+	}
+
+	//create and/or subscribe to a live data session
+	createSession(options={
+		id:'',
+		type:'general', //'hosted'
+		dataObject:{},
+		keys:[],
+		settings:{}
+	}, onopen=(result)=>{}) {
+
+	}
+
+	removeSession(id, onclose=(result)=>{}) {
 
 	}
 }
 
 //Brains@Play session streaming functions
-export class streamUtils {
+class streamUtils {
     constructor(userinfo, socket) {
         this.state = new StateManager({
 			commandResult: {},
