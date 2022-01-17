@@ -14,23 +14,44 @@ export class DataStreaming {
 		this.streamFunctions = {
 			allLatestValues:(prop,setting)=>{
 				let setting = setting;
-				let result;
+				let result = undefined;
+
 				if(Array.isArray(prop)) {
-					result = prop.slice(setting.lastRead);
-					setting.lastRead = prop.length;
+					if(prop.length !== setting.lastRead) {
+						result = prop.slice(setting.lastRead);
+						setting.lastRead = prop.length;
+					}
 				}
 				else if (typeof prop === 'object') {
 					result = {};
 					for(const p in prop) {
 						if(Array.isArray(prop[p])) {
-							if(typeof setting === 'number') setting = {[p]:0}; //convert to an object for the sub-object keys
-							result[p] = prop[p].slice(setting[p].lastRead);
-							setting[p].lastRead = prop[p].length;
+							if(typeof setting === 'number') setting = {[p]:{lastRead:undefined}}; //convert to an object for the sub-object keys
+							else if(!setting[p]) setting[p] = {lastRead:undefined};
+							
+							if(prop[p].length !== setting[p].lastRead) {
+								result[p] = prop[p].slice(setting[p].lastRead);
+								setting[p].lastRead = prop[p].length;
+							}
 						}
-						else result[p] = prop[p];
+						else {
+							if(typeof setting === 'number') setting = {[p]:{lastRead:undefined}}; //convert to an object for the sub-object keys
+							else if(!setting[p]) setting[p] = {lastRead:undefined};
+
+							if(setting[p].lastRead !== prop[p]) {
+								result[p] = prop[p];
+								setting[p].lastRead = prop[p];
+							}
+						}
 					}
+					if(Object.keys(result).length === 0) result = undefined;
 				}
-				else result = prop;
+				else { 
+					if(setting.lastRead !== prop) {
+						result = prop;
+						setting.lastRead = prop;
+					} 
+				}
 
 				return result;
 
@@ -38,23 +59,42 @@ export class DataStreaming {
 			},
 			latestValue:(prop,setting)=>{
 				let setting = setting;
-				let result;
+				let result = undefined;
 				if(Array.isArray(prop)) {
-					result = prop[prop.length-1];
-					setting.lastRead = prop.length;
+					if(prop.length !== setting.lastRead) {
+						result = prop[prop.length-1];
+						setting.lastRead = prop.length;
+					}
 				}
 				else if (typeof prop === 'object') {
 					result = {};
 					for(const p in prop) {
 						if(Array.isArray(prop[p])) {
-							if(typeof setting === 'number') setting = {[p]:0}; //convert to an object for the sub-object keys
-							result[p] = prop[prop.length-1];
-							setting[p].lastRead = prop[p].length;
+							if(typeof setting === 'number') setting = {[p]:{lastRead:undefined}}; //convert to an object for the sub-object keys
+							else if(!setting[p]) setting[p] = {lastRead:undefined};
+							
+							if(prop[p].length !== setting[p].lastRead) {
+								result[p] = prop[p][prop[p].length-1];
+								setting[p].lastRead = prop[p].length;
+							}
 						}
-						else result[p] = prop[p];
+						else {
+							if(typeof setting === 'number') setting = {[p]:{lastRead:undefined}}; //convert to an object for the sub-object keys
+							else if(!setting[p]) setting[p] = {lastRead:undefined};
+
+							if(setting[p].lastRead !== prop[p]) {
+								result[p] = prop[p];
+								setting[p].lastRead = prop[p];
+							}
+						}
 					}
 				}
-				else result = prop;
+				else { 
+					if(setting.lastRead !== prop) {
+						result = prop;
+						setting.lastRead = prop;
+					} 
+				}
 
 				return result;
 			},
@@ -77,7 +117,7 @@ export class DataStreaming {
 		
 	}
 
-	setStreamFunc(name,key,callback=(input)=>{}) {
+	setStreamFunc(name,key,callback=this.streamFunctions.allLatestValues) {
 		if(!this.streamSettings[name].settings[key]) 
 			this.streamSettings[name].settings[key] = {lastRead:0};
 		
@@ -89,6 +129,8 @@ export class DataStreaming {
 			this.streamSettings[name].settings[key].callback = this.streamFunctions[callback]; //indexed functions
 		else if (typeof callback === 'function')
 			this.streamSettings[name].settings[key].callback = callback; //custom function
+
+		if(!this.streamSettings[name].settings[key].callback) this.streamSettings[name].settings[key].callback = this.streamFunctions.allLatestValues; //default
 		
 	}
 
@@ -98,19 +140,21 @@ export class DataStreaming {
 
 	setStream(name,object={},keys=[],settings={}) {
 
-		if(!settings.mode) settings.mode = 0;
-
-		keys.forEach((prop) => {
-			settings[prop].lastRead = 0;
-			if(!settings[prop].callback) settings.callback = this.STREAMALLLATEST; //streams all the latest buffered data for the key
-		});
-		
 		this.streamSettings[name] = {
 			object,
-			tag:name,
 			keys,
 			settings
 		};
+
+		if(!settings.callback) settings.callback = this.STREAMALLLATEST;
+
+		keys.forEach((prop) => {
+			if(settings[prop]?.callback)
+				this.setStreamFunc(name,prop,settings[prop].callback);
+			else
+				this.setStreamFunc(name,prop,settings.callback);
+		});
+
 
 	}
 
@@ -128,6 +172,7 @@ export class DataStreaming {
 	streamLoop() {
 		if(this.LOOPING) {
 			let updateObj = {
+				cmd:'updateUserData',
 				id:this.user.id,
 				userData:{}
 			};
@@ -135,8 +180,11 @@ export class DataStreaming {
 			for(const prop in this.streamSettings) {
 				this.streamSettings[prop].keys.forEach((key) => {
 					if(this.streamSettings[prop].settings[key]) {
-						let data = this.streamSettings[prop].settings[key].callback(this.streamSettings[prop].object[key],this.streamSettings[prop].settings[key]);
-						updateObj.userData[key+'_'+this.streamSettings[prop].tag] = data;
+						let data = this.streamSettings[prop].settings[key].callback(
+							this.streamSettings[prop].object[key],
+							this.streamSettings[prop].settings[key]
+						);
+						if(data !== undefined) updateObj.userData[key] = data; //overlapping props will be overwritten (e.g. duplicated controller inputs)
 					}
 				});
 			}

@@ -7,6 +7,8 @@ import { WebsocketRemoteStreaming } from '../multiplayer/session.service.js';
 import WebRTCService from 'datastreams-api/src/server/webrtc.service.js'
 import OSCManager from '../osc/osc.service.js'
 
+const DONOTSEND = 'DONOTSEND';
+
 //Instantiated by the WebsocketServer to handle callbacks
 class WebsocketController {
     
@@ -75,13 +77,16 @@ class WebsocketController {
       else {
 
         return await this.runCallback(command,args,origin,u).then(data => {
-          let dict = {msg: command, data:data }
+          
+          let dict = { msg: command, data:data };
           if (callbackId) dict.callbackId = callbackId;
   
+          if(data === DONOTSEND) return dict;
+
           if(eventSetting) this.EVENTS.emit(eventSetting.eventName,dict,u);
           else u.socket.send(JSON.stringify(dict));
 
-          return dict
+          return dict;
         }).catch(console.error)
 
       }
@@ -148,16 +153,10 @@ class WebsocketController {
      
   handleData = (obj) => {
     if(typeof obj === 'object' && !Array.isArray(obj)) { //if we got an object process it as most likely user data
-      let hasData = false;
-      if('userData' in obj) hasData = true;
-
+      
       if(obj._id) obj.id = obj._id; //just in case
 
-      if(hasData) {
-          if(this.remoteService) this.remoteService.updateUserData(obj);
-          //should generalize this more
-      }
-      else if(obj.id && obj.cmd) {
+      if(obj.id && obj.cmd) {
           this.processCommand(obj.id,obj.cmd,obj.args, undefined, obj.callbackId);
       }
       else if(obj.cmd) {

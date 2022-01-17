@@ -85,11 +85,12 @@ export class SessionStreaming {
 			);
 		}
 	}
-	
+
 	//create and/or subscribe to a live data session
 	createSession(
 		options={
 			appname:`app${Math.floor(Math.random()*1000000000000)}`,
+			devices:[],
 			type:'user', //'user','room','hostroom'
 			object:{},
 			keys:[],
@@ -98,7 +99,33 @@ export class SessionStreaming {
 		callback=(result)=>{}
 	) {
 		if (this.socket?.readyState === 1) {
+			//first some idiotproofing
+			if(!options.appname) options.appname=`app${Math.floor(Math.random()*1000000000000)}`;
+			if(!options.type) options.type = 'room';
+			if(!options.object) options.object = {test:0};
+			if(!options.keys) options.keys = Array.from(Object.keys(options.object));
 
+			//set up the data stream
+			this.datastream.setStream(
+				options.appname,
+				options.object,
+				options.keys,
+				options.settings
+			);
+
+			//set up the session
+
+			this.WebsocketClient.run(
+				'createSession',
+				[
+					options.appname,
+					options.devices,
+					options.keys
+				],
+				this.id,
+				this.socketId,
+				callback
+			)
 		}
 	}
 

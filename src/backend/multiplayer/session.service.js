@@ -1,4 +1,4 @@
-
+const DONOTSEND = "DONOTSEND";
 
 export class WebsocketSessionStreaming {
     constructor(WebsocketController) {
@@ -72,6 +72,13 @@ export class WebsocketSessionStreaming {
                     }
                 }
                 return data;
+            }
+        },
+        {
+            case:'updateUserData',
+            callback:(self,args,origin,user) => {
+                this.updateUserData(args);
+                return DONOTSEND;
             }
         },
         {
@@ -372,26 +379,21 @@ export class WebsocketSessionStreaming {
     }
 
 	createAppSubscription(appname='',devices=[],propnames=[]) {
-        // this.mongoClient.db("brainsatplay").collection('apps').find({ name: appname }).count().then(n => {
-        //     if (n > 0){
-                this.appSubscriptions.push({
-                    appname:appname,
-                    devices:devices,
-                    id:appname+"_"+Math.floor(Math.random()*10000000),
-                    users:{},
-                    updatedUsers:[], //users with new data available (clears when read from subcription)
-                    newUsers:[], //indicates users that just joined and have received no data yet
-                    spectators:{}, //usernames of spectators
-                    propnames:propnames,
-                    host:'',
-                    settings:[],
-                    lastTransmit:Date.now()
-                });
-            // } else {
-            //     console.log('error: app not configured.')
-            // }
-        // });
 
+        this.appSubscriptions.push({
+            appname:appname,
+            devices:devices,
+            id:appname+"_"+Math.floor(Math.random()*10000000),
+            users:{},
+            updatedUsers:[], //users with new data available (clears when read from subcription)
+            newUsers:[], //indicates users that just joined and have received no data yet
+            spectators:{}, //usernames of spectators
+            propnames:propnames,
+            host:'',
+            settings:[],
+            lastTransmit:Date.now()
+        });
+     
         return this.appSubscriptions.length - 1;
 	}
 
