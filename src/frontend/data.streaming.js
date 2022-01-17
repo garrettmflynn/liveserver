@@ -137,7 +137,11 @@ export class DataStreaming {
 		this.streamFunctions[name] = callback;
 	}
 
-	setStream(name,object={},settings={}) {
+	setStream(
+		object={},   //the object you want to watch
+		settings={}, //settings object to specify how data is pulled from the object keys
+		streamName=`stream${Math.floor(Math.random()*10000000000)}` //used to remove or modify the stream by name later
+	) {
 
 		if(settings.keys) {
 			if(keys.length === 0) {
@@ -150,7 +154,7 @@ export class DataStreaming {
 			settings.keys = Array.from(Object.keys(object));
 		}
 
-		this.streamSettings[name] = {
+		this.streamSettings[streamName] = {
 			object,
 			settings
 		};
@@ -159,21 +163,22 @@ export class DataStreaming {
 
 		settings.keys.forEach((prop) => {
 			if(settings[prop]?.callback)
-				this.setStreamFunc(name,prop,settings[prop].callback);
+				this.setStreamFunc(streamName,prop,settings[prop].callback);
 			else
-				this.setStreamFunc(name,prop,settings.callback);
+				this.setStreamFunc(streamName,prop,settings.callback);
 		});
 
 	}
 
-	removeStream(name,key) {
-		if(name && !key) delete this.streamSettings[name];
+	//can remove a whole stream or just a key from a stream if supplied
+	removeStream(streamName,key) {
+		if(streamName && !key) delete this.streamSettings[streamName];
 		else if (key) {
-			let idx = this.streamSettings[name].settings.keys.indexOf(key);
+			let idx = this.streamSettings[streamName].settings.keys.indexOf(key);
 			if(idx > -1) 
-				this.streamSettings[name].settings.keys.splice(idx,1);
-			if(this.streamSettings[name].settings[key]) 
-				delete this.streamSettings[name].settings[key];
+				this.streamSettings[streamName].settings.keys.splice(idx,1);
+			if(this.streamSettings[streamName].settings[key]) 
+				delete this.streamSettings[streamName].settings[key];
 		}
 	}
 

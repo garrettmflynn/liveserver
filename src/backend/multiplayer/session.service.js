@@ -1,5 +1,7 @@
 const DONOTSEND = "DONOTSEND";
 
+//TODO: Kicking, banning, and rehosting in sessions
+
 export class WebsocketSessionStreaming {
     constructor(WebsocketController) {
         if(!WebsocketController) { console.error('Requires a WebsocketController instance.'); return; }
@@ -89,7 +91,7 @@ export class WebsocketSessionStreaming {
                 if(sub === undefined) {
                     data = {msg:undefined,id:args[0]};
                 } else {
-                    data = {msg:'userSubscriptionInfo',id:args[0],sessionInfo:sub};
+                    data = {msg:'setUserStreamSettings',id:args[0],sessionInfo:sub};
                 }
                 return data;
             }
@@ -242,6 +244,18 @@ export class WebsocketSessionStreaming {
             }
         },
         {
+            case:'kick',
+            callback:(self,args,origin,user) => { //kick from a session
+                this.kickFromSession(id,args[0],args[1]);
+            }
+        },
+        {
+            case:'ban',
+            callback:(self,args,origin,user) => { //ban from a session
+                this.banFromSession(id,args[0],args[1]);
+            }
+        },
+        {
             case:'unsubscribeFromUser',
             callback:(self,args,origin,user) => {
                 let found = undefined;
@@ -388,6 +402,7 @@ export class WebsocketSessionStreaming {
             updatedUsers:[], //users with new data available (clears when read from subcription)
             newUsers:[], //indicates users that just joined and have received no data yet
             spectators:{}, //usernames of spectators
+            banned:{}, //users unable to join the session
             propnames:propnames,
             host:'',
             settings:[],
@@ -439,13 +454,13 @@ export class WebsocketSessionStreaming {
                     updatedUsers:sub.updatedUsers,
                     newUsers:sub.newUsers,
                     userData:[],
-                    spectators:{}
+                    spectators:sub.spectators,
+                    banned:sub.banned, 
                 };
                 
-                let allIds = Object.assign({}, sub.users)
-                allIds = Object.assign(allIds, sub.spectators)
+                let allIds = Object.assign({}, sub.users);
                 Object.keys(allIds).forEach((user,j) => { //get current relevant data for all players in session
-                    if(sub.spectators[user] == null){
+                    if(!sub.spectators[user]){
                         let userObj = {
                             id:user
                         }
@@ -456,9 +471,6 @@ export class WebsocketSessionStreaming {
                             });
                             updateObj.userData.push(userObj);
                         }
-                    }
-                    else {
-                        updateObj.spectators.push(user);
                     }
                 });
                 sessionData = updateObj;
@@ -514,6 +526,7 @@ export class WebsocketSessionStreaming {
             updatedUsers:[], //users with new data available (clears when read from subcription)
             newUsers:[], //indicates users that just joined and have received no data yet
             spectators:{}, //usernames of spectators
+            banned:{}, //users unable to join the session
             propnames:propnames,
             lastTransmit:Date.now()
         });
@@ -563,15 +576,15 @@ export class WebsocketSessionStreaming {
                     users:sub.users,
                     updatedUsers:sub.updatedUsers,
                     newUsers:sub.newUsers,
+                    spectators:sub.spectators,
+                    banned:sub.banned, 
                     hostData:{},
-                    userData:[],
-                    spectators:{}
+                    userData:[]
                 };
                 
                 let allIds = Object.assign({}, sub.users)
-                allIds = Object.assign(allIds, sub.spectators)
-                Object.keys(allIds).forEach((user,j) => { //get current relevant data for all players in game
-                    if(sub.spectators[user] == null){
+                Object.keys(allIds).forEach((user,j) => { //get current relevant data for all players in session
+                    if(!sub.spectators[user]){
                         let userObj = {
                             id:user
                         }
@@ -582,9 +595,6 @@ export class WebsocketSessionStreaming {
                             });
                             updateObj.userData.push(userObj);
                         }
-                    }
-                    else {
-                        spectators.push(user);
                     }
                 });
 
@@ -705,8 +715,7 @@ export class WebsocketSessionStreaming {
 
                     let fullUserData = [];
 
-                    let allIds = Object.assign({}, sub.users)
-                    allIds = Object.assign(allIds, sub.spectators)
+                    let allIds = Object.assign({}, sub.users);
 
                     Object.keys(allIds).forEach((user, j) => {
                         let userObj = this.getFullUserData(user, sub)
@@ -758,7 +767,6 @@ export class WebsocketSessionStreaming {
                     });
 
                     let allIds = Object.assign({}, sub.users)
-                    allIds = Object.assign(allIds, sub.spectators)
 
                     Object.keys(allIds).forEach((user,j) => {
                         if(sub.newUsers.indexOf(user) < 0) { //new users will get a different data struct with the full data from other users

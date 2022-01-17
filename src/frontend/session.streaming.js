@@ -86,7 +86,7 @@ export class SessionStreaming {
 		}
 	}
 
-	//create and/or subscribe to a live data session
+	//create and subscribe to a live data session
 	createSession(
 		options={
 			appname:`app${Math.floor(Math.random()*1000000000000)}`,
@@ -107,9 +107,9 @@ export class SessionStreaming {
 
 			//set up the data stream
 			this.datastream.setStream(
-				options.appname,
 				options.object,
-				options.settings
+				options.settings,
+				options.appname 
 			);
 
 			//set up the session
