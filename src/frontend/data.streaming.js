@@ -105,14 +105,13 @@ export class DataStreaming {
 			
 	//	 stream1:{
 	// 		object:{}, 		// Object we are buffering data from
-	// 		tag:'stream1',			// tag added to keys being passed
-	//		keys:['key'], 	// Keys of the object we want to buffer into the stream
-	// 		settings:{
+	//		settings:{
 	//      	callback:0, 	// Default data streaming mode for all keys
-	//			key:{
+	//			keys:['key'], 	// Keys of the object we want to buffer into the stream
+	// 			key:{
 	//				callback:0 //specific modes for specific keys
 	// 				lastRead:0,	
-	//			}
+	//			} //just dont name an object key 'keys'
 	//	 }
 		
 	}
@@ -138,32 +137,41 @@ export class DataStreaming {
 		this.streamFunctions[name] = callback;
 	}
 
-	setStream(name,object={},keys=[],settings={}) {
+	setStream(name,object={},settings={}) {
+
+		if(settings.keys) {
+			if(keys.length === 0) {
+				let k = Object.keys(object);
+				if(k.length > 0) {
+					keys = Array.from(k);
+				}
+			}
+		} else {
+			settings.keys = Array.from(Object.keys(object));
+		}
 
 		this.streamSettings[name] = {
 			object,
-			keys,
 			settings
 		};
 
 		if(!settings.callback) settings.callback = this.STREAMALLLATEST;
 
-		keys.forEach((prop) => {
+		settings.keys.forEach((prop) => {
 			if(settings[prop]?.callback)
 				this.setStreamFunc(name,prop,settings[prop].callback);
 			else
 				this.setStreamFunc(name,prop,settings.callback);
 		});
 
-
 	}
 
 	removeStream(name,key) {
 		if(name && !key) delete this.streamSettings[name];
 		else if (key) {
-			let idx = this.streamSettings[name].keys.indexOf(key);
+			let idx = this.streamSettings[name].settings.keys.indexOf(key);
 			if(idx > -1) 
-				this.streamSettings[name].keys.splice(idx,1);
+				this.streamSettings[name].settings.keys.splice(idx,1);
 			if(this.streamSettings[name].settings[key]) 
 				delete this.streamSettings[name].settings[key];
 		}
@@ -178,7 +186,7 @@ export class DataStreaming {
 			};
 
 			for(const prop in this.streamSettings) {
-				this.streamSettings[prop].keys.forEach((key) => {
+				this.streamSettings[prop].settings.keys.forEach((key) => {
 					if(this.streamSettings[prop].settings[key]) {
 						let data = this.streamSettings[prop].settings[key].callback(
 							this.streamSettings[prop].object[key],

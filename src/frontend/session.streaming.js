@@ -93,7 +93,6 @@ export class SessionStreaming {
 			devices:[],
 			type:'user', //'user','room','hostroom'
 			object:{},
-			keys:[],
 			settings:{}
 		}, 
 		callback=(result)=>{}
@@ -103,13 +102,13 @@ export class SessionStreaming {
 			if(!options.appname) options.appname=`app${Math.floor(Math.random()*1000000000000)}`;
 			if(!options.type) options.type = 'room';
 			if(!options.object) options.object = {test:0};
-			if(!options.keys) options.keys = Array.from(Object.keys(options.object));
+			if(!options.settings) options.settings = {};
+			if(!options.settings.keys) options.settings.keys = Array.from(Object.keys(options.object));
 
 			//set up the data stream
 			this.datastream.setStream(
 				options.appname,
 				options.object,
-				options.keys,
 				options.settings
 			);
 
@@ -120,7 +119,7 @@ export class SessionStreaming {
 				[
 					options.appname,
 					options.devices,
-					options.keys
+					options.settings.keys
 				],
 				this.id,
 				this.socketId,
