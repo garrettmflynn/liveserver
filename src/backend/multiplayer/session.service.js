@@ -1,17 +1,19 @@
 
 
-export class WebsocketRemoteStreaming {
+export class WebsocketSessionStreaming {
     constructor(WebsocketController) {
         if(!WebsocketController) { console.error('Requires a WebsocketController instance.'); return; }
         this.controller = WebsocketController;
+
+        //should revamp this to use maps or plain objects
 		this.userSubscriptions=[]; //User to user data subscriptions
 		this.appSubscriptions=[]; //Synchronous apps (all players receive each other's data)
         this.hostSubscriptions=[]; //Asynchronous apps (host receives all users data, users receive host data only)
-        this.subUpdateInterval = 0; //ms
-
+        
         this.serverTimeout = 60*60*1000; //min*s*ms game session timeout
         
         this.LOOPING = true;
+        this.delay = 10; //ms loop timer delay
     
         this.addDefaultCallbacks();
 
@@ -29,26 +31,25 @@ export class WebsocketRemoteStreaming {
                 let data;
                 this.controller.USERS.forEach((o) => {
                     let filtered = {};
-                    let propsToGet = ['sessions','username','origins', 'id'];
+                    let propsToGet = [
+                        'sessions',
+                        'username',
+                        'origin', 
+                        'id'
+                    ];
     
                     propsToGet.forEach(p => {
                         filtered[p] = o[p];
                     })
     
-                    if(args[1] != null) {
-                        if(o.id === args[0]) {
+                    if(args[0]) {
+                        if(o.sessions.includes(args[0]))
                             userData.push(filtered);
-                        }
                     }
-                    else if(u.sessions.length > 0 && u.sessions.includes(o.appname)) {
-                        userData.push(filtered);
-                    }
-                    else {
-                        userData.push(filtered);
-                    }
+                    else userData.push(filtered);
                 });
-                if(userData.length > 0) data = {msg:'getUsersResult', userData:userData}
-                else data = {msg:'usersNotFound', userData:[]};
+                if(userData.length > 0) data = {msg:'getUsers', userData:userData};
+                else data = {msg:undefined, userData:[]};
                 return data;
             }
         },
@@ -59,11 +60,11 @@ export class WebsocketRemoteStreaming {
                 if(args[1] === undefined) {
                     let u2 = this.getUserData(args[0]);
                     if(u2 === undefined) { data = {msg:'userNotFound',username:args[0]}; }
-                    else {data = {msg:'getUserLiveDataResult',username: args[0], userData:u2}; }
+                    else {data = {msg:'getUserLiveData',username: args[0], userData:u2}; }
                 }
                 else if (Array.isArray(args[1])) {
                     let d = this.getUserData(args[0]).props;
-                    let result = {msg:'getUserLiveDataResult',username:args[0],props:{}};
+                    let result = {msg:'getUserLiveData',username:args[0],props:{}};
                     if(d === undefined) { data = {msg:'userNotFound', username:args[0]}; }
                     else {
                         args[1].forEach((prop)=> {result.props[prop] = d.props[prop]});
@@ -79,7 +80,7 @@ export class WebsocketRemoteStreaming {
                 let sub = this.setUserStreamSettings(args[0],args[1]);
                 let data;
                 if(sub === undefined) {
-                    data = {msg:'userNotFound',id:args[0]};
+                    data = {msg:undefined,id:args[0]};
                 } else {
                     data = {msg:'userSubscriptionInfo',id:args[0],sessionInfo:sub};
                 }
@@ -91,7 +92,7 @@ export class WebsocketRemoteStreaming {
             callback:(self,args,origin,user) => {
                 let i = this.createAppSubscription(args[0],args[1],args[2]);
                 let data;
-                data = {msg:'sessionCreated',appname:args[0],sessionInfo:this.appSubscriptions[i]};
+                data = {msg:'createSession',appname:args[0],sessionInfo:this.appSubscriptions[i]};
                 return data;
             }
         },
@@ -101,10 +102,10 @@ export class WebsocketRemoteStreaming {
                 let subs = this.getAppSubscriptions(args[0]);
                 let data;
                 if(subs === undefined) {
-                    data = {msg:'appNotFound',appname:args[0]};
+                    data = {msg:undefined,appname:args[0]};
                 }
                 else {
-                    data = {msg:'getSessionsResult',appname:args[0],sessions:subs};
+                    data = {msg:'getSessions',appname:args[0],sessions:subs};
                 }
                 return data;
             }
@@ -115,10 +116,10 @@ export class WebsocketRemoteStreaming {
                 let sub = this.getAppSubscription(args[0]);
                 let data;
                 if(sub === undefined) {
-                    data = {msg:'sessionNotFound',id:args[0]};
+                    data = {msg:undefined,id:args[0]};
                 }
                 else {
-                    data = {msg:'getSessionInfoResult',id:args[0],sessionInfo:sub};
+                    data = {msg:'getSessionInfo',id:args[0],sessionInfo:sub};
                 }
                 return data;
             }
@@ -129,10 +130,10 @@ export class WebsocketRemoteStreaming {
                 let sessionData = this.getSessionData(args[0]);
                 let data;
                 if(sessionData === undefined) {
-                    data = {msg:'sessionNotFound',id:args[0]};
+                    data = {msg:undefined,id:args[0]};
                 }
                 else {
-                    data = {msg:'getSessionDataResult',id:args[0],sessionData:sessionData};
+                    data = {msg:'getSessionData',id:args[0],sessionData:sessionData};
                 }
                 return data;
             }
@@ -143,9 +144,9 @@ export class WebsocketRemoteStreaming {
                 let sub = this.setAppSettings(args[0],args[1]);
                 let data;
                 if(sub === undefined) {
-                    data = {msg:'sessionNotFound',id:args[0]};
+                    data = {msg:undefined,id:args[0]};
                 } else {
-                    data = {msg:'getSessionInfoResult',id:args[0],sessionInfo:sub};
+                    data = {msg:'setSessionSettings',id:args[0],sessionInfo:sub};
                 }
                 return data;
             }
@@ -155,7 +156,7 @@ export class WebsocketRemoteStreaming {
             callback:(self,args,origin,user) => {
                 let data;
                 let i = this.createHostSubscription(args[0],args[1],args[2],args[3],args[4]);
-                data = {msg:'sessionCreated',appname:args[0],sessionInfo:this.hostSubscriptions[i]};
+                data = {msg:'createHostedSession',appname:args[0],sessionInfo:this.hostSubscriptions[i]};
                 return data;
             }
         },
@@ -165,10 +166,10 @@ export class WebsocketRemoteStreaming {
                 let subs = this.getHostSubscriptions(args[0]);
                 let data;
                 if(subs === undefined) {
-                    data = {msg:'appNotFound',appname:args[0]};
+                    data = {msg:undefined,appname:args[0]};
                 }
                 else {
-                    data = {msg:'getSessionsResult',appname:args[0],sessions:subs};
+                    data = {msg:'getHostSessions',appname:args[0],sessions:subs};
                 }
                 return data;
             }
@@ -179,10 +180,10 @@ export class WebsocketRemoteStreaming {
                 let sub = this.getHostSubscription(args[0]);
                 let data;
                 if(sub === undefined) {
-                    data = {msg:'sessionNotFound',id:args[0]};
+                    data = {msg:undefined,id:args[0]};
                 }
                 else {
-                    data = {msg:'getSessionInfoResult',id:args[0],sessionInfo:sub};
+                    data = {msg:'getHostSessionInfo',id:args[0],sessionInfo:sub};
                 }
                 return data;
             }
@@ -193,10 +194,10 @@ export class WebsocketRemoteStreaming {
                 let sessionData = this.getHostSessionData(args[0]);
                 let data;
                 if(sessionData === undefined) {
-                    data = {msg:'sessionNotFound',id:args[0]};
+                    data = {msg:undefined,id:args[0]};
                 }
                 else {
-                    data = {msg:'getSessionDataResult',id:args[0],sessionData:sessionData};
+                    data = {msg:'getHostSessionData',id:args[0],sessionData:sessionData};
                 }
                 return data;
             }
@@ -207,9 +208,9 @@ export class WebsocketRemoteStreaming {
                 let sub = this.setHostAppSettings(args[0],args[1]);
                 let data;
                 if(sub === undefined) {
-                    data = {msg:'sessionNotFound',id:args[0]};
+                    data = {msg:undefined, id:args[0]};
                 } else {
-                    data = {msg:'getSessionInfoResult',id:args[0], sessionInfo:sub};
+                    data = {msg:'setHostSessionSettings',id:args[0], sessionInfo:sub};
                 }
                 return data;
             }
@@ -241,7 +242,7 @@ export class WebsocketRemoteStreaming {
                 if(args[1]) found = this.removeUserToUserStream(id,args[0],args[1]);
                 else found = this.removeUserToUserStream(id,args[0]);
                 if(found) {  data = {msg:'unsubscribed',id:args[0],props:args[1]};}
-                else { data = {msg:'userNotFound'} }
+                else { data = {msg:undefined,id:args[0]}; }
                 return data;
             } 
         },
@@ -252,8 +253,8 @@ export class WebsocketRemoteStreaming {
                 let data;
                 if(args[1]) found = this.removeUserFromSession(args[0],args[1]);
                 else found = this.removeUserFromSession(args[0],u.id);
-                if(found) {  data = {msg:'leftSession',id:args[0]} }
-                else { data = {msg:'sessionNotFound',id:args[0]} }
+                if(found) {  data = {msg:'left session',id:args[0]}; }
+                else { data = {msg:undefined,id:args[0]}; }
                 return data;
             }
         },
@@ -262,8 +263,8 @@ export class WebsocketRemoteStreaming {
             callback:(self,args,origin,user) => {
                 let found = this.removeSessionStream(args[0]);
                 let data;
-                if(found) { data = {msg:'sessionDeleted',id:args[0]};}
-                else { data = {msg:'sessionNotFound'}; }
+                if(found) { data = {msg:'session deleted',id:args[0]};}
+                else { data = {msg:undefined, id:args[0]}; }
                 return data;
             }
         }
@@ -492,10 +493,10 @@ export class WebsocketRemoteStreaming {
             u.sessions.push(sessionId);
             
 			//Now send to the user which props are expected from their client to the server on successful subscription
-			u.socket.send(JSON.stringify({msg:'subscribedToSession',id:sessionId,sessionInfo:g}));
+			u.socket.send(JSON.stringify({msg:'subscribed',id:sessionId,sessionInfo:g}));
 		}
 		else {
-			u.socket.send(JSON.stringify({msg:'sessionNotFound',id:sessionId}));
+			u.socket.send(JSON.stringify({msg:undefined,id:sessionId}));
         }
 	}
 
@@ -618,39 +619,38 @@ export class WebsocketRemoteStreaming {
 				if(!(prop in u.props)) u.props[prop] = '';
 			});
 			//Now send to the user which props are expected from their client to the server on successful subscription
-			u.socket.send(JSON.stringify({msg:'subscribedToSession',id:appname,devices:g.devices,propnames:g.propnames,host:g.host,hostprops:g.hostprops}));
+			u.socket.send(JSON.stringify({msg:'subscribed',id:appname,devices:g.devices,propnames:g.propnames,host:g.host,hostprops:g.hostprops}));
 		}
 		else {
-			u.socket.send(JSON.stringify({msg:'sessionNotFound',id:appname}));
+			u.socket.send(JSON.stringify({msg:undefined,id:appname}));
 		}
 	}
 
     updateUserSubscriptions = (time) => {
         this.userSubscriptions.forEach((sub,i) => {
             //Should create a dispatcher that accumulates all user and app subscription data to push all concurrent data in one message per listening user
-            if(time - sub.lastTransmit > this.subUpdateInterval){
-                let listener = this.controller.USERS.get(sub.listener);
-                let source = this.controller.USERS.get(sub.source);
+            let listener = this.controller.USERS.get(sub.listener);
+            let source = this.controller.USERS.get(sub.source);
 
-                if(listener === undefined || source === undefined ) {
-                    this.userSubscriptions.splice(i,1);
-                }
-                else if(sub.newData === true) {
-                    let dataToSend = {
-                        msg:'userData',
-                        id:sub.source,
-                        session: sub.id, // TO FIX
-                        userData:{}
-                    };
-                    sub.propnames.forEach((prop,j) => {
-                        if(source.updatedPropnames.indexOf(prop) > -1)
-                            dataToSend.userData[prop] = source.props[prop];
-                    });
-                    sub.newData = false;
-                    sub.lastTransmit = time;
-                    listener.socket.send(JSON.stringify(dataToSend));
-                }
+            if(listener === undefined || source === undefined ) {
+                this.userSubscriptions.splice(i,1);
             }
+            else if(sub.newData === true) {
+                let dataToSend = {
+                    msg:'userData',
+                    id:sub.source,
+                    session: sub.id, // TO FIX
+                    userData:{}
+                };
+                sub.propnames.forEach((prop,j) => {
+                    if(source.updatedPropnames.indexOf(prop) > -1)
+                        dataToSend.userData[prop] = source.props[prop];
+                });
+                sub.newData = false;
+                sub.lastTransmit = time;
+                listener.socket.send(JSON.stringify(dataToSend));
+            }
+            
 		});
     } 
 
@@ -681,8 +681,7 @@ export class WebsocketRemoteStreaming {
 
     updateAppSubscriptions = (time) => {
         this.appSubscriptions.forEach((sub,i) => {
-            if(time - sub.lastTransmit > this.subUpdateInterval){
-
+            
                 //let t = this.controller.USERS.get('guest');
                 //if(t!== undefined) t.socket.send(JSON.stringify(sub));
 
@@ -777,14 +776,13 @@ export class WebsocketRemoteStreaming {
                 
                 sub.updatedUsers = [];
                 sub.newUsers = [];
-            }
+            
             sub.lastTransmit = time;
 		});
     }
 
     updateHostAppSubscriptions = (time) => {
         this.hostSubscriptions.forEach((sub,i) => {
-            if(time - sub.lastTransmit > this.subUpdateInterval){
                 
                 //let t = this.controller.USERS.get('guest');
                 //if(t!== undefined) t.socket.send(JSON.stringify(sub));
@@ -872,7 +870,7 @@ export class WebsocketRemoteStreaming {
                 sub.updatedUsers = [];
                 sub.newUsers = [];
                 
-            }
+            
             sub.lastTransmit = time;
 		});
     }
@@ -1022,7 +1020,7 @@ export class WebsocketRemoteStreaming {
                 }
             })
 
-            setTimeout(() => {this.subscriptionLoop();},10);
+            setTimeout(() => {this.subscriptionLoop();},this.delay);
         }
     }
 

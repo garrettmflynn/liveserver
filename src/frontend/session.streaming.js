@@ -1,11 +1,27 @@
 import StateManager from 'anotherstatemanager'
-import { dataStreaming } from './data.streaming';
+import { DataStreaming } from './data.streaming';
 
 //Joshua Brewster, Garrett Flynn AGPL v3.0
-export class sessionStreaming {
-	constructor(socket, userinfo={id:'user'+Math.floor(Math.random()*10000000000)}) {
+export class SessionStreaming {
+	constructor(WebsocketClient, socketId, userinfo={id:'user'+Math.floor(Math.random()*10000000000)}) {
 		
-		this.socket = socket;
+		if(!WebsocketClient) {
+			console.error("SessionStreaming needs an active WebsocketClient");
+			return;
+		}
+		
+		this.WebsocketClient = WebsocketClient;
+		this.socketId = socketId;
+
+		if(!socketId) {
+			if(!this.WebsocketClient.sockets[0]) {
+				this.socketId = this.WebsocketClient.addSocket(); //try to add a socket
+				if(!this.socketId) {
+					return;
+				}
+			} else this.socketId = this.WebsocketClient.sockets[0].id;
+		}
+
 		this.user = userinfo;
 		
 		this.state = new StateManager({
@@ -15,30 +31,99 @@ export class sessionStreaming {
 
         this.id = Math.floor(Math.random() * 10000000000) // Give the session an ID
 		
-		this.apps = {};
-		this.subscriptions = {};
+		this.apps 		   = new Map();
+		this.subscriptions = new Map();
 
-		this.datastream = new dataStreaming(socket,userinfo);
+		this.datastream = new DataStreaming(socket,userinfo);
 
 	}
 
+	getUser(userId,callback=(result)=>{}) {
+		if (this.socket?.readyState === 1) {
+			this.WebsocketClient.run(
+				'getUserData',
+				[userId],
+				this.id,
+				this.socketId,
+				callback
+			);
+		}		
+	}
+
+	getUsers(sessionId,callback=(result)=>{}) {
+		if (this.socket?.readyState === 1) {
+			this.WebsocketClient.run(
+				'getUsers',
+				[sessionId],
+				this.id,
+				this.socketId,
+				callback
+			);
+		}
+	}
+
+	getSessionsFromServer(appname,callback=(result)=>{}) {
+		if (this.socket?.readyState === 1) {
+			this.WebsocketClient.run(
+				'getSessions',
+				[appname],
+				this.id,
+				this.socketId,
+				callback
+			);
+		}
+	}
+
+	getSessionData(sessionId,callback=(result)=>{}) {
+		if (this.socket?.readyState === 1) {
+			this.WebsocketClient.run(
+				'getSessionData',
+				[sessionId],
+				this.id,
+				this.socketId,
+				callback
+			);
+		}
+	}
+	
 	//create and/or subscribe to a live data session
-	createSession(options={
-		id:'',
-		type:'general', //'hosted'
-		dataObject:{},
-		keys:[],
-		settings:{}
-	}, onopen=(result)=>{}) {
+	createSession(
+		options={
+			appname:`app${Math.floor(Math.random()*1000000000000)}`,
+			type:'user', //'user','room','hostroom'
+			object:{},
+			keys:[],
+			settings:{}
+		}, 
+		callback=(result)=>{}
+	) {
+		if (this.socket?.readyState === 1) {
 
+		}
 	}
 
-	removeSession(id, onclose=(result)=>{}) {
+	subscribeToSession(
+		options={},
+		callback=(result)=>{}
+	) {
+		if (this.socket?.readyState === 1) {
 
+		}
 	}
+
+	removeSession(
+		id, 
+		callback=(result)=>{}
+	) {
+		if (this.socket?.readyState === 1) {
+
+		}
+	}
+	
 }
 
 //Brains@Play session streaming functions
+//OLD
 class streamUtils {
     constructor(userinfo, socket) {
         this.state = new StateManager({
@@ -382,7 +467,7 @@ class streamUtils {
 				else if (newResult.msg === 'appNotFound' & newResult.appname === appname) {
 					this.state.unsubscribeTrigger('commandResult', sub);
 					console.log("App not found: ", appname);
-					return []
+					return [];
 				}
 			});
 		}

@@ -1,7 +1,7 @@
 
 import { WebsocketDB } from '../database/database.service.js';
 import {Events} from '@brainsatplay/liveserver-common'
-import { WebsocketRemoteStreaming } from '../multiplayer/remote.service.js';
+import { WebsocketRemoteStreaming } from '../multiplayer/session.service.js';
 
 //should make these toggleable
 import WebRTCService from 'datastreams-api/src/server/webrtc.service.js'
@@ -126,7 +126,6 @@ class WebsocketController {
 
     if(this.webrtc) try {this.webrtc.addUser(socket,id)} catch (e) {console.error(e)}
 
-    
     this.setWSBehavior(socket,id);
 
     return id; //returns the generated id so you can look up
@@ -153,7 +152,7 @@ class WebsocketController {
       if('userData' in obj) hasData = true;
 
       if(obj._id) obj.id = obj._id; //just in case
-      
+
       if(hasData) {
           if(this.remoteService) this.remoteService.updateUserData(obj);
           //should generalize this more

@@ -56,7 +56,7 @@ export class WebsocketServer{
 
           })
 
-            ws.id = subprotocols.id[0] ?? Math.floor(Math.random() * 10000000);
+            ws.id = subprotocols.id[0] ?? `user${Math.floor(Math.random() * 10000000000)}`;
 
             // subprotocols should look like:
             /*

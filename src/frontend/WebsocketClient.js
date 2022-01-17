@@ -4,9 +4,11 @@
 import {Events} from '@brainsatplay/liveserver-common'
 
 export class WebsocketClient {
-    constructor(url, subprotocols) {
+    constructor(socketUrl='https://localhost:80', subprotocols={id:`user${Math.floor(Math.random() * 10000000000)}`}) {
 
-        if (!(url instanceof URL)) url = new URL(url)
+        if (!(url instanceof URL)) this.url = new URL(socketUrl);
+
+        this.subprotocols = subprotocols;
 
         this.connected = false;
         this.sendQueue = [];
@@ -24,9 +26,10 @@ export class WebsocketClient {
         this.unsubEvent = (eventName, sub) => {this.EVENTS.unsubEvent(eventName,sub)};
         this.addEvent = (eventName, origin, functionName, id) => {this.EVENTS.addEvent(eventName, origin, functionName, id)};
 
-        this.addSocket(url, subprotocols)
+        this.addSocket(this.url, subprotocols)
     }
 
+    //creates a url to be posted to the socket backend for parsing, mainly user info
     encodeForSubprotocol = (dict) => {
         let subprotocol = []
 
@@ -38,31 +41,36 @@ export class WebsocketClient {
         console.log(dict)
 
         Object.keys(dict).forEach((str) => subprotocol.push(`brainsatplay.com/${str}/${dict[str]}?arr=` + Array.isArray(dict[str])))
-        return encodeURIComponent(subprotocol.join(';'))
+        return encodeURIComponent(subprotocol.join(';'));
 
     }
 
-    addSocket(url, subprotocolObject) {
+    addSocket(url=this.url, subprotocolObject=this.subprotocols) {
         let socket;
+        try {
+            if (url.protocol === 'http:') {
+            
+                socket = new WebSocket(
+                    'ws://' + url.hostname, // We're always using :80
+                    this.encodeForSubprotocol(subprotocolObject));
+                //this.streamUtils = new streamUtils(auth,socket);
+            } else if (url.protocol === 'https:') {
+                socket = new WebSocket(
+                    'wss://' + url.hostname, // We're always using :80
+                    this.encodeForSubprotocol(subprotocolObject));
 
-        if (url.protocol === 'http:') {
-            socket = new WebSocket(
-                'ws://' + url.hostname, // We're always using :80
-                this.encodeForSubprotocol(subprotocolObject));
-
-            //this.streamUtils = new streamUtils(auth,socket);
-        } else if (url.protocol === 'https:') {
-            socket = new WebSocket(
-                'wss://' + url.hostname, // We're always using :80
-                this.encodeForSubprotocol(subprotocolObject));
-
-            //this.streamUtils = new streamUtils(auth,socket);
-        } else {
-            console.log('invalid protocol');
-            return;
+                //this.streamUtils = new streamUtils(auth,socket);
+            } else {
+                console.log('invalid protocol');
+                return undefined;
+            }
+        }
+        catch(err) {
+            console.error('Error with socket creation!',err);
+            return undefined;
         }
 
-        console.log(socket)
+        console.log(socket);
 
         socket.onerror = (e) => {
             console.log('error', e);
@@ -83,7 +91,7 @@ export class WebsocketClient {
         }
 
         let id = "socket_"+Math.floor(Math.random()*10000000000);
-          
+
         this.sockets.push({socket:socket,id:id});
 
         return id;

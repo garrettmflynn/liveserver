@@ -1,6 +1,6 @@
 //Allows you to stream data asynchronously with automatic buffering settings
 //This hooks in with functions on the remote service backend.
-export class dataStreaming {
+export class DataStreaming {
 	constructor(socket, userinfo={id:'user'+Math.floor(Math.random()*10000000000)}) {
 
 		this.socket = socket;
