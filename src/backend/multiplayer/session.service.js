@@ -477,6 +477,24 @@ export class WebsocketSessionStreaming {
         return undefined;
     }
 
+    getUserStreamData(sessionId) {
+        let session = this.userSubs[sessionId];
+        if(session) {
+            let result = JSON.parse(JSON.stringify(session));
+            result.userData = {[sourceId]:{}};
+
+            let source = this.controller.USERS.get(session.sourceId);
+            if(!source) this.removeUserToUserStream(undefined,session.id,undefined,true);
+            
+            for(const prop in session.propnames) {
+                if(source.props[prop]) result.userData[sourceId][prop] = source[props][prop];
+            }
+
+            return result;
+        }
+        return undefined;
+    }
+
     getSessionData(sessionId) {
         let session = this.userSubs[sessionId];
         if(session) {
@@ -498,24 +516,126 @@ export class WebsocketSessionStreaming {
 
             return result;
         }
-        return undefined;
+        else return this.getUserStreamData(sessionId); //will return undefined if user sub not found
     }
 
-    getUserStreamData(sessionId) {
-        let session = this.userSubs[sessionId];
-        if(session) {
-            let result = JSON.parse(JSON.stringify(session));
-            result.userData = {[sourceId]:{}};
+    updateSessionUsers(sessionId) {
+        let updatedUsers = {};
 
-            let source = this.controller.USERS.get(session.sourceId);
-            if(!source) this.removeUserToUserStream(undefined,session.id,undefined,true);
+        let session = this.appSubs[sessionId];
+
+        if(session.users.length === 0) {
+            if(session.lastTransmit - Date.now() >= this.sessionTimeout) delete this.appSubs[prop];
+            return false; 
+        }
+        let updateObj = JSON.parse(JSON.stringify(session));
             
-            for(const prop in session.propnames) {
-                if(source.props[prop]) result.userData[sourceId][prop] = source[props][prop];
+        if(session.type === 'hostroom') {
+
+            updateObj.hostData = {};
+            let host = this.controller.USERS.get(session.host);
+            if(!host && session.host) {
+                this.kickUser(undefined,session.host,session.id,true);
+            } else {
+                session.host = session.users[0];
+                if(!session.host) return false; //no users to update, continue
+                else host = this.controller.USERS.get(session.host);
             }
 
-            return result;
+            session.hostprops.forEach((prop) => {
+                if(host.updatedPropNames.includes(prop)) updateObj.userData[user][prop] = host.props[prop];
+            });
+            
+            if(Object.keys(updateObj.hostData) > 0) {
+                let toKick = [];
+                session.users.forEach((user) => {
+                    let u = this.controller.USERS.get(user);
+                    if(!u) toKick.push(user);
+                    else if (user !== session.host) u.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
+                    updatedUsers[user] = true;
+                });
+                toKick.forEach((id) => {
+                    this.kickUser(undefined,id,session.id,true);
+                });
+            }
+            delete updateObj.hostData;
         }
+
+        updateObj.userData = {};
+        let toKick = [];
+        session.users.forEach((user) => {
+            let u = this.controller.USERS.get(user);
+            if(!u) toKick.push(user);
+            else {
+                updateObj.userData[user] = {};
+                session.propnames.forEach((prop) => {
+                    if(u.updatedPropnames.includes(prop)) 
+                        updateObj.userData[user][prop] = u.props[prop];
+                });
+                if(Object.keys(updateObj.userData[user]).length === 0) 
+                    delete updateObj.userData[user]; //no need to pass an empty object
+            }
+        });
+        toKick.forEach((id) => {
+            this.kickUser(undefined,id,session.id,true);
+        });
+
+        //now send the data out
+        if(session.type === 'hostroom') {
+            let host = this.controller.USERS.get(session.host);
+            if(host) {   
+                host.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
+                updatedUsers[session.host] = true;
+            }
+            session.lastTransmit = Date.now();
+        }   
+        else {
+            session.users.forEach((user) => {
+                let u = this.controller.USERS.get(user);
+                if(u) {
+                    u.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
+                    updatedUsers[user] = true;
+                }
+            });
+            session.lastTransmit = Date.now();
+        }
+
+        return updatedUsers;
+
+    }
+
+    updateUserStreams(sessionId) {
+        let updatedUsers = {};
+
+        let session = this.userSubs[sessionId];   
+
+        let updateObj = JSON.parse(JSON.stringify(session));
+
+        let source = this.controller.USERS.get(session.sourceId);
+        let listener = this.controller.USERS.get(session.listenerId);
+        if(!source || !listener) {
+            this.removeUserToUserStream(undefined,session.id,undefined,true);
+            return false;
+        }
+        if(session.lastTransmit - Date.now() >= this.sessionTimeout) {
+            delete this.userSubs[prop];
+            return false;
+        }
+
+        updateObj.userData = {[session.sourceId]:{}};
+        session.propnames.forEach((p) => {
+            if(source.updatedPropnames.includes(p)) 
+                updateObj.userData[session.sourceId][p] = source.props[p];
+        });
+
+        if(Object.keys(updateObj.userData).length > 0) {
+            u.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
+            updatedUsers[user] = true;
+            session.lastTransmit = Date.now();
+        }
+        
+        return updatedUsers;
+
     }
 
     streamLoop = async () => {
@@ -526,115 +646,14 @@ export class WebsocketSessionStreaming {
 
             //handle session streams
             for(const prop in this.appSubs) {
-                let session = this.appSubs[prop];
-
-                if(session.users.length === 0) {
-                    if(session.lastTransmit - Date.now() >= this.sessionTimeout) delete this.appSubs[prop];
-                    continue; 
-                }
-                let updateObj = JSON.parse(JSON.stringify(session));
-                    
-                if(session.type === 'hostroom') {
-     
-                    updateObj.hostData = {};
-                    let host = this.controller.USERS.get(session.host);
-                    if(!host && session.host) {
-                        this.kickUser(undefined,session.host,session.id,true);
-                    } else {
-                        session.host = session.users[0];
-                        if(!session.host) continue; //no users to update, continue
-                        else host = this.controller.USERS.get(session.host);
-                    }
-
-                    session.hostprops.forEach((prop) => {
-                        if(host.updatedPropNames.includes(prop)) updateObj.userData[user][prop] = host.props[prop];
-                    });
-                    
-                    if(Object.keys(updateObj.hostData) > 0) {
-                        let toKick = [];
-                        session.users.forEach((user) => {
-                            let u = this.controller.USERS.get(user);
-                            if(!u) toKick.push(user);
-                            else if (user !== session.host) u.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
-                            updatedUsers[user] = true;
-                        });
-                        toKick.forEach((id) => {
-                            this.kickUser(undefined,id,session.id,true);
-                        });
-                    }
-                    delete updateObj.hostData;
-                }
-
-                updateObj.userData = {};
-                let toKick = [];
-                session.users.forEach((user) => {
-                    let u = this.controller.USERS.get(user);
-                    if(!u) toKick.push(user);
-                    else {
-                        updateObj.userData[user] = {};
-                        session.propnames.forEach((prop) => {
-                            if(u.updatedPropnames.includes(prop)) 
-                                updateObj.userData[user][prop] = u.props[prop];
-                        });
-                        if(Object.keys(updateObj.userData[user]).length === 0) 
-                            delete updateObj.userData[user]; //no need to pass an empty object
-                    }
-                });
-                toKick.forEach((id) => {
-                    this.kickUser(undefined,id,session.id,true);
-                });
-
-                //now send the data out
-                if(session.type === 'hostroom') {
-                    let host = this.controller.USERS.get(session.host);
-                    if(host) {   
-                        host.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
-                        updatedUsers[session.host] = true;
-                    }
-                    session.lastTransmit = Date.now();
-                }   
-                else {
-                    session.users.forEach((user) => {
-                        let u = this.controller.USERS.get(user);
-                        if(u) {
-                            u.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
-                            updatedUsers[user] = true;
-                        }
-                    });
-                    session.lastTransmit = Date.now();
-                }
-
+                let updated = this.updateSessionUsers(prop);
+                if(updated) Object.assign(updatedUsers,updated);
             }
 
             //handle user-user streams
             for(const prop in this.userSubs) {
-                let session = this.userSubs[prop];   
-
-                let updateObj = JSON.parse(JSON.stringify(session));
-
-                let source = this.controller.USERS.get(session.sourceId);
-                let listener = this.controller.USERS.get(session.listenerId);
-                if(!source || !listener) {
-                    this.removeUserToUserStream(undefined,session.id,undefined,true);
-                    continue;
-                }
-                if(session.lastTransmit - Date.now() >= this.sessionTimeout) {
-                    delete this.userSubs[prop];
-                    continue;
-                }
-
-                updateObj.userData = {[session.sourceId]:{}};
-                session.propnames.forEach((prop) => {
-                    if(source.updatedPropnames.includes(prop)) 
-                        updateObj.userData[session.sourceId][prop] = source.props[prop];
-                });
-
-                if(Object.keys(updateObj.userData).length > 0) {
-                    u.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
-                    updatedUsers[user] = true;
-                    session.lastTransmit = Date.now();
-                }
-
+                let updated = this.updateUserStreams(prop);
+                if(updated) Object.assign(updatedUsers,updated);
             }
 
             //clear update flags
