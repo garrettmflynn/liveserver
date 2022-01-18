@@ -31,28 +31,64 @@ export class WebsocketSessionStreaming {
         
         //FYI "this" scope references this class, "self" scope references the controller scope.
         this.controller.callbacks.push(
-          
+            {
+                case:'updateUserStreamData',
+                callback:(self,args,origin,user) => {
+                    this.updateUserStreamData(user,args);
+                }
+            },
+            {
+                case:'createSession',
+                callback:(self,args,origin,user) => {
+                    this.createSession(user,args[0],args[1]);
+                }
+            },
+            {
+                case:'subscribeToSession',
+                callback:(self,args,origin,user) => {
+                    if(this.controller.USERS.get(args[0]))
+                        return this.subscribeToUser(user,args[0],user.id,args[1],args[2]); //can input arguments according to the type of session you're subscribing to
+                    else return this.subscribeToSession(user,args[0],args[1],args[2]);
+                }
+            },
+            {
+                case:'unsubscribeFromSession',
+                callback:(self,args,origin,user) => {
+                    this.unsubscribe(user,args[0],args[1]);
+                }
+            },
+            {
+                case:'getSessionData',
+                callback:(self,args,origin,user) => {
+
+                }
+            } //TODO, moderation functions
         );
     }
 
     //Received user data from a user socket, now parse it into system
-	updateUserStreamData(data={id:'',userData:{}}){ 
+	updateUserStreamData(user={},args={}){ 
 		//Send previous data off to storage
-        if (this.controller.USERS.has(data.id)){
+        
+        let u;
+        if(args.id)
+            u = this.controller.USERS.get(args.id);
+        else u = this.controller.USERS.get(user.id);
 
-            let u = this.controller.USERS.get(data.id);
+        if(!u) return undefined;
 
-            for(const prop in data.userData) {
-                u.props[prop] = data.userData[prop];
-                if(u.updatedPropnames.indexOf(prop) < 0)
-                    u.updatedPropnames.push(prop);
-            }
-
-            let now = Date.now();
-            u.latency = now-u.lastUpdate;
-            u.lastUpdate = now;
-            
+        for(const prop in msg.data) {
+            u.props[prop] = msg.data[prop];
+            if(u.updatedPropnames.indexOf(prop) < 0)
+                u.updatedPropnames.push(prop);
         }
+
+        let now = Date.now();
+        u.latency = now-u.lastUpdate;
+        u.lastUpdate = now;
+        
+        return DONOTSEND;
+    
 	}
 
     createSession(
@@ -109,15 +145,16 @@ export class WebsocketSessionStreaming {
     //For 2+ user sessions or asynchronous 'host' room communication
     subscribeToSession(user={}, userId, sessionId, spectating=true) {
         let session = this.appSubs[sessionId];
-
-        if(!userId && !user.id) return undefined;
-        if(!userId && user.id) userId = user.id;
         
-
-        let newUser = this.controller.USERS.get(userId);
-        if(!newUser) return undefined;
-
         if(session) {
+            if(!userId && !user.id) return undefined;
+            if(!userId && user.id) userId = user.id;
+            
+
+            let newUser = this.controller.USERS.get(userId);
+            if(!newUser) return undefined;
+
+        
             if(!session.banned.includes(userId)) {
                 if(!session.users?.includes(userId))
                     session.users.push(userId);
@@ -157,7 +194,7 @@ export class WebsocketSessionStreaming {
                 return result; //return the session object with the latest data for setup
             }
             
-        }
+        } 
         else return undefined;
     }
 
@@ -505,8 +542,10 @@ export class WebsocketSessionStreaming {
                 for(const prop in session.propnames) {
                     let u = this.controller.USERS.get(id);
                     if(u) {
-                        for(const prop in session.propnames) {
-                            if(u.props[prop]) result.userData[id][prop] = u[props][prop];
+                        if(!session.spectators.includes(id)) {
+                            for(const prop in session.propnames) {
+                                if(u.props[prop]) result.userData[id][prop] = u[props][prop];
+                            }
                         }
                     } else this.kickUser(undefined,id,session.id,true);
                     if(Object.keys(result.userData[id]).length === 0) 
@@ -569,8 +608,10 @@ export class WebsocketSessionStreaming {
             else {
                 updateObj.userData[user] = {};
                 session.propnames.forEach((prop) => {
-                    if(u.updatedPropnames.includes(prop)) 
-                        updateObj.userData[user][prop] = u.props[prop];
+                    if(!session.spectators.includes(user)) {
+                        if(u.updatedPropnames.includes(prop)) 
+                            updateObj.userData[user][prop] = u.props[prop];
+                    }
                 });
                 if(Object.keys(updateObj.userData[user]).length === 0) 
                     delete updateObj.userData[user]; //no need to pass an empty object
