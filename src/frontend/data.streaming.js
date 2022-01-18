@@ -1,5 +1,5 @@
-//Allows you to stream data asynchronously with automatic buffering settings
-//This hooks in with functions on the remote service backend.
+//Allows you to stream outgoing data asynchronously with automatic buffering settings.
+//This hooks in with functions on the session.service tool for creating two way sessions.
 export class DataStreaming {
 	constructor(socket, userinfo={id:'user'+Math.floor(Math.random()*10000000000)}) {
 
@@ -12,6 +12,9 @@ export class DataStreaming {
 		this.streamSettings = {};
 
 		this.streamFunctions = {
+			//these default functions will only send the latest of an array or value if changes are detected, and can handle single nested objects 
+			// you can use the setting to create watch properties (e.g. lastRead for these functions). 
+			// All data must be JSONifiable
 			allLatestValues:(prop,setting)=>{
 				let setting = setting;
 				let result = undefined;
@@ -102,17 +105,6 @@ export class DataStreaming {
 
 		this.STREAMLATEST = 0;
 		this.STREAMALLLATEST = 1;
-			
-	//	 stream1:{
-	// 		object:{}, 		// Object we are buffering data from
-	//		settings:{
-	//      	callback:0, 	// Default data streaming mode for all keys
-	//			keys:['key'], 	// Keys of the object we want to buffer into the stream
-	// 			key:{
-	//				callback:0 //specific modes for specific keys
-	// 				lastRead:0,	
-	//			} //just dont name an object key 'keys'
-	//	 }
 		
 	}
 
@@ -137,13 +129,23 @@ export class DataStreaming {
 		this.streamFunctions[name] = callback;
 	}
 
+				
+	// 		object:{key:[1,2,3],key2:0,key3:'abc'}, 		// Object we are buffering data from
+	//		settings:{
+	//      	callback:0, 	// Default data streaming mode for all keys
+	//			keys:['key','key2'], 	// Keys of the object we want to buffer into the stream
+	// 			key:{
+	//				callback:0 //specific modes for specific keys
+	// 				lastRead:0,	
+	//			} //just dont name an object key 'keys' :P
 	setStream(
 		object={},   //the object you want to watch
 		settings={}, //settings object to specify how data is pulled from the object keys
 		streamName=`stream${Math.floor(Math.random()*10000000000)}` //used to remove or modify the stream by name later
 	) {
 
-		if(settings.keys) {
+		///stream all of the keys from the object if none specified
+		if(settings.keys) { 
 			if(keys.length === 0) {
 				let k = Object.keys(object);
 				if(k.length > 0) {
@@ -168,6 +170,8 @@ export class DataStreaming {
 				this.setStreamFunc(streamName,prop,settings.callback);
 		});
 
+		return this.streamSettings[streamName];
+
 	}
 
 	//can remove a whole stream or just a key from a stream if supplied
@@ -185,7 +189,7 @@ export class DataStreaming {
 	streamLoop() {
 		if(this.LOOPING) {
 			let updateObj = {
-				cmd:'updateUserData',
+				cmd:'updateUserStreamData',
 				id:this.user.id,
 				userData:{}
 			};

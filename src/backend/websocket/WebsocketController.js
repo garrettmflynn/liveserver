@@ -1,6 +1,6 @@
 
 import { WebsocketDB } from '../database/database.service.js';
-import {Events} from '@brainsatplay/liveserver-common'
+import { Events } from '@brainsatplay/liveserver-common'
 import { WebsocketRemoteStreaming } from '../multiplayer/session.service.js';
 
 //should make these toggleable
@@ -85,6 +85,7 @@ class WebsocketController {
 
           if(eventSetting) this.EVENTS.emit(eventSetting.eventName,dict,u);
           else u.socket.send(JSON.stringify(dict));
+          u.lastTransmit = Date.now();
 
           return dict;
         }).catch(console.error)
@@ -105,6 +106,7 @@ class WebsocketController {
       props: {},
       updatedPropnames: [],
       sessions:[],
+      blocked:[], //blocked user ids for access controls
       lastUpdate:Date.now(),
       lastTransmit:0,
       latency:0,
@@ -147,9 +149,20 @@ class WebsocketController {
         }
         this.USERS.delete(user._id);
         return true;
-    } return false;
+    } 
+    return false;
   }
 
+  //adds an id to a blocklist for access control
+  blockUser(user={}, userId='') {
+    if(this.USERS.get(userId)) {
+      if(!user.blocked.includes(userId) && user.id !== userId) { //can't block self 
+        user.blocked.push(userId);
+        return true;
+      }
+    }
+    return false;
+  }
      
   handleData = (obj) => {
     if(typeof obj === 'object' && !Array.isArray(obj)) { //if we got an object process it as most likely user data
@@ -294,6 +307,12 @@ class WebsocketController {
             case:'listUsers',
             callback:(self,args,origin,user)=>{
               return Array.from(this.USERS.keys());
+            }
+          },
+          { //lists user keys
+            case:'blockUser',
+            callback:(self,args,origin,user)=>{
+              return this.blockUser(user,args[0]);
             }
           },
           { //get basic details of a user or of yourself

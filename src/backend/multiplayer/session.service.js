@@ -1,6 +1,7 @@
 const DONOTSEND = "DONOTSEND";
 
-//TODO: Kicking, banning, and rehosting in sessions
+//TODO: one-off data calls based on session configs
+//      reimplement callbacks
 
 export class WebsocketSessionStreaming {
     constructor(WebsocketController) {
@@ -12,7 +13,10 @@ export class WebsocketSessionStreaming {
 		this.appSubscriptions=[]; //Synchronous apps (all players receive each other's data)
         this.hostSubscriptions=[]; //Asynchronous apps (host receives all users data, users receive host data only)
         
-        this.serverTimeout = 60*60*1000; //min*s*ms game session timeout
+        this.userSubs = {};
+        this.appSubs = {};
+
+        this.sessionTimeout = 20 * 60*1000; //min*s*ms game session timeout with no activity. 20 min default
         
         this.LOOPING = true;
         this.delay = 10; //ms loop timer delay
@@ -22,278 +26,17 @@ export class WebsocketSessionStreaming {
         this.subscriptionLoop();
     }
 
+    //TODO
     addDefaultCallbacks() {
         
         //FYI "this" scope references this class, "self" scope references the controller scope.
         this.controller.callbacks.push(
-            {
-                case:'getUsers',
-                callback:(self,args,origin,user) => {
-                let userData = [];
-                let data;
-                this.controller.USERS.forEach((o) => {
-                    let filtered = {};
-                    let propsToGet = [
-                        'sessions',
-                        'username',
-                        'origin', 
-                        'id'
-                    ];
-    
-                    propsToGet.forEach(p => {
-                        filtered[p] = o[p];
-                    })
-    
-                    if(args[0]) {
-                        if(o.sessions.includes(args[0]))
-                            userData.push(filtered);
-                    }
-                    else userData.push(filtered);
-                });
-                if(userData.length > 0) data = {msg:'getUsers', userData:userData};
-                else data = {msg:undefined, userData:[]};
-                return data;
-            }
-        },
-        {
-            case:'getUserLiveData',
-            callback:(self,args,origin,user) => {
-                let data;
-                if(args[1] === undefined) {
-                    let u2 = this.getUserData(args[0]);
-                    if(u2 === undefined) { data = {msg:'userNotFound',username:args[0]}; }
-                    else {data = {msg:'getUserLiveData',username: args[0], userData:u2}; }
-                }
-                else if (Array.isArray(args[1])) {
-                    let d = this.getUserData(args[0]).props;
-                    let result = {msg:'getUserLiveData',username:args[0],props:{}};
-                    if(d === undefined) { data = {msg:'userNotFound', username:args[0]}; }
-                    else {
-                        args[1].forEach((prop)=> {result.props[prop] = d.props[prop]});
-                        data = result; 
-                    }
-                }
-                return data;
-            }
-        },
-        {
-            case:'updateUserData',
-            callback:(self,args,origin,user) => {
-                this.updateUserData(args);
-                return DONOTSEND;
-            }
-        },
-        {
-            case:'setUserStreamSettings',
-            callback:(self,args,origin,user) => {
-                let sub = this.setUserStreamSettings(args[0],args[1]);
-                let data;
-                if(sub === undefined) {
-                    data = {msg:undefined,id:args[0]};
-                } else {
-                    data = {msg:'setUserStreamSettings',id:args[0],sessionInfo:sub};
-                }
-                return data;
-            }
-        },
-        {
-            case:'createSession',
-            callback:(self,args,origin,user) => {
-                let i = this.createAppSubscription(args[0],args[1],args[2]);
-                let data;
-                data = {msg:'createSession',appname:args[0],sessionInfo:this.appSubscriptions[i]};
-                return data;
-            }
-        },
-        {
-            case:'getSessions',
-            callback:(self,args,origin,user) => { //List sessions with the app name
-                let subs = this.getAppSubscriptions(args[0]);
-                let data;
-                if(subs === undefined) {
-                    data = {msg:undefined,appname:args[0]};
-                }
-                else {
-                    data = {msg:'getSessions',appname:args[0],sessions:subs};
-                }
-                return data;
-            }
-        },
-        {
-            case:'getSessionInfo',
-            callback:(self,args,origin,user) => { //List the app info for the particular ID
-                let sub = this.getAppSubscription(args[0]);
-                let data;
-                if(sub === undefined) {
-                    data = {msg:undefined,id:args[0]};
-                }
-                else {
-                    data = {msg:'getSessionInfo',id:args[0],sessionInfo:sub};
-                }
-                return data;
-            }
-        },
-        {
-            case:'getSessionData',
-            callback:(self,args,origin,user) => {
-                let sessionData = this.getSessionData(args[0]);
-                let data;
-                if(sessionData === undefined) {
-                    data = {msg:undefined,id:args[0]};
-                }
-                else {
-                    data = {msg:'getSessionData',id:args[0],sessionData:sessionData};
-                }
-                return data;
-            }
-        },
-        {
-            case:'setSessionSettings',
-            callback:(self,args,origin,user) => {
-                let sub = this.setAppSettings(args[0],args[1]);
-                let data;
-                if(sub === undefined) {
-                    data = {msg:undefined,id:args[0]};
-                } else {
-                    data = {msg:'setSessionSettings',id:args[0],sessionInfo:sub};
-                }
-                return data;
-            }
-        },
-        {
-            case:'createHostedSession',
-            callback:(self,args,origin,user) => {
-                let data;
-                let i = this.createHostSubscription(args[0],args[1],args[2],args[3],args[4]);
-                data = {msg:'createHostedSession',appname:args[0],sessionInfo:this.hostSubscriptions[i]};
-                return data;
-            }
-        },
-        {
-            case:'getHostSessions',
-            callback:(self,args,origin,user) => { //List sessions with the app name
-                let subs = this.getHostSubscriptions(args[0]);
-                let data;
-                if(subs === undefined) {
-                    data = {msg:undefined,appname:args[0]};
-                }
-                else {
-                    data = {msg:'getHostSessions',appname:args[0],sessions:subs};
-                }
-                return data;
-            }
-        },
-        {
-            case:'getHostSessionInfo',
-            callback:(self,args,origin,user) => { //List the app info for the particular session ID
-                let sub = this.getHostSubscription(args[0]);
-                let data;
-                if(sub === undefined) {
-                    data = {msg:undefined,id:args[0]};
-                }
-                else {
-                    data = {msg:'getHostSessionInfo',id:args[0],sessionInfo:sub};
-                }
-                return data;
-            }
-        },
-        {
-            case:'getHostSessionData',
-            callback:(self,args,origin,user) => {
-                let sessionData = this.getHostSessionData(args[0]);
-                let data;
-                if(sessionData === undefined) {
-                    data = {msg:undefined,id:args[0]};
-                }
-                else {
-                    data = {msg:'getHostSessionData',id:args[0],sessionData:sessionData};
-                }
-                return data;
-            }
-        },
-        {
-            case:'setHostSessionSettings',
-            callback:(self,args,origin,user) => {
-                let sub = this.setHostAppSettings(args[0],args[1]);
-                let data;
-                if(sub === undefined) {
-                    data = {msg:undefined, id:args[0]};
-                } else {
-                    data = {msg:'setHostSessionSettings',id:args[0], sessionInfo:sub};
-                }
-                return data;
-            }
-        },
-        {
-            case:'subscribeToUser',
-            callback:(self,args,origin,user) => {  //User to user stream
-                if(args[2]) this.streamBetweenUsers(id,args[0],args[1]);
-                else this.streamBetweenUsers(id,args[0]);
-            }
-        },
-        {
-            case:'subscribeToSession',
-            callback:(self,args,origin,user) => { //Join session
-                this.subscribeUserToSession(id,args[0],args[1]);
-            }
-        },
-        {
-            case:'subscribeToHostSession',
-            callback:(self,args,origin,user) => { //Join session
-                this.subscribeUserToHostSession(id,args[0],args[1],args[2]);
-            }
-        },
-        {
-            case:'kick',
-            callback:(self,args,origin,user) => { //kick from a session
-                this.kickFromSession(id,args[0],args[1]);
-            }
-        },
-        {
-            case:'ban',
-            callback:(self,args,origin,user) => { //ban from a session
-                this.banFromSession(id,args[0],args[1]);
-            }
-        },
-        {
-            case:'unsubscribeFromUser',
-            callback:(self,args,origin,user) => {
-                let found = undefined;
-                let data;
-                if(args[1]) found = this.removeUserToUserStream(id,args[0],args[1]);
-                else found = this.removeUserToUserStream(id,args[0]);
-                if(found) {  data = {msg:'unsubscribed',id:args[0],props:args[1]};}
-                else { data = {msg:undefined,id:args[0]}; }
-                return data;
-            } 
-        },
-        {
-            case:'leaveSession',
-            callback:(self,args,origin,user) => {
-                let found = undefined;
-                let data;
-                if(args[1]) found = this.removeUserFromSession(args[0],args[1]);
-                else found = this.removeUserFromSession(args[0],u.id);
-                if(found) {  data = {msg:'left session',id:args[0]}; }
-                else { data = {msg:undefined,id:args[0]}; }
-                return data;
-            }
-        },
-        {
-            case:'deleteSession',
-            callback:(self,args,origin,user) => {
-                let found = this.removeSessionStream(args[0]);
-                let data;
-                if(found) { data = {msg:'session deleted',id:args[0]};}
-                else { data = {msg:undefined, id:args[0]}; }
-                return data;
-            }
-        }
+          
         );
     }
 
-    //Received a message from a user socket, now parse it into system
-	updateUserData(data={id:'',userData:{}}){ 
+    //Received user data from a user socket, now parse it into system
+	updateUserStreamData(data={id:'',userData:{}}){ 
 		//Send previous data off to storage
         if (this.controller.USERS.has(data.id)){
 
@@ -308,732 +51,601 @@ export class WebsocketSessionStreaming {
             let now = Date.now();
             u.latency = now-u.lastUpdate;
             u.lastUpdate = now;
-
-            this.userSubscriptions.forEach((o,i) => {
-                if(o.source === data.id) {
-                    o.newData = true;
-                }
-            });
-
-            this.appSubscriptions.forEach((o,i) => {
-
-                let u = o.users[data.id];
-                let s = o.spectators[data.id];
-                if(u != null && o.updatedUsers.indexOf(data.id) < 0 && s == null) {
-                    o.updatedUsers.push(data.id);
-                }
-            });
-
-            this.hostSubscriptions.forEach((o,i) => {
-                let u = o.users[data.id];
-                let s = o.spectators[data.id];
-
-                if(u != null && o.updatedUsers.indexOf(data.id) < 0 && s == null) {
-                    o.updatedUsers.push(data.id);
-                }
-            });
-
-            //o.socket.send(JSON.stringify(o.props));
             
         }
 	}
 
-    
-	streamBetweenUsers(listenerUser,sourceUser,propnames=[]) {
+    createSession(
+        user={},
+        type='room', 
+        settings={}
+    ) {
+        if(type === 'room' || type === 'hostroom') {
 
-        if(this.DEBUG) console.log(listenerUser, sourceUser)
-        let idx = undefined;
-        let sub = this.userSubscriptions.find((o,i) => {
-            if(o.listener === listenerUser && o.source === sourceUser) {
-                idx = i;
+            let sessionId;
+            if(settings.id) sessionId = settings.id;
+            else sessionId = `session${Math.floor(Math.random()*1000000000000)}`;
+
+            if(!settings.appname) 
+                settings.appname=`app${Math.floor(Math.random()*1000000000000)}`;
+        
+            let session = {
+                appname:settings.appname,          //app name (can overlap with others for specific applications)
+                id:sessionId,             //session unique id
+                type:type,                //'room' or 'hostedroom' decides the stream loop outputs to users
+                ownerId:user.id,            //session owner, super admin
+                propnames:[], //user streaming props
+                host:user.id,       //host unique id
+                hostprops:[], //host streaming props in a hosted room (host receives all user data, users receive only host data)
+                admins:[],  //admins stay moderators after leaving, added by owner initially
+                moderators:[], //moderators can kick/ban/make host, these are temp priveleges
+                users:[],           //user ids
+                spectators:[], //usernames of spectators
+                banned:[], //users unable to join the session
+                lastTransmit:Date.now(), 
+                devices:undefined,       //optional device requirement info e.g. sensors or controllers
+                appSettings:undefined  //e.g. a config object for an app
+            };
+
+            if(user.id) { 
+                if(!session.users.includes(user.id)) session.users.push(user.id); 
+                if(!session.admins.includes(user.id)) session.admins.push(user.id); 
+            }
+
+            Object.assign(session,settings); //apply any supplied settings e.g. propnames, hostprops (if a hostedroom), admin and mod settings, or arbitrary values
+
+            this.appSubs[sessionId] = session;
+
+            return session;
+
+        }
+        else if (type === 'user') {
+            if(user.id && settings.id && settings.propnames) {
+                return this.subscribeToUser(user, settings.id, user.id, settings.propnames);
+            }
+        }
+    }
+
+    //For 2+ user sessions or asynchronous 'host' room communication
+    subscribeToSession(user={}, userId, sessionId, spectating=true) {
+        let session = this.appSubs[sessionId];
+
+        if(!userId && !user.id) return undefined;
+        if(!userId && user.id) userId = user.id;
+        
+
+        let newUser = this.controller.USERS.get(userId);
+        if(!newUser) return undefined;
+
+        if(session) {
+            if(!session.banned.includes(userId)) {
+                if(!session.users?.includes(userId))
+                    session.users.push(userId);
+                if(spectating && !session.spectators.includes(userId))
+                    session.spectators.push(userId);
+                if(session.host && !session.users.includes(session.host))
+                    session.host = userId; //makes user the new host if they are not present
+
+                let result = JSON.parse(JSON.stringify(session))
+                result.userData = {};
+
+                if(session.host !== user.id || session.type !== 'hostedroom') { //get all the user data
+                    session.users.forEach((id) => {
+                        let u = this.controller.USERS.get(id);
+                        if(u) {
+                            result.userData[id] = {};
+                            session.propnames.forEach((p) => {
+                                if(u.props[p]) result.userData[id][p] = u.props[p]
+                            });
+                            if(Object.keys(result.userData[id]).length === 0) delete result.userData[id];
+                        }
+                    });
+                } else { //only get the host's data in this case
+                    let u = this.controller.USERS.get(session.host);
+                    if(u) {
+                        result.hostData = {};
+                        session.hostprops.forEach((p) => {
+                            if(u.props[p]) result.userData[id][p] = u.props[p];
+                        });
+                    }
+                }
+                if(user.id !== userId) { //make sure the new user receives the data
+                    newUser.socket.send(JSON.stringify({msg:'sessionData',data:result}));
+                    newUser.sessions.push(session.id);
+                } else if(user.sessions) user.sessions.push(session.id);
+                
+                return result; //return the session object with the latest data for setup
+            }
+            
+        }
+        else return undefined;
+    }
+
+    //Listen to a user's updates
+	subscribeToUser(user, sourceId, listenerId, propnames=[], settings={}, override=false) {
+
+        if(!sourceId) return undefined;
+        if(!listenerId) listenerId = user.id;
+
+        let source = this.controller.USERS.get(sourceId);
+
+        let listener = this.controller.USERS.get(listenerId);
+        if(!listener) return undefined;
+
+        if(propnames.length === 0) propnames = Array.from(Object.keys(source.props)); //stream ALL of the available props instead
+        
+        if(user.id !== listenerId && user.id !== sourceId && override === false) return undefined;
+        if(!source || source.blocked.includes(listenerId) || source.blocked.includes(user.id)) return undefined; //blocked users can't make one-on-one streams
+
+        if(this.DEBUG) console.log(listenerId, sourceId)
+        
+        let sub = undefined;
+        for(const prop in this.userSubs) {
+            let o = this.userSubs[prop];
+            if(o.listener === listenerId && o.source === sourceId) {
+                sub = o;
                 o.propnames = propnames;
                 return true;
             }
-        });
-        if(sub === undefined) {
-            let source = this.controller.USERS.get(sourceUser);
+        }
+
+        if(!sub) {
             if(propnames.length === 0) {
                 for(const propname in source.props) {
                     propnames.push(propname);
                 }
             }
-            let u = this.controller.USERS.get(listenerUser);
+            let u = this.controller.USERS.get(listenerId);
             if(u !== undefined && source !== undefined) {
-                this.userSubscriptions.push({
-                    listener:listenerUser,
-                    source:sourceUser,
-                    id:sourceUser+"_"+Math.floor(Math.random()*10000000),
+                let obj = {
+                    type:'user',
+                    ownerId:user.id,
+                    listener:listenerId,
+                    source:sourceId,
+                    id:`${sourceId}${Math.floor(Math.random()*10000000000)}`,
                     propnames:propnames,
-                    settings:[],
-                    newData:false,
                     lastTransmit:0
-                });
-                console.log('subscribed to user')
-                u.socket.send(JSON.stringify({msg:'subscribedToUser', sub:this.userSubscriptions[this.userSubscriptions.length-1]}))
-                return this.userSubscriptions[this.userSubscriptions.length-1];
+                }
+
+                for(const prop in settings) {
+                    if(!obj[prop]) obj[prop] = settings[prop]; //append any extra settings 
+                }
+
+                this.userSubs[obj.id] = obj;
+
+                let result = JSON.parse(JSON.stringify(obj));
+                result.userData = {[sourceId]:{}};
+                for(const prop in propnames) {
+                    if(source.props[prop]) result.userData[sourceId][prop] = source[props][prop];
+                }
+
+                u.sessions.push(obj.id);
+                //console.log('subscribed to user');
+                //u.socket.send(JSON.stringify({msg:'subscribed', sub:obj.id}))
+                return result;
             }
             else {
-                u.socket.send(JSON.stringify({msg:'userNotFound', id:sourceUser}));
+                return undefined;
             }
             
         }
         else { 
-            return idx;
+            return sub;
         }
 	}
 
-    setUserStreamSettings(id='',settings={}) {
-        let sub = this.userSubscriptions.find((o) => {
-            if(o.id === id) {
-                o.settings = settings;
-                return true;
+    
+    //kick a user from an app session
+    kickUser(user={}, userId, sessionId, override=false) {
+        let session = this.appSubs[sessionId];
+
+        if((!user.id && !userId) || !sessionId) return undefined;
+        if(user.id && !userId) userId = user.id;
+
+        if(session) {
+            if(!session.admins.includes(user.id) && !session.moderators.includes(user.id) && override === false)
+                return undefined; //no priveleges
+
+            let idx = session.users.indexOf(userId);
+            if(idx) {
+                session.users.splice(idx,1);
+                let u = this.controller.USERS.get(userId);
+                if(u) {
+                    let i = u.sessions.indexOf(sessionId);
+                    if(i > -1) { u.sessions.splice(i,1); }
+                } 
+
+                if(session.host === userId) session.host = session.users[0]; //make the first user the host
+                if(session.spectators.includes(userId)) 
+                    session.spectators.splice(session.spectators.indexOf(userId));
+                if(session.moderators.includes(userId))
+                    session.moderators.splice(session.moderators.indexOf(userId));
+                return true; //kicked!  
             }
-        });
-        return sub;
+        } else { //try kicking user from a one-on-one stream if the ids match
+            if(this.userSubs[sessionId]) {
+                this.removeUserToUserStream(user,sessionId);
+                return true; //kicked!
+            } else { //search
+                for(const prop in this.userSubs) {
+                    if(this.userSubs[prop].sourceId === userId || this.userSubs[prop].listenerId === userId) {
+                        this.removeUserToUserStream(user,userId);
+                        return true; //kicked!
+                    }
+                }
+            }
+        }
+        return undefined; //not kicked!
     }
 
-	createAppSubscription(appname='',devices=[],propnames=[]) {
+    //aliases
+    kick = this.kickUser;
+    unsubscribe = this.kickUser;
 
-        this.appSubscriptions.push({
-            appname:appname,
-            devices:devices,
-            id:appname+"_"+Math.floor(Math.random()*10000000),
-            users:{},
-            updatedUsers:[], //users with new data available (clears when read from subcription)
-            newUsers:[], //indicates users that just joined and have received no data yet
-            spectators:{}, //usernames of spectators
-            banned:{}, //users unable to join the session
-            propnames:propnames,
-            host:'',
-            settings:[],
-            lastTransmit:Date.now()
-        });
+    //delete a session. It will time out otherwise
+    deleteSession(user={}, sessionId, userId, override=false) {
+
+        if(this.appSubs[sessionId]) {
+            if(override === true || this.appSubs[sessionId].ownerId === user.id || this.appSubs[sessionId].admins.includes(user.id)) {
+                delete this.appSubs[sessionId];
+                return true;
+            }
+        }
+        else if(this.userSubs[sessionId]) {
+            if(override === true || this.userSubs[sessionId].ownerId === user.id || this.userSubs[sessionId].sourceId === user.id || this.userSubs[sessionId].listenerId ===  user.id) {
+                delete this.userSubs[sessionId];
+                return true;
+            }
+        }
+    
+        return undefined;
+    }
+
+
+    //remove single user -> user streams, or just props from the stream         
+    removeUserToUserStream(user, streamId, propnames=undefined,override=false) { //delete stream or just particular props
+        let sub = this.userSubs[streamId];
+        if(!sub) {
+            //try to search for the user id
+            for(const prop in this.userSubs) {
+                if(
+                    (this.userSubs[prop].sourceId === streamId && this.userSubs[prop].listenerId === user.id) ||
+                    (this.userSubs[prop].listenerId === streamId && this.userSubs[prop].sourceId === user.id)
+                ) 
+                {
+                    streamId = prop;
+                    sub = this.userSubs[prop];
+                    break;
+                }
+            }
+        }
+        if(sub) {
+            if(user.id !== sub.listenerId && user.id !== sub.sourceId && override === false) return undefined;
+       
+            if(Array.isArray(propnames)) { //delete props from the sub
+                propnames.forEach((p) => {
+                    let i = sub.propnames.indexOf(p);
+                    if(i > -1)
+                        sub.propnames.splice(i,1);
+                });
+            }
+            else {
+                let source = this.controller.USERS.get(sub.sourceId);
+                let i1 = source.sessions.indexOf(sub.id);
+                if(i1 > -1) source.sessions.splice(i1,1);
+                
+                let listener = this.controller.USERS.get(sub.listenerId);
+                let i2 = listener.sessions.indexOf(sub.id);
+                if(i2 > -1) listener.sessions.splice(i2,1);
+
+                delete this.userSubs[streamId]; //or delete the whole sub
+            }
+
+            return true;
+        }    
+        else return undefined;
+    }
+
+    makeHost(user={}, userId, sessionId, override=false) {
+        let session = this.appSubs[sessionId];
+
+        if(session) {
+            if(override === true || session.admins.indexOf(user.id) > -1 || session.moderators.indexOf(user.id) > -1) {
+                session.host = userId;
+                return true;
+            }
+        }
+        return undefined;
+    }
+
+    //only owner can make other users owner
+    makeOwner(user={}, userId, sessionId, override=false) {
+        let session = this.appSubs[sessionId];
+
+        if(session) { 
+            if(override === true || (user.id === session.ownerId && user.id !== userId)) {
+                session.ownerId = userId;
+                return true;
+            }
+        }
+        return undefined;
+    }
+
+    //only owner can make users admin
+    makeAdmin(user={}, userId, sessionId, override=false) {
+        let session = this.appSubs[sessionId];
+
+        if(session) { 
+            if(override === true || (user.id === session.ownerId && session.admins.indexOf(userId) < 0)) {
+                session.admins.push(userId);
+                return true;
+            }
+        }
+        return undefined;
+    }
+
+    //only owner can remove admins. admins can set settings and kick and ban or delete a session
+    removeAdmin(user={}, userId, sessionId, override=false) {
+        let session = this.appSubs[sessionId];
+
+        if(session) {
+            if(override === true || (session.admins.includes(userId) && session.ownerId !== userId)) {
+                session.admins.splice(session.admins.indexOf(userId));
+                return true;
+            }
+        }
+        return undefined;
+    }
+ 
+    //admins and mods can make other users mods. mods can kick and ban. admins can set settings
+    makeModerator(user={}, userId, sessionId, override=false) {
+        let session = this.appSubs[sessionId];
+
+        if(session) { 
+            if(override === true || ((session.admins.indexOf(user.id) > -1 || session.moderators.indexOf(user.id) > -1) && session.moderators.indexOf(userId) < 0)) {
+                session.moderators.push(userId);
+                return true;
+            }
+        }
+        return undefined;
+    }   
+
+
+    //ban a user from an app session
+    banUser(user={}, userId, sessionId, override=false) {
+        
+        this.kickUser(userId, sessionId);
+        
+        let session = this.appSubs[sessionId];
+
+        if(session) {
+            if( ( session.ownerId !== userId && !session.banned.includes(userId)
+                && ( session.admins.includes(user.id) || session.moderators.includes(user.id) ) ) 
+                || override === true ) 
+            { 
+                session.banned.push(userId);
+                if(session.admins.includes(userId))  {
+                    session.admins.splice(
+                        session.admins.indexOf(userId)
+                    );
+                    return true;
+                }
+            }
+        }
+        return undefined;
+    }
+
+    //unban a user from an app session
+    unbanUser(user={}, userId, sessionId, override=false) {
+        
+        let session = this.appSubs[sessionId]
+        if(session) { 
+            if( 
+                (   session.banned.includes(userId) 
+                    && (session.admins.includes(user.id) || session.moderators.includes(user.id)) 
+                ) || override === true 
+            ) {
+                session.banned.splice(session.banned.indexOf(userId),1);
+                return true;
+            }
+        }
+        return undefined;
+    }
+
+    //this is an override to assign arbitrary key:value pairs to a session (danger!)
+    setSessionSettings(user={},sessionId,settings={},override=false) {
+        if(this.appSubs[sessionId]) {
+            if(
+                this.appSubs[sessionId].admins.includes(user.id) 
+                || this.appSubs[sessionId].ownerId === user.id 
+                || override === true
+            ) {
+                Object.assign(this.appSubs[sessionId],settings);
+                return true;
+            }
+        }
+        else if (this.userSubs[sessionId]) {
+            if(
+                this.userSubs[sessionId].sourceId === user.id 
+                || this.userSubs[sessionId].listenerId === user.id 
+                || this.userSubs[sessionId].ownerId === user.id || override === true
+            ) {
+                Object.assign(this.userSubs[sessionId], settings);
+                return true;
+            }
+        }
+        return undefined;
+    }
+
+    getSessionData(sessionId) {
+        let session = this.userSubs[sessionId];
+        if(session) {
+            let result = JSON.parse(JSON.stringify(session));
+            result.userData = {};
+            session.users.forEach((id) => {
+                result.userData[id] = {};
+                for(const prop in session.propnames) {
+                    let u = this.controller.USERS.get(id);
+                    if(u) {
+                        for(const prop in session.propnames) {
+                            if(u.props[prop]) result.userData[id][prop] = u[props][prop];
+                        }
+                    } else this.kickUser(undefined,id,session.id,true);
+                    if(Object.keys(result.userData[id]).length === 0) 
+                        delete result.userData[id];
+                }
+            });   
+
+            return result;
+        }
+        return undefined;
+    }
+
+    getUserStreamData(sessionId) {
+        let session = this.userSubs[sessionId];
+        if(session) {
+            let result = JSON.parse(JSON.stringify(session));
+            result.userData = {[sourceId]:{}};
+
+            let source = this.controller.USERS.get(session.sourceId);
+            if(!source) this.removeUserToUserStream(undefined,session.id,undefined,true);
+            
+            for(const prop in session.propnames) {
+                if(source.props[prop]) result.userData[sourceId][prop] = source[props][prop];
+            }
+
+            return result;
+        }
+    }
+
+    streamLoop = async () => {
+
+        if(this.LOOPING){
+
+            let updatedUsers = {};
+
+            //handle session streams
+            for(const prop in this.appSubs) {
+                let session = this.appSubs[prop];
+
+                if(session.users.length === 0) {
+                    if(session.lastTransmit - Date.now() >= this.sessionTimeout) delete this.appSubs[prop];
+                    continue; 
+                }
+                let updateObj = JSON.parse(JSON.stringify(session));
+                    
+                if(session.type === 'hostroom') {
      
-        return this.appSubscriptions.length - 1;
-	}
-
-	getAppSubscriptions(appname='') {
-		let g = this.appSubscriptions.filter((o) => {
-            if(o.appname === appname) return true;
-        })
-        if(g.length === 0) return undefined;
-		else return g;
-	}
-
-    getAppSubscription(id='') {
-		let g = this.appSubscriptions.find((o,i) => {
-			if(o.id === id) {
-				return true;
-			}
-		});
-        return g;
-	}
-
-    setAppSettings(id='',settings={}) {
-        let g = this.appSubscriptions.find((o,i) => {
-			if(o.id === id) {
-                o.settings = settings;
-				return true;
-			}
-		});
-        return g;
-    }
-
-    getSessionData(id='') {
-        let sessionData = undefined;
-        let s = this.appSubscriptions.find((sub,i) => {
-            if(sub.id === id) {
-                let updateObj = {
-                    msg:'sessionData',
-                    appname:sub.appname,
-                    devices:sub.devices,
-                    id:sub.id,
-                    propnames:sub.propnames,
-                    users:sub.users,
-                    host:sub.host,
-                    updatedUsers:sub.updatedUsers,
-                    newUsers:sub.newUsers,
-                    userData:[],
-                    spectators:sub.spectators,
-                    banned:sub.banned, 
-                };
-                
-                let allIds = Object.assign({}, sub.users);
-                Object.keys(allIds).forEach((user,j) => { //get current relevant data for all players in session
-                    if(!sub.spectators[user]){
-                        let userObj = {
-                            id:user
-                        }
-                        let listener = this.controller.USERS.get(user);
-                        if(listener) {
-                            sub.propnames.forEach((prop,k) => {
-                                userObj[prop] = listener.props[prop];
-                            });
-                            updateObj.userData.push(userObj);
-                        }
+                    updateObj.hostData = {};
+                    let host = this.controller.USERS.get(session.host);
+                    if(!host && session.host) {
+                        this.kickUser(undefined,session.host,session.id,true);
+                    } else {
+                        session.host = session.users[0];
+                        if(!session.host) continue; //no users to update, continue
+                        else host = this.controller.USERS.get(session.host);
                     }
-                });
-                sessionData = updateObj;
-                return true;
-            }
-        });
-        return sessionData;
-    }
 
-	subscribeUserToSession(id,sessionId,spectating=false) {
-
-        let g = this.getAppSubscription(sessionId);
-        let u = this.controller.USERS.get(id);
-
-		if(g !== undefined && u !== undefined) {
-
-            if (Object.keys(g.users).length === 0 && !spectating){
-                g.host = id;
-            }
-
-            if( g.users[id] == null && g.spectators[id] == null) { 
-                if(spectating === true) g.spectators[id] = u.username
-                else {
-                    g.users[id] = u.username
-                    g.newUsers.push(id);
-                    g.updatedUsers.push(id);
-                }
-            }
-			
-			g.propnames.forEach((prop,j) => {
-                if(!(prop in u.props)) u.props[prop] = '';
-            });
-            
-            u.sessions.push(sessionId);
-            
-			//Now send to the user which props are expected from their client to the server on successful subscription
-			u.socket.send(JSON.stringify({msg:'subscribed',id:sessionId,sessionInfo:g}));
-		}
-		else {
-			u.socket.send(JSON.stringify({msg:undefined,id:sessionId}));
-        }
-	}
-
-    createHostSubscription(appname='',devices=[],propnames=[], host='', hostprops=[]) {
-        this.hostSubscriptions.push({
-            appname:appname,
-            devices:devices,
-            id:appname+"_"+Math.floor(Math.random()*10000000),
-            host:host,
-            hostprops:hostprops,
-            settings:[],
-            users:{},
-            updatedUsers:[], //users with new data available (clears when read from subcription)
-            newUsers:[], //indicates users that just joined and have received no data yet
-            spectators:{}, //usernames of spectators
-            banned:{}, //users unable to join the session
-            propnames:propnames,
-            lastTransmit:Date.now()
-        });
-
-        return this.hostSubscriptions.length-1;
-    }
-
-    getHostSubscriptions(appname='') {
-		let g = this.hostSubscriptions.filter((o) => {
-            if(o.appname === appname) return true;
-        })
-        if(g.length === 0) return undefined;
-		else return g;
-	}
-
-    getHostSubscription(id='') {
-		let g = this.hostSubscriptions.find((o,i) => {
-			if(o.id === id) {
-				return true;
-			}
-		});
-        return g;
-	}
-
-    setHostAppSettings(id='',settings={}) {
-        let g = this.hostSubscriptions.find((o,i) => {
-			if(o.id === id) {
-                o.settings = settings;
-				return true;
-			}
-		});
-        return g;
-    }
-
-    getHostSessionData(id='') {
-        let sessionData = undefined;
-        let s = this.appSubscriptions.find((sub,i) => {
-            if(sub.id === id) {
-                let updateObj = {
-                    msg:'sessionData',
-                    appname:sub.appname,
-                    devices:sub.devices,
-                    id:sub.id,
-                    host:sub.host,
-                    hostprops:sub.hostprops,
-                    propnames:sub.propnames,
-                    users:sub.users,
-                    updatedUsers:sub.updatedUsers,
-                    newUsers:sub.newUsers,
-                    spectators:sub.spectators,
-                    banned:sub.banned, 
-                    hostData:{},
-                    userData:[]
-                };
-                
-                let allIds = Object.assign({}, sub.users)
-                Object.keys(allIds).forEach((user,j) => { //get current relevant data for all players in session
-                    if(!sub.spectators[user]){
-                        let userObj = {
-                            id:user
-                        }
-                        let listener = this.controller.USERS.get(user);
-                        if(listener) {
-                            sub.propnames.forEach((prop,k) => {
-                                userObj[prop] = listener.props[prop];
-                            });
-                            updateObj.userData.push(userObj);
-                        }
-                    }
-                });
-
-                let host = this.controller.USERS.get(sub.host);
-                if(host) {
-                    sub.hostprops.forEach((prop,j) => {
-                        updateObj.hostData[prop] = host.props[prop];
-                    })
-                }
-
-                sessionData = updateObj;
-                return true;
-            }
-        });
-        return sessionData;
-    }
-
-	subscribeUserToHostSession(id,sessionId,spectating=false,hosting=false) {
-		let g = this.getHostSubscription(sessionId);
-        let u = this.controller.USERS.get(id);
-		if(g !== undefined && u !== undefined) {
-            if( g.users[id] == null && g.spectators[id] == null ) { 
-                if(spectating === true) g.spectators[id] = u.username
-                else {
-                    g.users[id] = u.username
-                    g.newUsers.push(id);
-                    g.updatedUsers.push(id);
-                }
-            }
-
-            if(hosting === true) g.host = id;
-			
-			g.propnames.forEach((prop,j) => {
-				if(!(prop in u.props)) u.props[prop] = '';
-			});
-			//Now send to the user which props are expected from their client to the server on successful subscription
-			u.socket.send(JSON.stringify({msg:'subscribed',id:appname,devices:g.devices,propnames:g.propnames,host:g.host,hostprops:g.hostprops}));
-		}
-		else {
-			u.socket.send(JSON.stringify({msg:undefined,id:appname}));
-		}
-	}
-
-    updateUserSubscriptions = (time) => {
-        this.userSubscriptions.forEach((sub,i) => {
-            //Should create a dispatcher that accumulates all user and app subscription data to push all concurrent data in one message per listening user
-            let listener = this.controller.USERS.get(sub.listener);
-            let source = this.controller.USERS.get(sub.source);
-
-            if(listener === undefined || source === undefined ) {
-                this.userSubscriptions.splice(i,1);
-            }
-            else if(sub.newData === true) {
-                let dataToSend = {
-                    msg:'userData',
-                    id:sub.source,
-                    session: sub.id, // TO FIX
-                    userData:{}
-                };
-                sub.propnames.forEach((prop,j) => {
-                    if(source.updatedPropnames.indexOf(prop) > -1)
-                        dataToSend.userData[prop] = source.props[prop];
-                });
-                sub.newData = false;
-                sub.lastTransmit = time;
-                listener.socket.send(JSON.stringify(dataToSend));
-            }
-            
-		});
-    } 
-
-
-    removeUserData(id, updateObj){
-        // Don't Receive Your Own Data
-        let objToFilter = JSON.parse(JSON.stringify(updateObj))
-        let idx = objToFilter.userData.findIndex((d) => d.id == id)
-        if (idx >= 0) objToFilter.userData.splice(idx,1)
-        return objToFilter
-    }
-
-
-    getFullUserData(user,sub) {
-        if(sub.spectators[user] == null) {
-            let userObj = {
-                id:user
-            }
-            let listener = this.controller.USERS.get(user);
-            if(listener){ 
-                sub.propnames.forEach((prop,k) => {
-                    userObj[prop] = listener.props[prop];
-                });
-                return userObj
-            }
-        }
-    }
-
-    updateAppSubscriptions = (time) => {
-        this.appSubscriptions.forEach((sub,i) => {
-            
-                //let t = this.controller.USERS.get('guest');
-                //if(t!== undefined) t.socket.send(JSON.stringify(sub));
-
-                let updateObj = {
-                    msg:'sessionData',
-                    appname:sub.appname,
-                    devices:sub.devices,
-                    id:sub.id,
-                    propnames:sub.propnames,
-                    users:sub.users,
-                    spectators:sub.spectators,
-                    updatedUsers:sub.updatedUsers,
-                    newUsers:sub.newUsers,
-                    userData:[],
-                    host: sub.host
-                };
-
-                if(sub.newUsers.length > 0) { //If new users, send them all of the relevant props from other users
-
-                    let fullUserData = [];
-
-                    let allIds = Object.assign({}, sub.users);
-
-                    Object.keys(allIds).forEach((user, j) => {
-                        let userObj = this.getFullUserData(user, sub)
-                        if (userObj != null) fullUserData.push(userObj)
+                    session.hostprops.forEach((prop) => {
+                        if(host.updatedPropNames.includes(prop)) updateObj.userData[user][prop] = host.props[prop];
                     });
-
-                    let fullUpdateObj = Object.assign({},updateObj);
-
-                    fullUpdateObj.userData = fullUserData;
-
-                    sub.newUsers.forEach((user, j) => {
-                        let u = this.controller.USERS.get(user);
-
-                        if(u !== undefined) {
-                            let filteredObj = this.removeUserData(user, fullUpdateObj)
-                            u.socket.send(JSON.stringify(filteredObj));
-                        }
-                        else {
-                            delete sub.users[user]
-                            delete sub.spectators[user]
-                        }
-                    });
-
-                }
-                
-                if(sub.updatedUsers.length > 0) { //only send data if there are updates
-                    let userObj;
-                    sub.updatedUsers.forEach((user,j) => {
-                        if (sub.newUsers.includes(user)){ // Grab full data of new users
-                            userObj = this.getFullUserData(user, sub)
-                            if (userObj != null) updateObj.userData.push(userObj)
-                        } else { // Grab updated data for old users
-                            if(sub.spectators[user] == null){
-                                let userObj = {
-                                    id:user
-                                }
-
-                                let listener = this.controller.USERS.get(user);
-                                if(listener.props.devices) userObj.devices = listener.props.devices;
-                                if(listener) {
-                                    sub.propnames.forEach((prop,k) => {
-                                        if(listener.updatedPropnames.indexOf(prop) > -1)
-                                            userObj[prop] = listener.props[prop];
-                                    });
-                                    updateObj.userData.push(userObj);
-                                }
-                            }
-                        }
-                    });
-
-                    let allIds = Object.assign({}, sub.users)
-
-                    Object.keys(allIds).forEach((user,j) => {
-                        if(sub.newUsers.indexOf(user) < 0) { //new users will get a different data struct with the full data from other users
+                    
+                    if(Object.keys(updateObj.hostData) > 0) {
+                        let toKick = [];
+                        session.users.forEach((user) => {
                             let u = this.controller.USERS.get(user);
-                            if(u !== undefined) {
-                                let filteredObj = this.removeUserData(user, updateObj)
-                                u.socket.send(JSON.stringify(filteredObj));
-                                u.lastUpdate = time; //prevents timing out for long spectator sessions
-                            } else {
-                                delete sub.users[user]
-                                delete sub.spectators[user]
-                            }
-                        }
-                    });
-
-                }
-                
-                sub.updatedUsers = [];
-                sub.newUsers = [];
-            
-            sub.lastTransmit = time;
-		});
-    }
-
-    updateHostAppSubscriptions = (time) => {
-        this.hostSubscriptions.forEach((sub,i) => {
-                
-                //let t = this.controller.USERS.get('guest');
-                //if(t!== undefined) t.socket.send(JSON.stringify(sub));
-
-                let updateObj = {
-                    msg:'sessionData',
-                    appname:sub.appname,
-                    devices:sub.devices,
-                    id:sub.id,
-                    host:sub.host,
-                    hostprops:sub.hostprops,
-                    propnames:sub.propnames,
-                    users:sub.users,
-                    spectators:sub.spectators,
-                    updatedUsers:sub.updatedUsers,
-                    newUsers:sub.newUsers,
-                    hostData:{},
-                    userData:[],
-                };
-
-                
-                let hostUpdateObj = Object.assign({},updateObj);
-
-                let host = this.controller.USERS.get(sub.host);
-                if(host) {
-                    sub.hostprops.forEach((prop,j) => {
-                        updateObj.hostData[prop] = host.props[prop];
-                    });
-                }
-
-                if(host) {
-                    if(sub.updatedUsers.length > 0) { //only send data if there are updates
-                        sub.updatedUsers.forEach((user,j) => {
-                            if(sub.spectators[user] == null && sub.newUsers.indexOf(user) < 0){
-                                let userObj = {
-                                    id:user
-                                }
-                                let listener = this.controller.USERS.get(user);
-                                if(listener.props.devices) userObj.devices = listener.props.devices;
-                                if(listener) {
-                                    sub.propnames.forEach((prop,k) => {
-                                        if(listener.updatedPropnames.indexOf(prop) > -1)
-                                            userObj[prop] = listener.props[prop];
-                                    });
-                                    hostUpdateObj.userData.push(userObj);
-                                }
-                            }
+                            if(!u) toKick.push(user);
+                            else if (user !== session.host) u.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
+                            updatedUsers[user] = true;
+                        });
+                        toKick.forEach((id) => {
+                            this.kickUser(undefined,id,session.id,true);
                         });
                     }
+                    delete updateObj.hostData;
+                }
 
-                    sub.newUsers.forEach((user,j) => {
-                        if(sub.spectators[user] == null){
-                            let userObj = {
-                                id:user
-                            }
-                            let listener = this.controller.USERS.get(user);
-                            if(listener) {
-                                sub.propnames.forEach((prop,k) => {
-                                    userObj[prop] = listener.props[prop];
-                                });
-                                hostUpdateObj.userData.push(userObj);
-                            }
+                updateObj.userData = {};
+                let toKick = [];
+                session.users.forEach((user) => {
+                    let u = this.controller.USERS.get(user);
+                    if(!u) toKick.push(user);
+                    else {
+                        updateObj.userData[user] = {};
+                        session.propnames.forEach((prop) => {
+                            if(u.updatedPropnames.includes(prop)) 
+                                updateObj.userData[user][prop] = u.props[prop];
+                        });
+                        if(Object.keys(updateObj.userData[user]).length === 0) 
+                            delete updateObj.userData[user]; //no need to pass an empty object
+                    }
+                });
+                toKick.forEach((id) => {
+                    this.kickUser(undefined,id,session.id,true);
+                });
+
+                //now send the data out
+                if(session.type === 'hostroom') {
+                    let host = this.controller.USERS.get(session.host);
+                    if(host) {   
+                        host.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
+                        updatedUsers[session.host] = true;
+                    }
+                    session.lastTransmit = Date.now();
+                }   
+                else {
+                    session.users.forEach((user) => {
+                        let u = this.controller.USERS.get(user);
+                        if(u) {
+                            u.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
+                            updatedUsers[user] = true;
                         }
                     });
-                    let filteredObj = this.removeUserData(u.id, hostUpdateObj)
-                    host.socket.send(JSON.stringify(filteredObj));
+                    session.lastTransmit = Date.now();
                 }
 
-                //send latest host data to users
-                let allIds = Object.assign({}, sub.users)
-                allIds = Object.assign(allIds, sub.spectators)
-                Object.keys(allIds).forEach((user,j) => {
-                    let u = this.controller.USERS.get(user);
-                    if(u !== undefined) {
-                        let filteredObj = this.removeUserData(u.id, updateObj) 
-                        u.socket.send(JSON.stringify(filteredObj));
-                        u.lastUpdate = time; //prevents timing out for long spectator sessions
-                    } else {
-                        delete sub.users[user]
-                        delete sub.spectators[user]
+            }
 
-                    }
+            //handle user-user streams
+            for(const prop in this.userSubs) {
+                let session = this.userSubs[prop];   
+
+                let updateObj = JSON.parse(JSON.stringify(session));
+
+                let source = this.controller.USERS.get(session.sourceId);
+                let listener = this.controller.USERS.get(session.listenerId);
+                if(!source || !listener) {
+                    this.removeUserToUserStream(undefined,session.id,undefined,true);
+                    continue;
+                }
+                if(session.lastTransmit - Date.now() >= this.sessionTimeout) {
+                    delete this.userSubs[prop];
+                    continue;
+                }
+
+                updateObj.userData = {[session.sourceId]:{}};
+                session.propnames.forEach((prop) => {
+                    if(source.updatedPropnames.includes(prop)) 
+                        updateObj.userData[session.sourceId][prop] = source.props[prop];
                 });
 
-                sub.updatedUsers = [];
-                sub.newUsers = [];
-                
-            
-            sub.lastTransmit = time;
-		});
-    }
-
-    
-    getSessionData(id='') {
-        let sessionData = undefined;
-        let s = this.appSubscriptions.find((sub,i) => {
-            if(sub.id === id) {
-                let updateObj = {
-                    msg:'sessionData',
-                    appname:sub.appname,
-                    devices:sub.devices,
-                    id:sub.id,
-                    propnames:sub.propnames,
-                    users:sub.users,
-                    host:sub.host,
-                    updatedUsers:sub.updatedUsers,
-                    newUsers:sub.newUsers,
-                    userData:[],
-                    spectators:{}
-                };
-                
-                let allIds = Object.assign({}, sub.users)
-                allIds = Object.assign(allIds, sub.spectators)
-                Object.keys(allIds).forEach((user,j) => { //get current relevant data for all players in session
-                    if(sub.spectators[user] == null){
-                        let userObj = {
-                            id:user
-                        }
-                        let listener = this.controller.USERS.get(user);
-                        if(listener) {
-                            sub.propnames.forEach((prop,k) => {
-                                userObj[prop] = listener.props[prop];
-                            });
-                            updateObj.userData.push(userObj);
-                        }
-                    }
-                    else {
-                        updateObj.spectators.push(user);
-                    }
-                });
-                sessionData = updateObj;
-                return true;
-            }
-        });
-        return sessionData;
-    }
-    
-    removeUserToUserStream(listener,source,propnames=null) { //delete stream or just particular props
-        let found = false;
-        let sub = this.userSubscriptions.find((o,i)=>{
-            if(o.listener === listener && o.source === source) {
-                if(!Array.isArray(propnames)) this.userSubscriptions.splice(i,1);
-                else {
-                    propnames.forEach((prop) => {
-                        let pidx = o.propnames.indexOf(prop);
-                        if(pidx > -1) {
-                            o.propnames.splice(pidx);
-                        }
-                    })
+                if(Object.keys(updateObj.userData).length > 0) {
+                    u.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
+                    updatedUsers[user] = true;
+                    session.lastTransmit = Date.now();
                 }
-                found = true;
-                return true;
+
             }
-        });
-        return found;
-    }
 
-    removeUserFromSession(sessionId='',id='') {
-        let found = false;
-        let app = this.appSubscriptions.find((o,i) => {
-            if(o.id === sessionId) {
-                delete o.users[id]
-                delete o.spectators[id]
-                found = true;
-                return o;
+            //clear update flags
+            for(const prop in updatedUsers) {
+                let u = this.controller.USERS.get(prop);
+                if(u) u.updatedPropnames = [];
             }
-        });
 
-        if(!found) {
-            app = this.hostSubscriptions.find((o,i) => {
-                if(o.id === sessionId) {
-                    delete o.users[id]
-                    delete o.spectators[id]
-                    found = true;
-                    return o;
-                }
-            });
-        }
+            setTimeout(this.streamLoop,this.delay);
 
-        if (found) {
-            // Send Info About User Leaving
-            let sessionData =this.getSessionData(sessionId)
-            sessionData.userLeft = id
-            let allIds = Object.assign({}, app.users)
-            allIds = Object.assign(allIds, app.spectators)
-            Object.keys(allIds).forEach(u => {
-                let filteredObj = this.removeUserData(u, sessionData)
-                this.controller.USERS.get(u).socket.send(JSON.stringify(filteredObj));
-            })
-
-            // Remove Session from User Info
-            let oldSessions = this.controller.USERS.get(id).sessions
-            let toKeep = []
-            oldSessions.forEach((session,i) => {
-                if (session !== sessionId){
-                    toKeep.push(sessionId)
-                }
-            })
-            this.controller.USERS.get(id).sessions = toKeep
-        }
-
-        return found;
-    }
-
-    removeSessionStream(appname='') {
-        let found = false;
-        let sub = this.appSubscriptions.find((o,i) => {
-            if(o.appname === appname) {
-                this.appSubscriptions.splice(i,1);
-                found = true;
-                return true;
-            }
-        });
-        return found;
-    }
-
-
-	subscriptionLoop = () => {
-        if(this.LOOPING === true) {
-            let time = Date.now();
-            //Should have delay interval checks for each subscription update for rate limiting
-            this.updateUserSubscriptions(time);
-
-            //optimized to only send updated data
-            this.updateAppSubscriptions(time);
-
-            //optimized to only send updated data
-            this.updateHostAppSubscriptions(time);
-
-            this.controller.USERS.forEach((u,i) => {
-                u.updatedPropnames = [];
-                if(time - u.lastUpdate > this.serverTimeout) {
-                    this.controller.USERS.get(u.id)?.socket?.close();
-                    this.controller.USERS.delete(u.id);
-                }
-            })
-
-            setTimeout(() => {this.subscriptionLoop();},this.delay);
         }
     }
-
-
 
 }
