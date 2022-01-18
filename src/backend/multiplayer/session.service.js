@@ -4,7 +4,7 @@ const DONOTSEND = "DONOTSEND";
 //      reimplement callbacks
 
 export class WebsocketSessionStreaming {
-    constructor(WebsocketController) {
+    constructor(WebsocketController, running=true) {
         if(!WebsocketController) { console.error('Requires a WebsocketController instance.'); return; }
         this.controller = WebsocketController;
 
@@ -18,15 +18,15 @@ export class WebsocketSessionStreaming {
 
         this.sessionTimeout = 20 * 60*1000; //min*s*ms game session timeout with no activity. 20 min default
         
-        this.LOOPING = true;
+        this.LOOPING = running;
         this.delay = 10; //ms loop timer delay
     
         this.addDefaultCallbacks();
 
-        this.subscriptionLoop();
+        if(running)
+            this.subscriptionLoop();
     }
 
-    //TODO
     addDefaultCallbacks() {
         
         //FYI "this" scope references this class, "self" scope references the controller scope.
@@ -53,16 +53,84 @@ export class WebsocketSessionStreaming {
             },
             {
                 case:'unsubscribeFromSession',
+                aliases:['kickUser'],
                 callback:(self,args,origin,user) => {
+                    if(!args[0]) return this.unsubscribe(user,user.id,args[1]);
                     return this.unsubscribe(user,args[0],args[1]);
                 }
             },
             {
                 case:'getSessionData',
                 callback:(self,args,origin,user) => {
-
+                    return this.getSessionData(args[0]);
                 }
-            } //TODO, moderation functions
+            }, 
+            {
+                case:'deleteSession',
+                callback:(self,args,origin,user) => {
+                    return this.deleteSession(user,args[0]);
+                }
+            }, 
+            {
+                case:'makeHost',
+                callback:(self,args,origin,user) => {
+                    return this.makeHost(user,args[0],args[1]);
+                }
+            }, 
+            {
+                case:'makeOwner',
+                callback:(self,args,origin,user) => {
+                    return this.makeOwner(user,args[0],args[1]);
+                }
+            }, 
+            {
+                case:'makeAdmin',
+                callback:(self,args,origin,user) => {
+                    return this.makeAdmin(user,args[0],args[1]);
+                }
+            }, 
+            {
+                case:'makeModerator',
+                callback:(self,args,origin,user) => {
+                    return this.makeModerator(user,args[0],args[1]);
+                }
+            }, 
+            {
+                case:'removeAdmin',
+                callback:(self,args,origin,user) => {
+                    return this.removeAdmin(user,args[0],args[1]);
+                }
+            }, 
+            {
+                case:'removeModerator',
+                callback:(self,args,origin,user) => {
+                    return this.removeModerator(user,args[0],args[1]);
+                }
+            }, 
+            {
+                case:'banUser',
+                callback:(self,args,origin,user) => {
+                    return this.banUser(user,args[0],args[1]);
+                }
+            }, 
+            {
+                case:'unbanUser',
+                callback:(self,args,origin,user) => {
+                    return this.unbanUser(user,args[0],args[1]);
+                }
+            }, 
+            { //some manual overrides for the update loops
+                case:'updateSessionUsers',
+                callback:(self,args,origin,user) => {
+                    return this.updateSessionUsers(args[0]);
+                }
+            }, 
+            {
+                case:'updateUserStream',
+                callback:(self,args,origin,user) => {
+                    return this.updateUserStream(args[0]);
+                }
+            }
         );
     }
 
@@ -297,17 +365,17 @@ export class WebsocketSessionStreaming {
                     session.spectators.splice(session.spectators.indexOf(userId));
                 if(session.moderators.includes(userId))
                     session.moderators.splice(session.moderators.indexOf(userId));
-                return true; //kicked!  
+                return {id:sessionId, user:userId, kicked:true}; //kicked!  
             }
         } else { //try kicking user from a one-on-one stream if the ids match
             if(this.userSubs[sessionId]) {
                 this.removeUserToUserStream(user,sessionId);
-                return true; //kicked!
+                return {id:sessionId, user:userId, kicked:true}; //kicked!
             } else { //search
                 for(const prop in this.userSubs) {
-                    if(this.userSubs[prop].sourceId === userId || this.userSubs[prop].listenerId === userId) {
+                    if(this.userSubs[prop].source === userId || this.userSubs[prop].listener === userId) {
                         this.removeUserToUserStream(user,userId);
-                        return true; //kicked!
+                        return {id:sessionId, user:userId, kicked:true}; //kicked!
                     }
                 }
             }
@@ -320,18 +388,18 @@ export class WebsocketSessionStreaming {
     unsubscribe = this.kickUser;
 
     //delete a session. It will time out otherwise
-    deleteSession(user={}, sessionId, userId, override=false) {
+    deleteSession(user={}, sessionId, override=false) {
 
         if(this.appSubs[sessionId]) {
             if(override === true || this.appSubs[sessionId].ownerId === user.id || this.appSubs[sessionId].admins.includes(user.id)) {
                 delete this.appSubs[sessionId];
-                return true;
+                return {id:sessionId, deleted:true};
             }
         }
         else if(this.userSubs[sessionId]) {
-            if(override === true || this.userSubs[sessionId].ownerId === user.id || this.userSubs[sessionId].sourceId === user.id || this.userSubs[sessionId].listenerId ===  user.id) {
+            if(override === true || this.userSubs[sessionId].ownerId === user.id || this.userSubs[sessionId].source === user.id || this.userSubs[sessionId].listener ===  user.id) {
                 delete this.userSubs[sessionId];
-                return true;
+                return {id:sessionId, deleted:true};
             }
         }
     
@@ -346,8 +414,8 @@ export class WebsocketSessionStreaming {
             //try to search for the user id
             for(const prop in this.userSubs) {
                 if(
-                    (this.userSubs[prop].sourceId === streamId && this.userSubs[prop].listenerId === user.id) ||
-                    (this.userSubs[prop].listenerId === streamId && this.userSubs[prop].sourceId === user.id)
+                    (this.userSubs[prop].source === streamId && this.userSubs[prop].listener === user.id) ||
+                    (this.userSubs[prop].listener === streamId && this.userSubs[prop].source === user.id)
                 ) 
                 {
                     streamId = prop;
@@ -357,7 +425,7 @@ export class WebsocketSessionStreaming {
             }
         }
         if(sub) {
-            if(user.id !== sub.listenerId && user.id !== sub.sourceId && override === false) return undefined;
+            if(user.id !== sub.listener && user.id !== sub.source && override === false) return undefined;
        
             if(Array.isArray(propnames)) { //delete props from the sub
                 propnames.forEach((p) => {
@@ -367,18 +435,18 @@ export class WebsocketSessionStreaming {
                 });
             }
             else {
-                let source = this.controller.USERS.get(sub.sourceId);
+                let source = this.controller.USERS.get(sub.source);
                 let i1 = source.sessions.indexOf(sub.id);
                 if(i1 > -1) source.sessions.splice(i1,1);
                 
-                let listener = this.controller.USERS.get(sub.listenerId);
+                let listener = this.controller.USERS.get(sub.listener);
                 let i2 = listener.sessions.indexOf(sub.id);
                 if(i2 > -1) listener.sessions.splice(i2,1);
 
                 delete this.userSubs[streamId]; //or delete the whole sub
             }
 
-            return true;
+            return {id:sub.id, user:sub.listener, kicked:true};
         }    
         else return undefined;
     }
@@ -389,7 +457,7 @@ export class WebsocketSessionStreaming {
         if(session) {
             if(override === true || session.admins.indexOf(user.id) > -1 || session.moderators.indexOf(user.id) > -1) {
                 session.host = userId;
-                return true;
+                return {id:sessionId, user:userId, host:true};
             }
         }
         return undefined;
@@ -402,7 +470,7 @@ export class WebsocketSessionStreaming {
         if(session) { 
             if(override === true || (user.id === session.ownerId && user.id !== userId)) {
                 session.ownerId = userId;
-                return true;
+                return {id:sessionId, user:userId, owner:true};
             }
         }
         return undefined;
@@ -415,7 +483,7 @@ export class WebsocketSessionStreaming {
         if(session) { 
             if(override === true || (user.id === session.ownerId && session.admins.indexOf(userId) < 0)) {
                 session.admins.push(userId);
-                return true;
+                return {id:sessionId, user:userId, admin:true};
             }
         }
         return undefined;
@@ -428,7 +496,7 @@ export class WebsocketSessionStreaming {
         if(session) {
             if(override === true || (session.admins.includes(userId) && session.ownerId !== userId)) {
                 session.admins.splice(session.admins.indexOf(userId));
-                return true;
+                return {id:sessionId, user:userId, admin:false};
             }
         }
         return undefined;
@@ -441,12 +509,24 @@ export class WebsocketSessionStreaming {
         if(session) { 
             if(override === true || ((session.admins.indexOf(user.id) > -1 || session.moderators.indexOf(user.id) > -1) && session.moderators.indexOf(userId) < 0)) {
                 session.moderators.push(userId);
-                return true;
+                return {id:sessionId, user:userId, moderator:true};
             }
         }
         return undefined;
     }   
 
+    //only owner can remove admins. admins can set settings and kick and ban or delete a session
+    removeModerator(user={}, userId, sessionId, override=false) {
+        let session = this.appSubs[sessionId];
+
+        if(session) {
+            if(override === true || (session.admins.includes(userId) && session.ownerId !== userId)) {
+                session.moderators.splice(session.moderators.indexOf(userId));
+                return {id:sessionId, user:userId, moderator:false};
+            }
+        }
+        return undefined;
+    }
 
     //ban a user from an app session
     banUser(user={}, userId, sessionId, override=false) {
@@ -465,7 +545,7 @@ export class WebsocketSessionStreaming {
                     session.admins.splice(
                         session.admins.indexOf(userId)
                     );
-                    return true;
+                    return {id:sessionId, user:userId, banned:true};
                 }
             }
         }
@@ -483,13 +563,14 @@ export class WebsocketSessionStreaming {
                 ) || override === true 
             ) {
                 session.banned.splice(session.banned.indexOf(userId),1);
-                return true;
+                return {id:sessionId, user:userId, banned:false};
             }
         }
         return undefined;
     }
 
     //this is an override to assign arbitrary key:value pairs to a session (danger!)
+    //users will be updated on the next loop, returns the session info
     setSessionSettings(user={},sessionId,settings={},override=false) {
         if(this.appSubs[sessionId]) {
             if(
@@ -498,17 +579,17 @@ export class WebsocketSessionStreaming {
                 || override === true
             ) {
                 Object.assign(this.appSubs[sessionId],settings);
-                return true;
+                return this.appSubs[sessionId];
             }
         }
         else if (this.userSubs[sessionId]) {
             if(
-                this.userSubs[sessionId].sourceId === user.id 
-                || this.userSubs[sessionId].listenerId === user.id 
+                this.userSubs[sessionId].source === user.id 
+                || this.userSubs[sessionId].listener === user.id 
                 || this.userSubs[sessionId].ownerId === user.id || override === true
             ) {
                 Object.assign(this.userSubs[sessionId], settings);
-                return true;
+                return this.userSubs[sessionId];
             }
         }
         return undefined;
@@ -520,7 +601,7 @@ export class WebsocketSessionStreaming {
             let result = JSON.parse(JSON.stringify(session));
             result.userData = {[sourceId]:{}};
 
-            let source = this.controller.USERS.get(session.sourceId);
+            let source = this.controller.USERS.get(session.source);
             if(!source) this.removeUserToUserStream(undefined,session.id,undefined,true);
             
             for(const prop in session.propnames) {
@@ -559,13 +640,15 @@ export class WebsocketSessionStreaming {
     }
 
     updateSessionUsers(sessionId) {
+        
         let updatedUsers = {};
 
         let session = this.appSubs[sessionId];
+        if(!session) return undefined;
 
         if(session.users.length === 0) {
             if(session.lastTransmit - Date.now() >= this.sessionTimeout) delete this.appSubs[prop];
-            return false; 
+            return undefined; 
         }
         let updateObj = JSON.parse(JSON.stringify(session));
             
@@ -645,28 +728,29 @@ export class WebsocketSessionStreaming {
 
     }
 
-    updateUserStreams(sessionId) {
+    updateUserStream(sessionId) {
         let updatedUsers = {};
 
         let session = this.userSubs[sessionId];   
+        if(!session) return undefined;
 
         let updateObj = JSON.parse(JSON.stringify(session));
 
-        let source = this.controller.USERS.get(session.sourceId);
-        let listener = this.controller.USERS.get(session.listenerId);
+        let source = this.controller.USERS.get(session.source);
+        let listener = this.controller.USERS.get(session.listener);
         if(!source || !listener) {
             this.removeUserToUserStream(undefined,session.id,undefined,true);
-            return false;
+            return undefined;
         }
         if(session.lastTransmit - Date.now() >= this.sessionTimeout) {
             delete this.userSubs[prop];
-            return false;
+            return undefined;
         }
 
-        updateObj.userData = {[session.sourceId]:{}};
+        updateObj.userData = {[session.source]:{}};
         session.propnames.forEach((p) => {
             if(source.updatedPropnames.includes(p)) 
-                updateObj.userData[session.sourceId][p] = source.props[p];
+                updateObj.userData[session.source][p] = source.props[p];
         });
 
         if(Object.keys(updateObj.userData).length > 0) {
@@ -679,7 +763,7 @@ export class WebsocketSessionStreaming {
 
     }
 
-    streamLoop = async () => {
+    streamLoop = () => {
 
         if(this.LOOPING){
 
@@ -693,7 +777,7 @@ export class WebsocketSessionStreaming {
 
             //handle user-user streams
             for(const prop in this.userSubs) {
-                let updated = this.updateUserStreams(prop);
+                let updated = this.updateUserStream(prop);
                 if(updated) Object.assign(updatedUsers,updated);
             }
 
