@@ -29,7 +29,7 @@ export class SessionStreaming {
 			sessionInfo: undefined,
 		});
 
-        this.id = Math.floor(Math.random() * 10000000000) // Give the session an ID
+        this.id = Math.floor(Math.random() * 10000000000); // Give the session an ID
 		
 		this.apps 		   = new Map();
 		this.subscriptions = new Map();
