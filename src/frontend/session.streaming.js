@@ -38,9 +38,9 @@ export class SessionStreaming {
 
 	}
 
-	getUser(userId,callback=(result)=>{}) {
+	async getUser(userId,callback=(result)=>{}) {
 		if (this.socket?.readyState === 1) {
-			this.WebsocketClient.run(
+			return await this.WebsocketClient.run(
 				'getUserStreamData',
 				[userId],
 				this.id,
@@ -50,9 +50,9 @@ export class SessionStreaming {
 		}		
 	}
 
-	getUsersInSession(sessionId,callback=(result)=>{}) {
+	async getUsersInSession(sessionId,callback=(result)=>{}) {
 		if (this.socket?.readyState === 1) {
-			this.WebsocketClient.run(
+			return await this.WebsocketClient.run(
 				'getSessionUsers',
 				[sessionId],
 				this.id,
@@ -62,9 +62,9 @@ export class SessionStreaming {
 		}
 	}
 
-	getSessionsFromServer(appname,callback=(result)=>{}) {
+	async getSessionsFromServer(appname,callback=(result)=>{}) {
 		if (this.socket?.readyState === 1) {
-			this.WebsocketClient.run(
+			return await this.WebsocketClient.run(
 				'getSessions',
 				[appname],
 				this.id,
@@ -72,11 +72,12 @@ export class SessionStreaming {
 				callback
 			);
 		}
+		return undefined;
 	}
 
-	getSessionData(sessionId,callback=(result)=>{}) {
+	async getSessionData(sessionId,callback=(result)=>{}) {
 		if (this.socket?.readyState === 1) {
-			this.WebsocketClient.run(
+			return await this.WebsocketClient.run(
 				'getSessionData',
 				[sessionId],
 				this.id,
@@ -84,6 +85,7 @@ export class SessionStreaming {
 				callback
 			);
 		}
+		return undefined;
 	}
 
 	//create and subscribe to a live data session
@@ -159,7 +161,7 @@ export class SessionStreaming {
 		}
 	}
 
-	subscribeToSession(
+	async subscribeToSession(
 		id,
 		callback=(result)=>{}
 	) {
@@ -168,7 +170,7 @@ export class SessionStreaming {
 		}
 	}
 
-	removeSession(
+	async removeSession(
 		id, 
 		callback=(result)=>{}
 	) {

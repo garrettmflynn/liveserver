@@ -34,13 +34,13 @@ export class WebsocketSessionStreaming {
             {
                 case:'updateUserStreamData',
                 callback:(self,args,origin,user) => {
-                    this.updateUserStreamData(user,args);
+                    return this.updateUserStreamData(user,args);
                 }
             },
             {
                 case:'createSession',
                 callback:(self,args,origin,user) => {
-                    this.createSession(user,args[0],args[1]);
+                    return this.createSession(user,args[0],args[1]);
                 }
             },
             {
@@ -54,7 +54,7 @@ export class WebsocketSessionStreaming {
             {
                 case:'unsubscribeFromSession',
                 callback:(self,args,origin,user) => {
-                    this.unsubscribe(user,args[0],args[1]);
+                    return this.unsubscribe(user,args[0],args[1]);
                 }
             },
             {
