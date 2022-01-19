@@ -22,7 +22,7 @@
   "license": "AGPL-3.0-or-later",
   "dependencies": {
     "@brainsatplay/liveserver-common": "0.0.0",
-    "anotherstatemanager": "^1.0.3",
+    "anotherstatemanager": "^1.0.4",
     "brainsatplay-data": "^0.0.9",
     "magicworker": "^1.0.8"
   },

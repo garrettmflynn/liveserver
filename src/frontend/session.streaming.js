@@ -24,10 +24,7 @@ export class SessionStreaming {
 
 		this.user = userinfo;
 		
-		this.state = new StateManager({
-			commandResult: {},
-			sessionInfo: undefined,
-		});
+		this.state = new StateManager();
 
         this.id = Math.floor(Math.random() * 10000000000); // Give the session an ID
 		
@@ -35,6 +32,12 @@ export class SessionStreaming {
 		this.subscriptions = new Map();
 
 		this.datastream = new DataStreaming(socket,userinfo);
+
+		this.WebsocketClient.addCallback('SessionStreaming',(res)=>{
+			if(res.msg === 'sessionData' && res.data.id) {
+				this.state.setState(res.data.id,res.data);
+			}
+		})
 
 	}
 
@@ -202,13 +205,18 @@ export class SessionStreaming {
 		userId=this.user.id,
 		callback=(result)=>{}
 	) {
-		return await this.WebsocketClient.run(
+		let result = await this.WebsocketClient.run(
 			'unsubscribeFromSession',
 			[userId, sessionId],
 			this.id,
 			this.socketId,
 			callback
 		);
+
+		if(result.data) {
+			this.state.unsubscribeAll(sessionId);
+		}
+		
 	}
 
 	//alias
