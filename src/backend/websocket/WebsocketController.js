@@ -477,7 +477,7 @@ class WebsocketController {
         { 
           case:'startOSC',
           callback:(self,args,origin,u) => {
-            u.osc?.add(args[0],args[1],args[2],args[3]);
+            if(u.osc?.add(args[0],args[1],args[2],args[3])) return true;
           }
         },
         { 
@@ -485,13 +485,13 @@ class WebsocketController {
           callback:(self,args,origin,u) => {
             if (commands.length > 2) u.osc.send(args[0],args[1],args[2]);
             else u.osc?.send(args[0]);
-            return {msg:'Message sent over OSC'};
+            return DONOTSEND;
           }
         },
         { 
           case:'stopOSC',
           callback:(self,args,origin,u) => {
-            u.osc?.remove(args[0], args[1]);
+            if(u.osc?.remove(args[0], args[1])) return true;
           }
         }
       );

@@ -18,24 +18,25 @@ class OSCManager{
                 remotePort: p.options.remotePort
             })
         });
-        return info
+        return info;
     }
 
-    send(dict, localAddress, localPort) {
-        if (localAddress == null && localPort == null){
+    send(dict, localAddress, localPort, remoteAddress, remotePort) {
+        if (!localAddress || !localPort || !remoteAddress || !remotePort){
             this.ports.forEach(o => {
                 o.send(this.encodeMessage(dict))
-            })
+            });
+            return true;
         } else {
             let found = this.ports.find((o,i) => {
-                if (o.options.localAddress === localAddress && o.options.localPort === localPort){
+                if (o.options.localAddress === localAddress && o.options.localPort === localPort && o.options.remotePort === remotePort && o.options.remoteAddress === remoteAddress) {
                     o.close()
                     this.ports.splice(i,1)
                     return true
                 }
             })
-            if(found) { this.socket.send(JSON.stringify({msg:'oscStopped',id:{address: localAddress, port: localPort}}));}
-            else { this.socket.send(JSON.stringify({msg:'streamNotFound',id:{address: localAddress, port: localPort}}));}
+            if(found) return found;
+            else return undefined;
         }
     }
 
@@ -52,10 +53,10 @@ class OSCManager{
             })
             bundle.packets.push({address: `/brainsatplay/${key}`, args: msg[key]})
         }
-        return bundle
+        return bundle;
     }
 
-    add(localAddress="127.0.0.1",localPort=57121, remoteAddress=null, remotePort=null) {
+    add(localAddress="127.0.0.1",localPort=57121, remoteAddress=localAddress, remotePort=localPort) {
 
         let port = new osc.UDPPort({
             localAddress,
@@ -75,30 +76,33 @@ class OSCManager{
         });
 
         port.on("message", (oscMsg) => {
-            this.socket.send(JSON.stringify({msg:'oscData', oscData: oscMsg}))
+            this.socket.send(JSON.stringify({msg:'oscData', oscData: oscMsg, address:remoteAddress, port:remotePort}));
         });
 
         port.on("close", (msg) => {})
         
         port.open();
+
+        return true;
     }
 
-    remove(localAddress, localPort) {
-        if (localAddress == null && localPort == null){
+    remove(localAddress, localPort, remoteAddress, remotePort) {
+        if (!localAddress || !localPort || !remoteAddress || !remotePort){
             this.ports.forEach(o => {
                 o.close()
             })
-            this.ports = []
+            this.ports = [];
+            return true;
         } else {
             let found = this.ports.find((o,i) => {
-                if (o.options.localAddress === localAddress && o.options.localPort === localPort){
+                if (o.options.localAddress === localAddress && o.options.localPort === localPort && o.options.remotePort === remotePort && o.options.remoteAddress === remoteAddress){
                     o.close()
                     this.ports.splice(i,1)
                     return true
                 }
             })
-            if(found) { this.socket.send(JSON.stringify({msg:'oscStopped',id:{address: localAddress, port: localPort}}));}
-            else { this.socket.send(JSON.stringify({msg:'streamNotFound',id:{address: localAddress, port: localPort}}));}
+            if(found) return true;
+            else return undefined;
         }
     }
 }

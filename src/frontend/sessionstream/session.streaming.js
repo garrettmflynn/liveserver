@@ -1,5 +1,5 @@
 import StateManager from 'anotherstatemanager'
-import { DataStreaming } from './data.streaming';
+import { DataStreaming } from '../datastream/data.streaming';
 
 //Joshua Brewster, Garrett Flynn AGPL v3.0
 export class SessionStreaming {
