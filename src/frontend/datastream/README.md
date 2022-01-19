@@ -3,7 +3,7 @@
 This tool lets you create *outgoing* streams for arbitrary objects with arbitrary functions for pulling data.
 
 ```
-let datastream = new DataStreaming(socket,userinfo={id:'jonny48613'})
+let datastream = new DataStreaming(WebsocketClient, socketId ,userinfo={id:'jonny48613'})
 
 
 datastream.setStream(
