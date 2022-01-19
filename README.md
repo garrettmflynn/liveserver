@@ -4,13 +4,11 @@ These tools help us create socket servers for live communications.
 
 This will take some time to fully document but the use cases it's being developed around are:
 
-- Live datastreams via sockets and webRTC (datastreams-api by Garrett Flynn (AGPL v3.0))
-- Live notifications/alerts and chatrooms
-- MongoDB or standalone socket server data collections
-- Users can create custom game sessions for exchanging data performantly (from Brains@Play).
-- Rough OSC integration to be expanded on.
+- Generalized server frontend/backend with a structure similar to our web worker library
+- Instantiate service you want through a unified framework, e.g. Socket and REST APIs with handles to easily set up streams and databases.
 
 - Soon WebTorrent integration for creating P2P file servers
+
 
 Why?
 
@@ -44,6 +42,12 @@ platform.ping();
 // You can create another user with another platform (platform2 = new UserPlatform(userdata2,socketurl)) instance as well and test it that way
 
 ```
+
+Derived Tools:
+- [User Platform](src/frontend/userplatform/README.md)
+- [Data Streaming](src/frontend/datastream/README.md)
+- [Session Streaming](src/frontend/sessionstream/README.md)
+- [OSC Streaming](src/frontend/osc/README.md)
 
 
 ### Backend
