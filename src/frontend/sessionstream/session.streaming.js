@@ -87,8 +87,8 @@ export class SessionStreaming {
 			type:'room', //'user','room','hostroom'
 			appname:`app${Math.floor(Math.random()*1000000000000)}`,
 			//id:'user123', //alternatively supply a user id to subscribe to
-			object:{},
-			settings:{}
+			object:{},  //data structure the outgoing datastream (see DataStreaming class)
+			settings:{} //settings for the outgoing datastream (see DataStreaming class)
 		}, 
 		callback=(result)=>{}, 	//runs once on return
 		onupdate=undefined, 	//per-update responses e.g. sequential data operations
@@ -152,11 +152,11 @@ export class SessionStreaming {
 	}
 
 	async subscribeToUser(
-		userId,
-		propnames=[],
-		callback=(result)=>{},
-		onupdate=undefined,
-		onframe=undefined
+		userId, //id of user to subscribe to
+		propnames=[], //props of the user to listen to
+		callback=(result)=>{}, //one-off callback
+		onupdate=undefined,  //per-update responses e.g. sequential data operations
+		onframe=undefined //frame tick responses e.g. frontend updates
 	) {
 		let info = await this.WebsocketClient.run( //subscribes you to a user stream by their id
 			'subscribeToUser',
@@ -179,10 +179,12 @@ export class SessionStreaming {
 
 	//subscribe to a game session
 	async subscribeToSession(
-		sessionId,
-		callback=(result)=>{},
-		onupdate=undefined,
-		onframe=undefined
+		sessionId,				//id of the session you are subscribing to
+		defaultStreamSetup=true, //default streaming setup (All Latest Values supplied to object)
+		callback=(result)=>{}, //runs once on return
+		onupdate=undefined, //per-update responses e.g. sequential data operations
+		onframe=undefined, //frame tick responses e.g. frontend updates
+		
 	) {
 		let info = await this.WebsocketClient.run(
 			'subscribeToSession',
@@ -193,6 +195,25 @@ export class SessionStreaming {
 		)
 		if(info.data?.id) 
 		{	
+
+			if(defaultStreamSetup) {
+				let object = {};
+				for(const prop in info.data.propnames) {
+					object[prop] = undefined;
+				}
+
+				//set up the data stream
+				this.datastream.setStream(
+					object,
+					{
+						keys:info.data.propnames
+					},
+					info.data.appname 
+				);
+
+				//do this.datastream.updateStreamData(info.data.appname, {propname:'newdata'})
+			}
+
 			this.state.setState(info.data.id,info.data);
 			if(typeof onupdate === 'function') this.state.subscribeTrigger(info.data.id, onupdate);
 			if(typeof onframe === 'function') this.state.subscribe(info.data.id, onframe);
@@ -201,8 +222,8 @@ export class SessionStreaming {
 	}
 
 	async unsubscribe( //can kick yourself or another user from a session
-		sessionId,
-		userId=this.user.id,
+		sessionId, //session id to unsubscribe from
+		userId=this.user.id, //user id to unsubscribe from session (yours by default)
 		callback=(result)=>{}
 	) {
 		let result = await this.WebsocketClient.run(
@@ -250,6 +271,12 @@ export class SessionStreaming {
 			this.socketId,
 			callback
 		);
+
+		if(result.data) {
+			this.state.unsubscribeAll(sessionId);
+		}
+
+		return result;
 	}
 
 	async makeHost( 

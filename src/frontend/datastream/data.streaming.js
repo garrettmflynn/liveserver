@@ -125,7 +125,7 @@ export class DataStreaming {
 		
 	}
 
-	addStreamFunc(name,callback=()=>{}) {
+	addStreamFunc(name,callback=(data)=>{}) {
 		this.streamFunctions[name] = callback;
 	}
 
@@ -135,9 +135,10 @@ export class DataStreaming {
 	//      	callback:0, 	// Default data streaming mode for all keys
 	//			keys:['key','key2'], 	// Keys of the object we want to buffer into the stream
 	// 			key:{
-	//				callback:0 //specific modes for specific keys
+	//				callback:0 //specific modes for specific keys or can be custom functions
 	// 				lastRead:0,	
 	//			} //just dont name an object key 'keys' :P
+	//		}
 	setStream(
 		object={},   //the object you want to watch
 		settings={}, //settings object to specify how data is pulled from the object keys
@@ -185,6 +186,15 @@ export class DataStreaming {
 				delete this.streamSettings[streamName].settings[key];
 		}
 	}
+
+	//can update a stream object by name (if you don't have a direct reference)
+	updateStreamData(streamName, data={}) {
+		if(this.streamSettings[streamName]) {
+			Object.assign(this.streamSettings[streamName].object,data);
+			return this.streamSettings[streamName].object;
+		}
+		return undefined;
+	} 
 
 	streamLoop() {
 		if(this.LOOPING) {
