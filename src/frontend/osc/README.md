@@ -3,7 +3,7 @@
 Simple handles for OSC data, which are just streams of arbitrary data in a sound data format
 
 ```
-let oscstream = new WebsocketOSCStreaming(socket, ports); //supply a socket and optional preopened ports
+let oscstream = new WebsocketOSCStreaming(WebsocketClient, socketId); //supply a socket and optional preopened ports
 
 //opens a UDP port connection for OSC streaming
 oscstream.startOSC(

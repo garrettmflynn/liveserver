@@ -3,7 +3,7 @@ import { DataStreaming } from '../datastream/data.streaming';
 
 //Joshua Brewster, Garrett Flynn AGPL v3.0
 export class SessionStreaming {
-	constructor(WebsocketClient, socketId, userinfo={id:'user'+Math.floor(Math.random()*10000000000)}) {
+	constructor(WebsocketClient, userinfo={id:'user'+Math.floor(Math.random()*10000000000)}, socketId) {
 		
 		if(!WebsocketClient) {
 			console.error("SessionStreaming needs an active WebsocketClient");

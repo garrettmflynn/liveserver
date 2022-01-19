@@ -4,7 +4,11 @@
 import {Events} from '@brainsatplay/liveserver-common'
 
 export class WebsocketClient {
-    constructor(socketUrl='https://localhost:80', subprotocols={id:`user${Math.floor(Math.random() * 10000000000)}`}) {
+    constructor(
+        socketUrl='https://localhost:80', 
+        subprotocols={id:`user${Math.floor(Math.random() * 10000000000)}`},
+        defaultSocket = true
+    ) {
 
         if (!(url instanceof URL)) this.url = new URL(socketUrl);
 
@@ -26,7 +30,7 @@ export class WebsocketClient {
         this.unsubEvent = (eventName, sub) => {this.EVENTS.unsubEvent(eventName,sub)};
         this.addEvent = (eventName, origin, functionName, id) => {this.EVENTS.addEvent(eventName, origin, functionName, id)};
 
-        if(this.url) this.addSocket(this.url, subprotocols)
+        if(this.url && defaultSocket) this.addSocket(this.url, subprotocols)
     }
 
     //creates a url to be posted to the socket backend for parsing, mainly user info

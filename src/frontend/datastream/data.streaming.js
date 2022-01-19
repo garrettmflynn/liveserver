@@ -1,7 +1,7 @@
 //Allows you to stream outgoing data asynchronously with automatic buffering settings.
 //This hooks in with functions on the session.service tool for creating two way sessions.
 export class DataStreaming {
-	constructor(WebsocketClient, socketId, userinfo={id:'user'+Math.floor(Math.random()*10000000000)}) {
+	constructor(WebsocketClient, userinfo={id:'user'+Math.floor(Math.random()*10000000000)}, socketId) {
 
 		if(!WebsocketClient) {
 			console.error("UserPlatform needs an active WebsocketClient");

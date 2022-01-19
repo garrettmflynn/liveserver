@@ -3,7 +3,7 @@ import { DS, DataTablet } from 'brainsatplay-data'
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 
 export class UserPlatform {
-    constructor(WebsocketClient, socketId, userinfo={id:'user'+Math.floor(Math.random()*10000000000)}) {
+    constructor(WebsocketClient, userinfo={id:'user'+Math.floor(Math.random()*10000000000)}, socketId) {
         this.currentUser = userinfo;
 
         if(!WebsocketClient) {
