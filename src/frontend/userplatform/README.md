@@ -7,7 +7,7 @@ let client = new WebsocketClient(
     subprotocols={id:`user${Math.floor(Math.random() * 10000000000)}`}
 );
 
-let socketId = client.socket[0].id
+let socketId = client.getSocket().id;
 
 let userinfo = {
     _id:'123456', //we are using randomly generated ones from realm/mongodb

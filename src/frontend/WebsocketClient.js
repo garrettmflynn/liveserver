@@ -99,9 +99,12 @@ export class WebsocketClient {
     }
 
     getSocket(id) {
+        if(!id) return this.sockets[0].socket;
+
         return this.sockets.find((o,i) => {
             if(o.id === id) return true;
         });
+
     }
 
     //add a callback to a worker
