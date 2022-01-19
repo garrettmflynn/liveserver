@@ -107,7 +107,7 @@ class WebsocketOSCStreaming {
 		}
 	}
 
-	subscribe(
+	subscribeToUpdates(
 		remoteAddress,
 		remotePort,
 		onupdate=undefined,
