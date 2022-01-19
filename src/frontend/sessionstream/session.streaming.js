@@ -34,7 +34,7 @@ export class SessionStreaming {
 		this.datastream = new DataStreaming(WebsocketId,this.socketId,userinfo);
 
 		this.WebsocketClient.addCallback('SessionStreaming',(res)=>{
-			if(res.msg === 'sessionData' && res.output.id) {
+			if(res.cmd === 'sessionData' && res.output.id) {
 				this.state.setState(res.output.id,res.output);
 			}
 		})

@@ -150,13 +150,13 @@ export class WebsocketOSCStreaming {
 		this.socket.send(JSON.stringify({cmd:'startOSC',args:[localAddress, localPort, remoteAddress, remotePort]}));
 		let sub = this.state.subscribeTrigger('commandResult', (newResult) => {
 			if (typeof newResult === 'object') {
-				if (newResult.msg === 'oscInfo') {
+				if (newResult.cmd === 'oscInfo') {
 					onsuccess(newResult.oscInfo);
 					this.state.unsubscribeTrigger('commandResult', sub);
 					return newResult.oscInfo
 				}
 			}
-			else if (newResult.msg === 'oscError') {
+			else if (newResult.cmd === 'oscError') {
 				this.state.unsubscribeTrigger('commandResult', sub);
 				console.log("OSC Error", newResult.oscError);
 				return []
