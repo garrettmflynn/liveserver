@@ -1,22 +1,36 @@
-import { WebsocketClient } from "./WebsocketClient";
+import { WebsocketClient } from "../WebsocketClient";
 import { DS, DataTablet } from 'brainsatplay-data'
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 
 export class UserPlatform {
-    constructor(userinfo, socket='https://localhost:80') {
+    constructor(WebsocketClient, socketId, userinfo={id:'user'+Math.floor(Math.random()*10000000000)}) {
         this.currentUser = userinfo;
-        this.socket;
-        this.socketResult = {};
+
+        if(!WebsocketClient) {
+			console.error("UserPlatform needs an active WebsocketClient");
+			return;
+		}
+		
+		this.WebsocketClient = WebsocketClient;
+		this.socketId = socketId;
+
+		if(!socketId) {
+			if(!this.WebsocketClient.sockets[0]) {
+				this.socketId = this.WebsocketClient.addSocket(); //try to add a socket
+				if(!this.socketId) {
+					return;
+				}
+			} else this.socketId = this.WebsocketClient.sockets[0].id;
+		}
+
+        this.socket = this.WebsocketClient.getSocket(this.socketId);
+        
         this.tablet = new DataTablet(); //DataTablet (for alyce)
         this.collections = this.tablet.collections;
 
-        if(typeof socket === 'string' && userinfo) { //
-            this.setupSocket(socket, userinfo);
-        } else if (typeof socket === 'object') {
-            this.socket = socket;
-        }
         if(this.socket && userinfo) {
             this.setupUser(userinfo);
+            this.WebsocketClient.defaultCallback = this.baseServerCallback;
         }
         
     }
@@ -24,29 +38,6 @@ export class UserPlatform {
     //------------------------------------------------
     //Socket stuff
     //------------------------------------------------
-
-    setup(userinfo, socket='http://localhost:80') {
-        if(userinfo) {
-            if(typeof socket === 'string'){ 
-                //console.log(socket,userinfo);
-                this.setupSocket(socket,userinfo);
-            }
-            else if (typeof socket === 'object') {
-                this.socket = socket;
-            }
-            if(this.socket) {
-                this.setupUser(userinfo);
-            }   
-        }
-    }
-
-    setupSocket(url='http://localhost:80', user=this.currentUser) {
-        if(this.socket) {if(this.socket.isOpen()) this.socket.close();}
-        let socket = new WebsocketClient(url, user); //needs id
-        socket.defaultCallback = this.baseServerCallback;
-        this.socket = socket;
-        return socket;
-    }
 
     closeSocket() {
         if(this.socket) {if(this.socket.isOpen()) this.socket.close();}
@@ -192,7 +183,6 @@ export class UserPlatform {
     //default socket response for the platform
     baseServerCallback = (data) => {
         // console.log("Socket command result:", data)
-        Object.assign(this.socketResult,data);
         let structs = data;
         if(typeof data === 'object' && data?.structType) structs = [data];
         if(Array.isArray(data)) { //getUserData response

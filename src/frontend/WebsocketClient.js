@@ -98,6 +98,12 @@ export class WebsocketClient {
 
     }
 
+    getSocket(id) {
+        return this.sockets.find((o,i) => {
+            if(o.id === id) return true;
+        });
+    }
+
     //add a callback to a worker
     addFunction(functionName,fstring,origin,id,callback=(result)=>{}) {
         if(functionName && fstring) {

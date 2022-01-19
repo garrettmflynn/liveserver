@@ -31,11 +31,11 @@ export class SessionStreaming {
 		this.apps 		   = new Map();
 		this.subscriptions = new Map();
 
-		this.datastream = new DataStreaming(socket,userinfo);
+		this.datastream = new DataStreaming(WebsocketId,this.socketId,userinfo);
 
 		this.WebsocketClient.addCallback('SessionStreaming',(res)=>{
-			if(res.msg === 'sessionData' && res.data.id) {
-				this.state.setState(res.data.id,res.data);
+			if(res.msg === 'sessionData' && res.output.id) {
+				this.state.setState(res.output.id,res.output);
 			}
 		})
 
@@ -131,11 +131,11 @@ export class SessionStreaming {
 				this.socketId,
 				callback
 			)
-			if(info.data?.id) 
+			if(info.output?.id) 
 			{	
-				this.state.setState(info.data.id,info.data);
-				if(typeof onupdate === 'function') this.state.subscribeTrigger(info.data.id, onupdate);
-			if(typeof onframe === 'function') this.state.subscribe(info.data.id, onframe);
+				this.state.setState(info.output.id,info.output);
+				if(typeof onupdate === 'function') this.state.subscribeTrigger(info.output.id, onupdate);
+			if(typeof onframe === 'function') this.state.subscribe(info.output.id, onframe);
 			}
 			return info;
 		}
@@ -168,11 +168,11 @@ export class SessionStreaming {
 			this.socketId,
 			callback
 		)
-		if(info.data?.id) 
+		if(info.output?.id) 
 		{	
-			this.state.setState(info.data.id,info.data);
-			if(typeof onupdate === 'function') this.state.subscribeTrigger(info.data.id, onupdate);
-			if(typeof onframe === 'function') this.state.subscribe(info.data.id, onframe);
+			this.state.setState(info.output.id,info.output);
+			if(typeof onupdate === 'function') this.state.subscribeTrigger(info.output.id, onupdate);
+			if(typeof onframe === 'function') this.state.subscribe(info.output.id, onframe);
 		}
 		return info;
 	}
@@ -193,12 +193,12 @@ export class SessionStreaming {
 			this.socketId,
 			callback
 		)
-		if(info.data?.id) 
+		if(info.output?.id) 
 		{	
 
 			if(defaultStreamSetup) {
 				let object = {};
-				for(const prop in info.data.propnames) {
+				for(const prop in info.output.propnames) {
 					object[prop] = undefined;
 				}
 
@@ -206,17 +206,17 @@ export class SessionStreaming {
 				this.datastream.setStream(
 					object,
 					{
-						keys:info.data.propnames
+						keys:info.output.propnames
 					},
-					info.data.appname 
+					info.output.appname 
 				);
 
-				//do this.datastream.updateStreamData(info.data.appname, {propname:'newdata'})
+				//do this.datastream.updateStreamData(info.output.appname, {propname:'newdata'})
 			}
 
-			this.state.setState(info.data.id,info.data);
-			if(typeof onupdate === 'function') this.state.subscribeTrigger(info.data.id, onupdate);
-			if(typeof onframe === 'function') this.state.subscribe(info.data.id, onframe);
+			this.state.setState(info.output.id,info.output);
+			if(typeof onupdate === 'function') this.state.subscribeTrigger(info.output.id, onupdate);
+			if(typeof onframe === 'function') this.state.subscribe(info.output.id, onframe);
 		}
 		return info;
 	}
@@ -234,7 +234,7 @@ export class SessionStreaming {
 			callback
 		);
 
-		if(result.data) {
+		if(result.output) {
 			this.state.unsubscribeAll(sessionId);
 		}
 		
@@ -272,7 +272,7 @@ export class SessionStreaming {
 			callback
 		);
 
-		if(result.data) {
+		if(result.output) {
 			this.state.unsubscribeAll(sessionId);
 		}
 

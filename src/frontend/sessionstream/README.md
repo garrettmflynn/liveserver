@@ -8,7 +8,7 @@ This implements efficient game and user streaming tools for creating arbitrary m
 let session = new SessionStreaming(
     WebsocketClient,
     socketId,
-    userinfo = {id:'user123915485'} //supply user info, just needs and id really or it will make one for you
+    userinfo = {id:'user123915485'} //supply user info, just needs an id really or it will make one for you
 );
 
 let sessioninfo = await session.createSession(

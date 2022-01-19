@@ -1,5 +1,5 @@
 //OSC stream frontend calls
-class WebsocketOSCStreaming {
+export class WebsocketOSCStreaming {
 	constructor(WebsocketClient, socketId) {
 		if(!WebsocketClient) {
 			console.error("SessionStreaming needs an active WebsocketClient");
@@ -56,7 +56,7 @@ class WebsocketOSCStreaming {
 			callback
 		);
 
-		if(info.data === true) {
+		if(info.output === true) {
 			if(typeof onupdate === 'function') this.state.subscribeTrigger(remoteAddress+'_'+remotePort,onupdate);
 			if(typeof onframe === 'function') this.state.subscribe(remoteAddress+'_'+remotePort,onframe);
 		}
@@ -102,7 +102,7 @@ class WebsocketOSCStreaming {
 			callback
 		);
 
-		if(info.data) {
+		if(info.output) {
 			this.state.unsubscribeAll(remoteAddress+'_'+remotePort);
 		}
 	}

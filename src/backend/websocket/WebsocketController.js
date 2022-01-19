@@ -78,7 +78,7 @@ class WebsocketController {
 
         return await this.runCallback(command,args,origin,u).then(data => {
           
-          let dict = { msg: command, data:data };
+          let dict = { msg: command, output:data };
           if (callbackId) dict.callbackId = callbackId;
   
           if(data === DONOTSEND) return dict;
