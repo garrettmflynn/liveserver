@@ -107,6 +107,35 @@ class WebsocketOSCStreaming {
 		}
 	}
 
+	subscribe(
+		remoteAddress,
+		remotePort,
+		onupdate=undefined,
+		onframe=undefined
+	) {
+		if(!remoteAddress || !remotePort) return undefined;
+
+		let sub1,sub2;
+		if(typeof onupdate === 'function') sub1 = this.state.subscribeTrigger(remoteAddress+'_'+remotePort,onupdate);
+		if(typeof onframe === 'function') sub2 = this.state.subscribe(remoteAddress+'_'+remotePort,onframe);
+
+		let result = {};
+		if(sub1) result.updateSub = sub1;
+		if(sub2) result.frameSub = sub2;
+
+		if(Object.keys(result).length > 0)
+			return result;
+		else return undefined;
+	}
+
+	unsubscribeAll(
+		remoteAddress,
+		remotePort
+	) {
+		this.state.unsubscribeAll(remoteAddress+'_'+remotePort);
+		return true;
+	}
+
 }
 
 
