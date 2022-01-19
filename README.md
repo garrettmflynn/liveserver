@@ -24,26 +24,19 @@ Made for [Brains@Play](https://github.com/brainsatplay/brainsatplay) and [MyAlyc
 //ES6 style
 import { UserPlatform } from 'liveserver-frontend'
 
-let userdata = {
-    _id:'123456', //we are using randomly generated ones from realm/mongodb
-    username:johnnyboi,
-    email:johnnyboi@boyo.com,
-    firstName:johnny,
-    lastName:boyo
-};
+let client = new WebsocketClient(
+    socketUrl='https://localhost:80', 
+    subprotocols={id:`user${Math.floor(Math.random() * 10000000000)}`}
+);
 
-const platform = new UserPlatform(userdata,socketurl);
-
-platform.sendMessage('123456','test');
-platform.ping();
-
+let socketId = client.getSocket().id;
 //check console. 
 
 // You can create another user with another platform (platform2 = new UserPlatform(userdata2,socketurl)) instance as well and test it that way
 
 ```
 
-Derived Tools:
+Derived Tools using WebsocketClient:
 - [User Platform](src/frontend/userplatform/README.md)
 - [Data Streaming](src/frontend/datastream/README.md)
 - [Session Streaming](src/frontend/sessionstream/README.md)
