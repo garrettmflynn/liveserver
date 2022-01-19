@@ -1,6 +1,13 @@
 ```
 //ES6 style
-import { UserPlatform } from 'liveserver-frontend'
+import { WebsocketClient, UserPlatform } from 'liveserver-frontend'
+
+let client = new WebsocketClient(
+    socketUrl='https://localhost:80', 
+    subprotocols={id:`user${Math.floor(Math.random() * 10000000000)}`}
+);
+
+let socketId = client.socket[0].id
 
 let userinfo = {
     _id:'123456', //we are using randomly generated ones from realm/mongodb
@@ -10,7 +17,7 @@ let userinfo = {
     lastName:boyo
 };
 
-const platform = new UserPlatform(WebsocketClient, socketId, userinfo);
+const platform = new UserPlatform(client, socketId, userinfo);
 
 platform.sendMessage('123456','test');
 platform.ping();

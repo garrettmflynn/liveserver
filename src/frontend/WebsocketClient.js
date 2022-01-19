@@ -26,7 +26,7 @@ export class WebsocketClient {
         this.unsubEvent = (eventName, sub) => {this.EVENTS.unsubEvent(eventName,sub)};
         this.addEvent = (eventName, origin, functionName, id) => {this.EVENTS.addEvent(eventName, origin, functionName, id)};
 
-        this.addSocket(this.url, subprotocols)
+        if(this.url) this.addSocket(this.url, subprotocols)
     }
 
     //creates a url to be posted to the socket backend for parsing, mainly user info
