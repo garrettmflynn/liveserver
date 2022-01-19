@@ -5,7 +5,7 @@ These tools help us create socket servers for live communications.
 This will take some time to fully document but the use cases it's being developed around are:
 
 - Generalized server frontend/backend with a structure similar to our web worker library
-- Instantiate service you want through a unified framework, e.g. Socket and REST APIs with handles to easily set up streams and databases.
+- Instantiate services you want through a unified framework, e.g. Socket and REST APIs with handles to easily set up streams and databases.
 
 - Soon WebTorrent integration for creating P2P file servers
 
