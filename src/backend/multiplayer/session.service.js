@@ -4,7 +4,7 @@ const DONOTSEND = "DONOTSEND";
 //      reimplement callbacks
 export class WebsocketSessionStreaming {
     constructor(WebsocketController, running=true) {
-        if(!WebsocketController) { console.error('Requires a WebsocketController instance.'); return; }
+        // if(!WebsocketController) { console.error('Requires a WebsocketController instance.'); return; }
         this.controller = WebsocketController;
 
         //should revamp this to use maps or plain objects
@@ -126,12 +126,12 @@ export class WebsocketSessionStreaming {
     
         this.addDefaultCallbacks();
 
-        if(running)
-            this.subscriptionLoop();
+        // if(running)
+        //     this.subscriptionLoop();
     }
 
     addDefaultCallbacks() {
-        this.controller.callbacks.push(...this.defaultCallbacks);
+        if (this.controller) this.controller.callbacks.push(...this.defaultCallbacks);
     }
 
     //Received user data from a user socket, now parse it into system

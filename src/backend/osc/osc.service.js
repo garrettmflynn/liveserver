@@ -5,7 +5,30 @@ import osc from "osc"
 class OSCManager{
     constructor(ws){
         this.socket = ws
-        this.ports = []     
+        this.ports = []   
+        
+        this.defaultCallbacks = [
+            { 
+                case:'startOSC',
+                callback:(self,args,origin,u) => {
+                  if(this.add(args[0],args[1],args[2],args[3])) return true;
+                }
+              },
+              { 
+                case:'sendOSC',
+                callback:(self,args,origin,u) => {
+                  if (commands.length > 2) u.osc.send(args[0],args[1],args[2]);
+                  else this.send(args[0]);
+                  return 'DONOTSEND';
+                }
+              },
+              { 
+                case:'stopOSC',
+                callback:(self,args,origin,u) => {
+                  if(this.remove(args[0], args[1])) return true;
+                }
+              }
+        ]
     }
 
     info(){

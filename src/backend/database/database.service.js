@@ -20,7 +20,7 @@ export class WebsocketDB {
     ];
 
     constructor (WebsocketController, dbOptions = {}, debug=true) {
-        if(!WebsocketController) { console.error('Requires a WebsocketController instance.'); return; }
+        // if(!WebsocketController) { console.error('Requires a WebsocketController instance.'); return; }
         this.controller = WebsocketController;
         this.db = dbOptions.instance;
         this.collections = new Map();
@@ -298,7 +298,7 @@ export class WebsocketDB {
     addDefaultCallbacks() {
 
         //FYI "this" scope references this class, "self" scope references the controller scope.
-        this.controller.callbacks.push(this.defaultCallbacks);
+        if (this.controller) this.controller.callbacks.push(this.defaultCallbacks);
     }
     
     notificationStruct(parentStruct= {}) {
