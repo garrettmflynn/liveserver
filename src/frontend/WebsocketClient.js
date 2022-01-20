@@ -6,7 +6,7 @@ import {Events} from '@brainsatplay/liveserver-common'
 export class WebsocketClient {
     constructor(
         socketUrl='https://localhost:80', 
-        subprotocols={id:`user${Math.floor(Math.random() * 10000000000)}`},
+        subprotocols={_id:`user${Math.floor(Math.random() * 10000000000)}`},
         defaultSocket = true
     ) {
 
@@ -22,7 +22,10 @@ export class WebsocketClient {
         this.socketRot = 0;
 
         this.responses = [];
-        this.functionQueue = {}
+        this.functionQueue = {};
+
+        this.origin = `client${Math.floor(Math.random()*10000000000000)}`; //randomid you can use
+
 
         
         this.EVENTS = new Events(this);

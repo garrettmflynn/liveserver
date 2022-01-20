@@ -7,7 +7,7 @@ This implements efficient game and user streaming tools for creating arbitrary m
 //create a session class to enable multiplayer tools
 let session = new SessionStreaming(
     WebsocketClient,
-    userinfo = {id:'user123915485'}, //supply user info, just needs an id really or it will make one for you
+    userinfo = {_id:'user123915485'}, //supply user info, just needs an id really or it will make one for you
     socketId 
 );
 
