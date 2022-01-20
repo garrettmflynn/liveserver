@@ -476,29 +476,7 @@ class WebsocketController {
 
 
     addOSCCallbacks() {
-      this.callbacks.push(
-         // OSC (WebSocket calls handled internally)
-        { 
-          case:'startOSC',
-          callback:(self,args,origin,u) => {
-            if(u.osc?.add(args[0],args[1],args[2],args[3])) return true;
-          }
-        },
-        { 
-          case:'sendOSC',
-          callback:(self,args,origin,u) => {
-            if (commands.length > 2) u.osc.send(args[0],args[1],args[2]);
-            else u.osc?.send(args[0]);
-            return DONOTSEND;
-          }
-        },
-        { 
-          case:'stopOSC',
-          callback:(self,args,origin,u) => {
-            if(u.osc?.remove(args[0], args[1])) return true;
-          }
-        }
-      );
+      this.callbacks.push(this.osc.defaultCallbacks);
     }
 
     addCallback(functionName,callback=(self,args,origin,user)=>{}) {
