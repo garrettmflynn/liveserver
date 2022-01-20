@@ -135,7 +135,7 @@ export class WebsocketClient {
                 }
               }
             }
-            let dict = {route:functionName, args:args, origin:origin};
+            let dict = {route:functionName, msg:args, id:origin};
             return this.send(dict,callback,id);
         }
     }

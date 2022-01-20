@@ -46,8 +46,6 @@ mongoose
 // ----------------- Initialize API ------------------
 function init(instance?:any) {
 
-  console.log(api)
-
   let http = new api.HTTPService();
 
   app.get("**", http.http);
@@ -65,7 +63,7 @@ function init(instance?:any) {
 
   let controller = new api.Controller({
     wss: websocket.wss,
-    debug: true,
+    // debug: true,
   });
 
   let multiplayer = new api.SessionsService(controller);

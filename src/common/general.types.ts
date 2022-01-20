@@ -10,8 +10,8 @@ export type MessageType = string | any[] | {
     id?: string;
     _id?: string;
     route: string; // what to do at the endpoint
-    callbackId: string; // unique id for the request (stored client-side)
-    msg: any // data passed
+    callbackId?: string; // unique id for the request (stored client-side)
+    msg: [] | any // data passed
   }
 
 export type ClientObject = {

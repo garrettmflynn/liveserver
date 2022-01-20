@@ -101,7 +101,6 @@ export class HTTPService {
         let path = req.route.path.replace(/\/?\*?\*/, '')
         let routePath = req.originalUrl.replace(path, '')
 
-        console.log(routePath)
         let toMatch = '/subscribe'
         if (routePath.slice(0,toMatch.length) == toMatch){
             // Extract Subscription Endpoint (no join required)
@@ -121,7 +120,6 @@ export class HTTPService {
     // Generic Route Handler for Any Route + Body
     handleRoute = async (route: string, body: string, method?:string) => {
 
-            console.log(route)
                 try {
                     
                     // Requires Client to Join Session
@@ -159,7 +157,6 @@ export class HTTPService {
 
     addRoute = async (config: RouteConfig) => {
 
-        console.log(config)
         let routes = (typeof config.id === 'string') ? this.clients[config.id]?.routes : this.routes
 
         if (routes.has(config.route)) return new Error(config.route + ' already exists for ' + config.id)
