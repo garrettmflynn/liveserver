@@ -349,8 +349,8 @@ class WebsocketController {
               } else return false;
           }
       } else if (typeof user === 'object') {
-        u.socket.send(JSON.stringify(toSend));
-          return true;
+        user.socket.send(JSON.stringify(toSend));
+        return true;
       }
       return false;
   }
