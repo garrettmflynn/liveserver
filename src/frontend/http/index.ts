@@ -38,7 +38,7 @@ class HTTPClient {
             config.id = this.id
             this.routes.set(config.route, config)
 
-            return await fetch(createURL('/defaults/addRoute', this.remote), {
+            return await fetch(createURL('/addRoute', this.remote), {
                 method: 'POST', 
                 mode: 'cors', // no-cors, *cors, same-origin
                 headers: {
@@ -51,7 +51,7 @@ class HTTPClient {
 
     send = async (route:string, ...args:any[]) => {
 
-        if (route === '/defaults/addRoute') return await this.addRoute(args[0])
+        if (route === '/addRoute') return await this.addRoute(args[0])
         else if (this.remote){
             return await fetch(createURL(route, this.remote), {
                 method: 'POST',
@@ -74,7 +74,7 @@ class HTTPClient {
 
         if (this.remote) {
 
-            const events = new EventSource(createURL('/defaults/subscribe' + route, this.remote));
+            const events = new EventSource(createURL('/subscribe' + route, this.remote));
             events.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 callback(data)
@@ -87,11 +87,11 @@ class HTTPClient {
 
 
     join = async (id:string=this.id) => {
-        return await this.send('/defaults/join', id)
+        return await this.send('/join', id)
     }
 
     leave = async (id:string=this.id) => {
-        return await this.send('/defaults/leave', id)
+        return await this.send('/leave', id)
     }
     
 }

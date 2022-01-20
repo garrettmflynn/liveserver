@@ -1,7 +1,19 @@
 import { DS, DataTablet } from 'brainsatplay-data'
+import { WebsocketClient } from '../WebsocketClient';
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 
 export class UserPlatform {
+
+    currentUser: any
+		
+	WebsocketClient: WebsocketClient
+	socketId: string
+
+    socket: any;
+        
+    tablet = new DataTablet(); //DataTablet (for alyce)
+    collections = this.tablet.collections;
+
     constructor(WebsocketClient, userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}, socketId) {
         this.currentUser = userinfo;
 
@@ -24,8 +36,6 @@ export class UserPlatform {
 
         this.socket = this.WebsocketClient.getSocket(this.socketId);
         
-        this.tablet = new DataTablet(); //DataTablet (for alyce)
-        this.collections = this.tablet.collections;
 
         if(this.socket && userinfo) {
             this.setupUser(userinfo);
@@ -57,6 +67,7 @@ export class UserPlatform {
     //TODO: make this able to be awaited to return the currentUser
     //uses a bunch of the functions below to set up a user and get their data w/ some cross checking for consistent profiles
     async setupUser(userinfo, callback=(currentUser)=>{}) {
+
         if(!userinfo) {
             console.error('must provide an info object! e.g. {id:"abc123"}');
             callback(undefined);
@@ -67,7 +78,7 @@ export class UserPlatform {
         if(userinfo.id) userinfo._id = userinfo.id;
 
         console.log("Generating/Getting User: ", userinfo._id)
-        let data = await this.getUserFromServer(userinfo._id,false);
+        let data = await this.getUserFromServer(userinfo._id);
         // console.log("getUser", res);
         let u;
         let newu = false;
@@ -85,7 +96,7 @@ export class UserPlatform {
         }
         else {
             u = data.user;
-            u._id = userData._id; //replace the unique mongo id for the secondary profile struct with the id for the userinfo for temp lookup purposes
+            u._id = data._id; //replace the unique mongo id for the secondary profile struct with the id for the userinfo for temp lookup purposes
             for(const prop in userinfo) { //checking that the token and user profile overlap correctly
                 let dummystruct = this.userStruct();
                 if(u[prop] && prop !== '_id') {
@@ -118,13 +129,13 @@ export class UserPlatform {
                 }
             }
 
-            if(data.authorizations){
+            if(data?.authorizations){
                 if(Array.isArray(data.authorizations)) {
                     this.setLocalData(data.authorizations);
                 }
             }
 
-            if (data.groups){
+            if (data?.groups){
                 if(Array.isArray(data.groups)) {
                     this.setLocalData(data.groups);
                 }
@@ -133,7 +144,7 @@ export class UserPlatform {
 
         if(newu) {this.currentUser = u; this.setLocalData(u);}
         else {
-            let res = await this.getAllUserDataFromServer(u._id,undefined,false);
+            let res = await this.getAllUserDataFromServer(u._id,undefined);
 
             console.log("getServerData", res);
             if(!data || data.length === 0) { 
@@ -193,6 +204,7 @@ export class UserPlatform {
 
     //default socket response for the platform
     baseServerCallback = (data) => {
+
         // console.log("Socket command result:", data)
         let structs = data;
         if(typeof data === 'object' && data?.structType) structs = [data];
@@ -248,12 +260,11 @@ export class UserPlatform {
             });
         } 
 
-        if (data.msg === 'notifications') {
+        if (data?.msg === 'notifications') {
             this.checkForNotificationsOnServer(); //pull notifications
         }
-        if (data.msg === 'deleted') {
-            let found = this.getStruct(data);
-            if(found) this.deleteLocalData(found); //remove local instance
+        if (data?.msg === 'deleted') {
+            this.deleteLocalData(data.id); //remove local instance
         }
         
         this.onResult(data);
@@ -369,7 +380,7 @@ export class UserPlatform {
     }
 
     //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
-    async getDataFromServer(collection,ownerId,searchDict,limit=0,skip=0,callback=this.baseServerCallback) {
+    async getDataFromServer(collection,ownerId?,searchDict?,limit:number=0,skip:number=0,callback=this.baseServerCallback) {
                
         return await this.WebsocketClient.run(
             'getData',
@@ -506,7 +517,6 @@ export class UserPlatform {
     //delete user profile by ID on the server
     async deleteUser (userId, callback=this.baseServerCallback) {
         if(!userId) return;
-        this.users.delete(userId);
 
         return await this.WebsocketClient.run(
             'deleteProfile',
@@ -582,7 +592,7 @@ export class UserPlatform {
 
     //delete an authoriztion off the server
     async deleteAuthorizationOnServer (authorizationId,callback=this.baseServerCallback) {
-        if(!authorization) return;
+        if(!authorizationId) return;
         this.deleteLocalData(authorizationId);
         
         return await this.WebsocketClient.run(
@@ -766,8 +776,8 @@ export class UserPlatform {
             });
         }
         let replyTo = this.getLocalData('comment',{'_id':commentStruct.replyTo});
-        if(replyTo?._id !== parent?._id); {
-            let idx = replyTo.replies?.indexOf(r._id);
+        if(replyTo?._id !== parent?._id) {
+            let idx = replyTo.replies?.indexOf(parent._id); // NOTE: Should this look for the corresponding parent id?
             if(idx > -1) replyTo.replies.splice(idx,1);
             toUpdate.push(replyTo);
         }
@@ -801,7 +811,7 @@ export class UserPlatform {
         let results = [];
         await Promise.all(auths.map(async (o) => {
             if(o.groups?.includes(group)) {
-                let u = auth.authorizerId;
+                let u = o.authorizerId;
                 if(u) {
                     let data;
                     let user = await this.getUserFromServer(u,callback);
@@ -845,7 +855,7 @@ export class UserPlatform {
 
 
     //pull a struct by collection, owner, and key/value pair from the local platform, leave collection blank to pull all ownerId associated data
-    getLocalData(collection, query) {
+    getLocalData(collection, query?) {
         return this.tablet.getLocalData(collection,query);
     }
 
@@ -864,7 +874,7 @@ export class UserPlatform {
         let replies = [];
 
         if(!struct.replies) return replies;
-        else if (struct.replies.reduce((a,b) => a*(typeof b === 'object'), 1)) return struct.replies // just return objects
+        else if (struct.replies.reduce((a,b) => a*((typeof b === 'object')? 1 : 0), 1)) return struct.replies // just return objects
         
         replies = this.getLocalData('comment',{'replyTo':struct._id});
         return replies;
@@ -905,12 +915,15 @@ export class UserPlatform {
     }
 
     //create a struct with the prepared props to be filled out
-    createStruct(structType,props,parentUser=this.currentUser,parentStruct) {
+    createStruct(structType,props,parentUser=this.currentUser,parentStruct?):any {
         let struct = DS.Struct(structType,props,parentUser,parentStruct)
         return struct;
     }
 
-    userStruct (props={}, currentUser=false) {
+    userStruct (props: {
+        _id?: string
+        id?: string
+    }={}, currentUser=false) {
         let user = DS.ProfileStruct(props,undefined,props);
 
         if(props._id) user.id = props._id; //references the token id
@@ -1099,8 +1112,15 @@ export class UserPlatform {
     //add comment to chatroom or discussion board
     addComment = (
         parentUser=this.userStruct(), 
-        roomStruct={}, 
-        replyTo={}, 
+        roomStruct?:{
+            _id: string;
+            users: any[];
+            comments: any[];
+        }, 
+        replyTo?:{
+            _id: string;
+            replies: any[];
+        }, 
         authorId='', 
         message='', 
         attachments=[],

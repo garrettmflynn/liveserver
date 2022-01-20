@@ -2,8 +2,18 @@
 //Users, user data, notifications, access controls
 // Joshua Brewster, Garrett Flynn, AGPL v3.0
 import { ObjectId } from "mongodb"
-export default DatabaseService
+import { Controller } from "..";
+import { RouteConfig, UserObject } from 'src/common/general.types';
+
 export class DatabaseService {
+    
+    name = 'database'
+    controller: Controller;
+    db: any;
+    collections = new Map();
+    mode: 'local' | 'mongodb' | string
+
+    callbacks: RouteConfig[] = []
 
     collectionNames = [
         'profile',
@@ -19,17 +29,19 @@ export class DatabaseService {
         'date'
     ];
 
-    constructor (WebsocketController, dbOptions = {}, debug=true) {
-        // if(!WebsocketController) { console.error('Requires a WebsocketController instance.'); return; }
-        this.controller = WebsocketController;
-        this.db = dbOptions.instance;
+    constructor (Controller, dbOptions?:{
+        mode?: 'local' | 'mongodb' | string,
+        instance?: any
+    }, debug=true) {
+        // if(!Controller) { console.error('Requires a Controller instance.'); return; }
+        this.controller = Controller;
+        this.db = dbOptions?.instance;
         this.collections = new Map();
         this.mode = (this.db) ? ((dbOptions.mode) ? dbOptions.mode : 'local') : 'local'
-        this.DEBUG = debug;
 
-        this.defaultCallbacks = [
+        this.callbacks = [
             {   
-                case:'setData', 
+                route:'setData', 
             aliases:['setMongoData'],
             callback: async (self,args,origin,u) => {
                 let data;
@@ -44,7 +56,7 @@ export class DatabaseService {
                         if(passed) {
                             this.deleteLocalData(struct);
                             data = true;
-                            if(struct.structType !== 'notification') non_notes.push(s);
+                            if(struct.structType !== 'notification') non_notes.push(struct);
                         }
                     }));
                     if(non_notes.length > 0) this.checkToNotify(u,non_notes, this.mode);
@@ -54,7 +66,7 @@ export class DatabaseService {
             }
         }, 
         { 
-            case:'getData', 
+            route:'getData', 
             aliases:['getMongoData','getUserData'],
             callback:async (self,args,origin,u) => {
                 let data;
@@ -72,7 +84,7 @@ export class DatabaseService {
             }
         },     
         {
-            case:'getAllData',
+            route:'getAllData',
             callback:async (self,args,origin,u) => {
                 let data;
                 if(this.mode === 'mongo') {
@@ -96,7 +108,7 @@ export class DatabaseService {
             }
         }, 
         {
-            case:'deleteData', 
+            route:'deleteData', 
             callback:async (self,args,origin,u) => {
                 let data;
                 if(this.mode === 'mongo') {
@@ -114,7 +126,7 @@ export class DatabaseService {
             }
         },
         {
-            case:'getProfile',
+            route:'getProfile',
             callback:async (self,args,origin,u) => {
                 let data;
                 if(this.mode === 'mongo') {
@@ -135,7 +147,7 @@ export class DatabaseService {
             }
         },
         {
-            case:'setProfile',
+            route:'setProfile',
             callback:async (self,args,origin,u) => {
                 let data;
                 if(this.mode === 'mongo') {
@@ -149,7 +161,7 @@ export class DatabaseService {
             }
         },
         {
-            case:'getProfilesByIds',
+            route:'getProfilesByIds',
             callback:async (self,args,origin,u) => { 
                 let data;
                 if(this.mode === 'mongo') {
@@ -165,7 +177,7 @@ export class DatabaseService {
             }
         },
         {
-            case:'getProfilesByRoles',
+            route:'getProfilesByRoles',
             callback:async (self,args,origin,u) => {
                 let data;
                 if(this.mode === 'mongo') {
@@ -183,7 +195,7 @@ export class DatabaseService {
             }
         },
         {
-            case:'getGroup',
+            route:'getGroup',
             aliases:['getGroups'],
             callback:async (self,args,origin,u) => {
                 let data;
@@ -211,13 +223,13 @@ export class DatabaseService {
             }
         },
         {
-            case:'setGroup',
+            route:'setGroup',
             callback:async (self,args,origin,u) => {
                 return await this.setGroup(u,args[0], this.mode);
             }
         },
         {
-            case:'deleteGroup',
+            route:'deleteGroup',
             callback:async (self,args,origin,u) => {
                 let data;
                 if(this.mode === 'mongo') {
@@ -225,7 +237,7 @@ export class DatabaseService {
                 } else {
                     let struct = this.getLocalData('group',args[0]);
                     let passed = false;
-                    if(struct) passed = this.checkAuthorization(u,struct, this.mode);
+                    if(struct) passed = await this.checkAuthorization(u,struct, this.mode);
                     if(passed) {
                         data = true;
                     }
@@ -234,7 +246,7 @@ export class DatabaseService {
             }
         },
         {
-            case:'deleteProfile',
+            route:'deleteProfile',
             callback:async (self,args,origin,u) => {
                 let data;
                 if(this.mode === 'mongo') {
@@ -251,13 +263,13 @@ export class DatabaseService {
             }
         },
         {
-            case:'setAuth',
+            route:'setAuth',
             callback:async (self,args,origin,u) => {
                 return await this.setAuthorization(u, args[0], this.mode);
             }
         },
         {
-            case:'getAuths',
+            route:'getAuths',
             callback:async (self,args,origin,u) => {
                 let data;
                 if(this.mode === 'mongo') {
@@ -274,7 +286,7 @@ export class DatabaseService {
             }
         },
         {
-            case:'deleteAuth',
+            route:'deleteAuth',
             callback:async (self,args,origin,u) => {
                 let data;
                 if(this.mode === 'mongo') {
@@ -292,16 +304,10 @@ export class DatabaseService {
         }
         ]
 
-        this.addDefaultCallbacks();
     }
 
-    addDefaultCallbacks() {
-
-        //FYI "this" scope references this class, "self" scope references the controller scope.
-        if (this.controller) this.controller.callbacks.push(this.defaultCallbacks);
-    }
     
-    notificationStruct(parentStruct= {}) {
+    notificationStruct(parentStruct:any= {}) {
         let structType = 'notification';
         let struct = {
             structType:structType,
@@ -318,11 +324,11 @@ export class DatabaseService {
 
     //when passing structs to be set, check them for if notifications need to be created
     //TODO: need to make this more flexible in the cases you DON'T want an update
-    async checkToNotify(user={},structs=[], mode=this.mode) {
+    async checkToNotify(user:UserObject,structs:any[]=[], mode=this.mode) {
 
         if(typeof user === 'string') {
-            this.controller.USERS.forEach((obj) => {
-                if(obj.id === user) user = obj;
+            this.controller.USERS.forEach((obj: UserObject) => {
+                if (obj.id === (user as any)) user = obj;
             });
         }
         if(typeof user === 'string' || typeof user === 'undefined') return false;
@@ -356,7 +362,7 @@ export class DatabaseService {
             else { //users not explicitly assigned so check if there are authorized users with access
                 let auths = [];
                 if(mode === 'mongo') {
-                    let s = this.mongoose.collection('authorization').find({ $or:[{authorizedId: user.id},{authorizerId: user.id}] });
+                    let s = this.db.collection('authorization').find({ $or:[{authorizedId: user.id},{authorizerId: user.id}] });
                     if(await s.count() > 0) {
                         await s.forEach(d => auths.push(d));
                     }
@@ -398,7 +404,7 @@ export class DatabaseService {
     }
 
     
-    async setMongoData(user={},structs=[]) {
+    async setMongoData(user:UserObject,structs:any[] = []) {
         
         //console.log(structs,user);
         let firstwrite = false;
@@ -407,7 +413,7 @@ export class DatabaseService {
             let passed = true;
             let checkedAuth = '';
             await Promise.all(structs.map(async (struct) => {
-                if(user.id !== struct.ownerId && checkedAuth !== struct.ownerId) {
+                if(user?.id !== struct.ownerId && checkedAuth !== struct.ownerId) {
                     passed = await this.checkAuthorization(user,struct);
                     checkedAuth = struct.ownerId;
                 }
@@ -417,21 +423,21 @@ export class DatabaseService {
                     //if(struct.structType === 'notification') console.log(notificaiton);
                     if(struct.id){ 
                         if(struct.id.includes('defaultId')) {
-                            await this.mongoose.collection(struct.structType).insertOne(copy);   
+                            await this.db.collection(struct.structType).insertOne(copy);   
                             firstwrite = true; 
                         }
-                        else await this.mongoose.collection(struct.structType).updateOne({ id: struct.id }, {$set: copy}, {upsert: true}); //prevents redundancy in some cases (e.g. server side notifications)
+                        else await this.db.collection(struct.structType).updateOne({ id: struct.id }, {$set: copy}, {upsert: true}); //prevents redundancy in some cases (e.g. server side notifications)
                     } else if (struct._id) {
                         if(struct._id.includes('defaultId')) {
-                            await this.mongoose.collection(struct.structType).insertOne(copy);   
+                            await this.db.collection(struct.structType).insertOne(copy);   
                             firstwrite = true; 
                         }
-                        else await this.mongoose.collection(struct.structType).updateOne({_id: new ObjectId(struct._id)}, {$set: copy}, {upsert: false});
+                        else await this.db.collection(struct.structType).updateOne({_id: new ObjectId(struct._id)}, {$set: copy}, {upsert: false});
                     }
                 }
             }));
 
-            if(firstwrite === true) {
+            if((firstwrite as boolean) === true) {
                 //console.log('firstwrite');
                 let toReturn = []; //pull the server copies with the updated Ids
                 await Promise.all(structs.map(async (struct,j)=>{
@@ -440,7 +446,7 @@ export class DatabaseService {
 
                     if(struct.structType !== 'comment') {
                         let pulled;
-                        if(struct.structType !== 'notification') pulled = await this.mongoose.collection(copy.structType).findOne(copy);
+                        if(struct.structType !== 'notification') pulled = await this.db.collection(copy.structType).findOne(copy);
                         if(pulled){
                             pulled._id = pulled._id.toString();
                             toReturn.push(pulled);
@@ -450,7 +456,7 @@ export class DatabaseService {
                         let comment = struct;
                         let copy2 = JSON.parse(JSON.stringify(comment));
                         if(copy2._id) delete copy2._id;
-                        let pulledComment = await this.mongoose.collection('comment').findOne(copy2);
+                        let pulledComment = await this.db.collection('comment').findOne(copy2);
                         
                         let replyToId = comment.replyTo;
                         let replyTo = structs.find((s)=>{
@@ -462,7 +468,7 @@ export class DatabaseService {
                             let pulledReply;
 
                             await Promise.all(['discussion','chatroom','comment'].map(async (name) => {
-                                let found = await this.mongoose.collection(name).findOne({_id:new ObjectId(replyToId)});
+                                let found = await this.db.collection(name).findOne({_id:new ObjectId(replyToId)});
                                 if(found) pulledReply = found;
                             }));
                             //console.log(pulledReply)
@@ -477,7 +483,7 @@ export class DatabaseService {
                                     if(room) {
                                         delete room._id;
                                         await Promise.all(['discussion','chatroom'].map(async (name) => {
-                                            let found = await this.mongoose.collection(name).findOne(room);
+                                            let found = await this.db.collection(name).findOne(room);
                                             if(found) pulledRoom = found;
                                         }));
                                     }
@@ -502,7 +508,7 @@ export class DatabaseService {
                                 await Promise.all(toUpdate.map(async(s)=>{
                                     let copy = JSON.parse(JSON.stringify(s));
                                     delete copy._id;
-                                    await this.mongoose.collection(s.structType).updateOne({_id:new ObjectId(s._id)},{$set: copy},{upsert: false});
+                                    await this.db.collection(s.structType).updateOne({_id:new ObjectId(s._id)},{$set: copy},{upsert: false});
                                 }));
 
                                 // console.log('pulled comment',pulledComment)
@@ -537,7 +543,7 @@ export class DatabaseService {
         else return false;
     }
 
-    async setMongoProfile(user={},struct={}) {
+    async setMongoProfile(user:UserObject,struct:any={}) {
         if(struct.id) { //this has a second id that matches the token id
             if(user.id !== struct.id) {
                 let passed = await this.checkAuthorization(user,struct);
@@ -547,23 +553,23 @@ export class DatabaseService {
             let copy = JSON.parse(JSON.stringify(struct));
             if(copy._id) delete copy._id;
 
-            if(this.DEBUG) console.log('RETURNS PROFILE', struct)
+            if(this.controller.DEBUG) console.log('RETURNS PROFILE', struct)
             if(struct._id.includes('defaultId')) {
-                await this.mongoose.collection(struct.structType).insertOne(copy);
+                await this.db.collection(struct.structType).insertOne(copy);
             }
-            else await this.mongoose.collection('profile').updateOne({ _id: new ObjectId(struct._id) }, {$set: copy}, {upsert: true}); 
+            else await this.db.collection('profile').updateOne({ _id: new ObjectId(struct._id) }, {$set: copy}, {upsert: true}); 
 
             this.checkToNotify(user, [struct]);
             return true;
         } else return false;
     }
 
-    async setGroup(user={},struct={}, mode=this.mode) {
+    async setGroup(user:UserObject,struct:any={}, mode=this.mode) {
         
         if(struct._id) {
             let exists = undefined;
             if(mode === 'mongo') {
-                exists = await this.mongoose.collection('group').findOne({name:struct.name});
+                exists = await this.db.collection('group').findOne({name:struct.name});
             } else {
                 exists = this.getLocalData('group',{_id:struct._id});
             }
@@ -583,7 +589,7 @@ export class DatabaseService {
             let users = [];
             let ids = [];
             if(mode === 'mongo') {
-                let cursor = this.mongoose.collection('users').find({ $or: allusers }); //encryption references
+                let cursor = this.db.collection('users').find({ $or: allusers }); //encryption references
                 if( await cursor.count() > 0) {
                     await cursor.forEach((user) => {
                         users.push(user);
@@ -636,9 +642,9 @@ export class DatabaseService {
             //console.log(struct)
             if(mode === 'mongo'){
                 if(struct._id.includes('defaultId')) {
-                    await this.mongoose.collection(struct.structType).insertOne(copy);
+                    await this.db.collection(struct.structType).insertOne(copy);
                 }
-                else await this.mongoose.collection('group').updateOne({ _id: new ObjectId(struct._id) }, {$set: copy}, {upsert: true}); 
+                else await this.db.collection('group').updateOne({ _id: new ObjectId(struct._id) }, {$set: copy}, {upsert: true}); 
             } else {
                 this.setLocalData(struct);
             }
@@ -648,12 +654,16 @@ export class DatabaseService {
     }
 
     //
-    async getMongoProfile(user={},info='', bypassAuth=false) {
+    async getMongoProfile(user:UserObject,info='', bypassAuth=false): Promise<{
+        user: Partial<UserObject>
+        authorizations?: any[]
+        groups?: any[]
+    }>  {
         return new Promise(async resolve => {
-            const query = [{email: info},{id: info},{username:info}]
+            const query:any[] = [{email: info},{id: info},{username:info}]
             try {query.push({_id: new ObjectId(info)})} catch (e) {}
 
-            let u = await this.mongoose.collection('users').findOne({$or: query}); //encryption references
+            let u = await this.db.collection('users').findOne({$or: query}); //encryption references
             
             if(!u || u == null) resolve({user:{}});
             else {
@@ -667,11 +677,11 @@ export class DatabaseService {
                     }
                     // console.log(u);
                     let authorizations = [];
-                    let auths = this.mongoose.collection('authorization').find({ownerId:u.id});
+                    let auths = this.db.collection('authorization').find({ownerId:u.id});
                     if((await auths.count() > 0)) {
                         await auths.forEach(d => authorizations.push(d));
                     }
-                    let gs = this.mongoose.collection('group').find({users:{$all:[u.id]}});
+                    let gs = this.db.collection('group').find({users:{$all:[u.id]}});
                     let groups = [];
                     if((await gs.count() > 0)) {
                         await gs.forEach(d => groups.push(d));
@@ -692,7 +702,7 @@ export class DatabaseService {
 
         let found = [];
         if (usrs.length > 0){
-            let users = this.mongoose.collection('users').find({$or:usrs});
+            let users = this.db.collection('users').find({$or:usrs});
             if(await users.count() > 0) {
                 await users.forEach((u) => {
                     found.push(u);
@@ -705,7 +715,7 @@ export class DatabaseService {
 
     //safely returns the profile id, username, and email and other basic info based on the user role set applied
     async getMongoProfilesByRoles(user={},userRoles=[]) {
-        let users = this.mongoose.collection('users').find({
+        let users = this.db.collection('users').find({
             userRoles:{$all: userRoles}
         });
         let found = [];
@@ -718,9 +728,9 @@ export class DatabaseService {
     }
 
     //get all data for an associated user, can add a search string
-    async getMongoData(user={}, collection, ownerId, dict={}, limit=0, skip=0) {
+    async getMongoData(user:UserObject, collection, ownerId, dict:any={}, limit=0, skip=0) {
         if (!ownerId) ownerId = dict?.ownerId // TODO: Ensure that replacing ownerId, key, value with dict was successful
-        if (dict._id) dict._id = ObjectId(dict._id)
+        if (dict._id) dict._id = new ObjectId(dict._id)
 
         let structs = [];
         let passed = true;
@@ -728,11 +738,11 @@ export class DatabaseService {
         if(!collection && !ownerId && !dict) return [];
         else if(!collection && ownerId && Object.keys(dict).length === 0) return await this.getAllUserMongoData(user,ownerId);
         else if(!dict && ownerId) {
-            let cursor = this.mongoose.collection(collection).find({ownerId}).sort({ $natural: -1 }).skip(skip);
+            let cursor = this.db.collection(collection).find({ownerId}).sort({ $natural: -1 }).skip(skip);
             if(limit > 0) cursor.limit(limit);
             if(await cursor.count() > 0) {
                 await cursor.forEach(async (s) => {
-                    if(user.id !== s.ownerId && checkAuth !== s.ownerId) {
+                    if(user.id !== s.ownerId && checkedAuth !== s.ownerId) {
                         passed = await this.checkAuthorization(user,s);
                         checkedAuth = s.ownerId;
                     }
@@ -740,13 +750,13 @@ export class DatabaseService {
                 });
             }
         } else if (!!dict && Object.keys(dict).length > 0 && ownerId) {
-            let found = await this.mongoose.collection(collection).findOne({ownerId:ownerId,...dict});
+            let found = await this.db.collection(collection).findOne({ownerId:ownerId,...dict});
             if(found) structs.push(found);
         } else if (!!dict && Object.keys(dict).length > 0 && !ownerId) { //need to search all collections in this case
             await Promise.all(this.collectionNames.map(async (name) => {
-                let found = await this.mongoose.collection(name).findOne(dict);
+                let found = await this.db.collection(name).findOne(dict);
                 if(found) {
-                    if(user.id !== found.ownerId && checkAuth !== found.ownerId) {
+                    if(user.id !== found.ownerId && checkedAuth !== found.ownerId) {
                         passed = await this.checkAuthorization(user,found);
                         checkedAuth = found.ownerId;
                     }
@@ -759,15 +769,15 @@ export class DatabaseService {
         return structs;
     }
 
-    async getAllUserMongoData(user={},ownerId,excluded=[]) {
+    async getAllUserMongoData(user:UserObject,ownerId,excluded=[]) {
         let structs = [];
-        //let collectionNames = await this.mongoose.getCollectionNames()
+        //let collectionNames = await this.db.getCollectionNames()
 
         let passed = true;
         let checkedId = '';
         await Promise.all(this.collectionNames.map(async (name,j) => {
             if(passed && excluded.indexOf(name) < 0) {
-                let cursor = this.mongoose.collection(name).find({ownerId:ownerId});
+                let cursor = this.db.collection(name).find({ownerId:ownerId});
                 let count = await cursor.count();
                 for(let k = 0; k < count; k++) {
                     let struct = await cursor.next();
@@ -790,14 +800,14 @@ export class DatabaseService {
     }
 
     //passing in structrefs to define the collection (structType) and id
-    async getMongoDataByRefs(user={},structRefs=[]) {
+    async getMongoDataByRefs(user:UserObject,structRefs=[]) {
         let structs = [];
         //structRef = {structType, id}
         if(structs.length > 0) {
             let checkedAuth = '';
             structRefs.forEach(async (ref)=>{
                 if(ref.structType && ref._id) {
-                    let struct = await this.mongoose.collection(ref.structType).findOne({_id: new ObjectId(ref._id)});
+                    let struct = await this.db.collection(ref.structType).findOne({_id: new ObjectId(ref._id)});
                     if(struct) {
                         let passed = true;
                         if(user.id !== struct.ownerId && checkedAuth !== struct.ownerId) {
@@ -814,17 +824,17 @@ export class DatabaseService {
         return structs;
     }
 
-    async getMongoAuthorizations(user={},ownerId=user.id, authId='') {
+    async getMongoAuthorizations(user:UserObject,ownerId=user.id, authId='') {
         let auths = [];
         if(authId.length === 0 ) {
-            let cursor = this.mongoose.collection('authorization').find({ownerId:ownerId});
+            let cursor = this.db.collection('authorization').find({ownerId:ownerId});
             if(await cursor.count > 0) {
                 await cursor.forEach((a) => {
                     auths.push(a)
                 });
             }
         }
-        else auths.push(await this.mongoose.collection('authorization').findOne({_id: new ObjectId(authId), ownerId:ownerId}));
+        else auths.push(await this.db.collection('authorization').findOne({_id: new ObjectId(authId), ownerId:ownerId}));
         if(user.id !== auths[0].ownerId) {
             let passed = await this.checkAuthorization(user,auths[0]);
             if(!passed) return undefined;
@@ -833,10 +843,10 @@ export class DatabaseService {
 
     }
 
-    async getMongoGroups(user={}, userId=user.id, groupId='') {
+    async getMongoGroups(user:UserObject, userId=user.id, groupId='') {
         let groups = [];
         if(groupId.length === 0 ) {
-            let cursor = this.mongoose.collection('group').find({users:{$all:[userId]}});
+            let cursor = this.db.collection('group').find({users:{$all:[userId]}});
             if(await cursor.count > 0) {
                 await cursor.forEach((a) => {
                     groups.push(a)
@@ -844,29 +854,29 @@ export class DatabaseService {
             }
         }
         else {
-            try {groups.push(await this.mongoose.collection('group').findOne({_id:new ObjectId(groupId), users:{$all:[userId]}}));} catch {}
+            try {groups.push(await this.db.collection('group').findOne({_id:new ObjectId(groupId), users:{$all:[userId]}}));} catch {}
         }
 
         return groups;
     }
 
     //general delete function
-    async deleteMongoData(user={},structRefs=[]) {
-        let ids = [];
+    async deleteMongoData(user:UserObject,structRefs=[]) {
+        // let ids = [];
         let structs = [];
 
         await Promise.all(structRefs.map(async (ref) => {
 
             try {
                 let _id = new ObjectId(ref._id)
-                let struct = await this.mongoose.collection(ref.structType).findOne({_id});
+                let struct = await this.db.collection(ref.structType).findOne({_id});
                 if(struct) {
                     structs.push(struct);
-                    let notifications = await this.mongoose.collection('notification').find({parent:{structType:ref.structType,id:ref._id}});
+                    let notifications = await this.db.collection('notification').find({parent:{structType:ref.structType,id:ref._id}});
                     let count = await notifications.count();
                     for(let i = 0; i < count; i++) {
                         let note = await notifications.next();
-                        if(notification) structs.push(notification);
+                        if(note) structs.push(note);
                     }
                 }
             } catch {}
@@ -882,7 +892,7 @@ export class DatabaseService {
             }
             if(passed) {
                 //console.log(passed);
-                await this.mongoose.collection(struct.structType).deleteOne({_id:new ObjectId(struct._id)});
+                await this.db.collection(struct.structType).deleteOne({_id:new ObjectId(struct._id)});
                 //delete any associated notifications, too
                 if(struct.users) {
                     struct.users.forEach((uid)=> {
@@ -899,15 +909,15 @@ export class DatabaseService {
     }
 
     //specific delete functions (the above works for everything)
-    async deleteMongoProfile(user={},userId) {
+    async deleteMongoProfile(user:UserObject,userId) {
         
         if(user.id !== userId) {
-            let u = await this.mongoose.collection('users').findOne({ id: userId });
+            let u = await this.db.collection('users').findOne({ id: userId });
             let passed = await this.checkAuthorization(user,u);
             if(!passed) return false;
         }
 
-        await this.mongoose.collection('users').deleteOne({ id: userId });
+        await this.db.collection('users').deleteOne({ id: userId });
 
         if(user.id !== userId) this.controller.sendMsg(userId,'deleted',userId);
 
@@ -915,8 +925,8 @@ export class DatabaseService {
         return true; 
     }
 
-    async deleteMongoGroup(user={},groupId) {
-        let s = await this.mongoose.collection('group').findOne({ _id: new ObjectId(groupId) });
+    async deleteMongoGroup(user:UserObject,groupId) {
+        let s = await this.db.collection('group').findOne({ _id: new ObjectId(groupId) });
         if(s) {
             if(user.id !== s.ownerId) {
                 let passed = await this.checkAuthorization(user,s);
@@ -925,31 +935,31 @@ export class DatabaseService {
             if(s.users) {
                 s.users.forEach((u) => { this.controller.sendMsg(s.authorizerId,'deleted',s._id); });
             }
-            await this.mongoose.collection('group').deleteOne({ _id:new ObjectId(groupId) });
+            await this.db.collection('group').deleteOne({ _id:new ObjectId(groupId) });
             return true;
         } else return false; 
     }
 
 
-    async deleteMongoAuthorization(user={},authId) {
-        let s = await this.mongoose.collection('authorization').findOne({ _id: new ObjectId(authId) });
+    async deleteMongoAuthorization(user:UserObject,authId) {
+        let s = await this.db.collection('authorization').findOne({ _id: new ObjectId(authId) });
         if(s) {
             if(user.id !== s.ownerId) {
                 let passed = await this.checkAuthorization(user,s);
                 if(!passed) return false;
             }
             if(s.associatedAuthId) {
-                if(this.DEBUG) console.log(s);
-                await this.mongoose.collection('authorization').deleteOne({ _id: new ObjectId(s.associatedAuthId) }); //remove the other auth too 
+                if(this.controller.DEBUG) console.log(s);
+                await this.db.collection('authorization').deleteOne({ _id: new ObjectId(s.associatedAuthId) }); //remove the other auth too 
                 if(s.authorizerId !== user.id) this.controller.sendMsg(s.authorizerId,'deleted',s._id);
                 else if (s.authorizedId !== user.id) this.controller.sendMsg(s.authorizedId,'deleted',s._id);
             }
-            await this.mongoose.collection('authorization').deleteOne({ _id: new ObjectId(authId) });
+            await this.db.collection('authorization').deleteOne({ _id: new ObjectId(authId) });
             return true;
         } else return false; 
     }
 
-    async setAuthorization(user, authStruct, mode=this.mode) {
+    async setAuthorization(user:UserObject, authStruct, mode=this.mode) {
         //check against authorization db to allow or deny client/professional requests.
         //i.e. we need to preauthorize people to use stuff and allow each other to view sensitive data to cover our asses
 
@@ -969,8 +979,8 @@ export class DatabaseService {
 
         let u1, u2;
         if(mode === 'mongo') {
-            u1 = await this.getMongoProfile(user, authStruct.authorizedId, true)?.user; //can authorize via email, id, or username
-            u2 = await this.getMongoProfile(user, authStruct.authorizerId, true)?.user;
+            u1 = (await this.getMongoProfile(user, authStruct.authorizedId, true))?.user; //can authorize via email, id, or username
+            u2 = (await this.getMongoProfile(user, authStruct.authorizerId, true))?.user;
         } else {
             u1 = this.getLocalData('profile',{'_id':authStruct.authorizedId});
             u2 = this.getLocalData('profile',{'_id':authStruct.authorizedId});
@@ -990,7 +1000,7 @@ export class DatabaseService {
         let auths = [];
 
         if(mode === 'mongo'){
-            let s = this.mongoose.collection('authorization').find(
+            let s = this.db.collection('authorization').find(
                 { $and: [ { authorizedId: authStruct.authorizedId }, { authorizerId: authStruct.authorizerId } ] }
             );
             if ((await s.count()) > 0) {
@@ -1034,7 +1044,7 @@ export class DatabaseService {
                     let copy = JSON.parse(JSON.stringify(auth));
                     if(this.mode === 'mongo') {
                         delete copy._id;
-                        await this.mongoose.collection('authorization').updateOne({ $and: [ { authorizedId: authStruct.authorizedId }, { authorizerId: authStruct.authorizerId }, { ownerId: auth.ownerId } ] }, {$set: copy}, {upsert: true});
+                        await this.db.collection('authorization').updateOne({ $and: [ { authorizedId: authStruct.authorizedId }, { authorizerId: authStruct.authorizerId }, { ownerId: auth.ownerId } ] }, {$set: copy}, {upsert: true});
                     } else {
                         this.setLocalData(copy);
                     }
@@ -1046,21 +1056,21 @@ export class DatabaseService {
         let copy = JSON.parse(JSON.stringify(authStruct));
         if(mode ==='mongo') {
             delete copy._id;
-            await this.mongoose.collection('authorization').updateOne({ $and: [ { authorizedId: authStruct.authorizedId }, { authorizerId: authStruct.authorizerId }, { ownerId: authStruct.ownerId } ] }, {$set: copy}, {upsert: true});
+            await this.db.collection('authorization').updateOne({ $and: [ { authorizedId: authStruct.authorizedId }, { authorizerId: authStruct.authorizerId }, { ownerId: authStruct.ownerId } ] }, {$set: copy}, {upsert: true});
         } else {
             this.setLocalData(copy);
         }
 
         if(authStruct._id.includes('defaultId') && mode === 'mongo') {
-            let replacedAuth = await this.mongoose.collection('authorization').findOne(copy);
+            let replacedAuth = await this.db.collection('authorization').findOne(copy);
             if(replacedAuth) {
                 authStruct._id = replacedAuth._id.toString();
                 if(otherAuthset) {
-                    let otherAuth = await this.mongoose.collection('authorization').findOne({$and: [ { authorizedId: otherAuthset.authorizedId }, { authorizerId: otherAuthset.authorizerId }, { ownerId: otherAuthset.ownerId } ] });
+                    let otherAuth = await this.db.collection('authorization').findOne({$and: [ { authorizedId: otherAuthset.authorizedId }, { authorizerId: otherAuthset.authorizerId }, { ownerId: otherAuthset.ownerId } ] });
                     if(otherAuth) {
                         otherAuth.associatedAuthId = authStruct._id;
                         delete otherAuth._id;
-                        await this.mongoose.collection('authorization').updateOne({ $and: [ { authorizedId: otherAuth.authorizedId }, { authorizerId: otherAuth.authorizerId }, { ownerId: otherAuth.ownerId } ] }, {$set: otherAuth}, {upsert: true}); 
+                        await this.db.collection('authorization').updateOne({ $and: [ { authorizedId: otherAuth.authorizedId }, { authorizerId: otherAuth.authorizerId }, { ownerId: otherAuth.ownerId } ] }, {$set: otherAuth}, {upsert: true}); 
                         this.checkToNotify(user,[otherAuth]);
                     }
                 }
@@ -1071,7 +1081,7 @@ export class DatabaseService {
     }
 
     
-    async checkAuthorization(user, struct, mode = this.mode) {
+    async checkAuthorization(user:string|{id: string}, struct, mode = this.mode) {
         /*
             If user is not the owner of the struct, check that they have permissions
         */
@@ -1087,15 +1097,15 @@ export class DatabaseService {
 
         let auth1, auth2;
         if(mode === 'mongo') {
-            auth1 = await this.mongoose.collection('authorization').findOne({$or: [{authorizedId:user.id,authorizerId:struct.ownerId, ownerId:user.id},{authorizedId:struct.ownerId,authorizerId:user.id, ownerId:user.id}]});
-            auth2 = await this.mongoose.collection('authorization').findOne({$or: [{authorizedId:user.id,authorizerId:struct.ownerId, ownerId:struct.ownerId},{authorizedId:struct.ownerId,authorizerId:user.id, ownerId:struct.ownerId}]});
+            auth1 = await this.db.collection('authorization').findOne({$or: [{authorizedId:user.id,authorizerId:struct.ownerId, ownerId:user.id},{authorizedId:struct.ownerId,authorizerId:user.id, ownerId:user.id}]});
+            auth2 = await this.db.collection('authorization').findOne({$or: [{authorizedId:user.id,authorizerId:struct.ownerId, ownerId:struct.ownerId},{authorizedId:struct.ownerId,authorizerId:user.id, ownerId:struct.ownerId}]});
         }
         else {
             auth1 = this.getLocalData('authorization', {ownerId:user.id}).find((o) => {
-                if(o.authorizedId === user.id && o.authorizerId === struct.ownerId) return true;
+                if(o.authorizedId === (user as any).id && o.authorizerId === struct.ownerId) return true;
             });
             auth2 = this.getLocalData('authorization', {ownerId:struct.ownerId}).find((o) => {
-                if(o.authorizedId === user.id && o.authorizerId === struct.ownerId) return true;
+                if(o.authorizedId === (user as any).id && o.authorizerId === struct.ownerId) return true;
             });
         }
          if(!auth1 || !auth2) {
@@ -1115,7 +1125,7 @@ export class DatabaseService {
 
         if(auth1.status === 'OKAY' && auth2.status === 'OKAY') {
             if(struct.structType === 'group') {
-                if (auth1.authorizations.indexOf(struct.name+'_admin') > -1 && auth2.authorizations.indexOf(group.name+'_admin') > -1) passed = true;
+                if (auth1.authorizations.indexOf(struct.name+'_admin') > -1 && auth2.authorizations.indexOf(struct.name+'_admin') > -1) passed = true;
                 else passed = false;
             }
             else if(auth1.authorizations.indexOf('provider') > -1 && auth2.authorizations.indexOf('provider') > -1) passed = true;
@@ -1130,10 +1140,10 @@ export class DatabaseService {
     }
 
     wipeDB = async () => {
-        //await this.mongoose.collection('authorization').deleteMany({});
-        //await this.mongoose.collection('group').deleteMany({});
-        await this.mongoose.collection('profile').deleteMany({});
-        await this.mongoose.collection('data').deleteMany({});
+        //await this.db.collection('authorization').deleteMany({});
+        //await this.db.collection('group').deleteMany({});
+        await this.db.collection('profile').deleteMany({});
+        await this.db.collection('data').deleteMany({});
 
         return true;
     }
@@ -1172,13 +1182,6 @@ export class DatabaseService {
             }
             collection.set(s._id,s);
 
-            // Keep Store Concurrent
-            if(store){
-                //let state = store.getState()
-                let newArr = Array.from(collection).map(arr => arr[1])
-                // if (type === 'profile') newArr = newArr.map(u => getUserCodes(u, true))
-                store.setState({[type]: newArr})
-            }
         }
 
         if(Array.isArray(structs)) {
@@ -1190,7 +1193,7 @@ export class DatabaseService {
     }
 
     //pull a struct by collection, owner, and key/value pair from the local platform, leave collection blank to pull all ownerId associated data
-    getLocalData(collection, query) {
+    getLocalData(collection, query?) {
 
         // Split Query
         let ownerId, key, value;
@@ -1265,3 +1268,5 @@ export class DatabaseService {
 
 
 }
+
+export default DatabaseService

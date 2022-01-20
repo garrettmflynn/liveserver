@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
-import { UserPlatform, WebsocketClient } from '../../../../../src/frontend/index.js';
+import { UserPlatform, WebsocketClient } from '../../../../../src/frontend';
 
 export default function BasicExample({server}) {
   

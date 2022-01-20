@@ -1,8 +1,25 @@
 import StateManager from 'anotherstatemanager'
-import { DataStreaming } from '../datastream/data.streaming.js';
+import { SettingsObject } from 'src/common/general.types';
+import { DataStreaming } from '../datastream/data.streaming';
+import { WebsocketClient } from '../WebsocketClient';
 
 //Joshua Brewster, Garrett Flynn AGPL v3.0
 export class SessionStreaming {
+	
+	WebsocketClient: WebsocketClient
+	socketId: string
+	user: any
+	datastream: DataStreaming
+
+	state = new StateManager();
+
+	id = '' + Math.floor(Math.random() * 10000000000); // Give the session an ID
+	
+	apps = new Map();
+	subscriptions = new Map();
+
+
+
 	constructor(WebsocketClient, userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}, socketId) {
 		
 		if(!WebsocketClient) {
@@ -24,18 +41,11 @@ export class SessionStreaming {
 
 		this.user = userinfo;
 		
-		this.state = new StateManager();
-
-        this.id = Math.floor(Math.random() * 10000000000); // Give the session an ID
-		
-		this.apps 		   = new Map();
-		this.subscriptions = new Map();
-
-		this.datastream = new DataStreaming(WebsocketId,this.socketId,userinfo);
+		this.datastream = new DataStreaming(this.WebsocketClient, userinfo, this.socketId);
 
 		this.WebsocketClient.addCallback('SessionStreaming',(res)=>{
-			if(res.cmd === 'sessionData' && res.output.id) {
-				this.state.setState(res.output.id,res.output);
+			if(res.msg === 'sessionData' && res.msg.id) {
+				this.state.setState(res.msg.id,res.msg);
 			}
 		})
 
@@ -83,7 +93,7 @@ export class SessionStreaming {
 
 	//create and subscribe to a live data session
 	async createSession(
-		options={
+		options: SettingsObject = {
 			type:'room', //'user','room','hostroom'
 			appname:`app${Math.floor(Math.random()*1000000000000)}`,
 			//id:'user123', //alternatively supply a user id to subscribe to
@@ -131,11 +141,11 @@ export class SessionStreaming {
 				this.socketId,
 				callback
 			)
-			if(info.output?.id) 
+			if(info.msg?.id) 
 			{	
-				this.state.setState(info.output.id,info.output);
-				if(typeof onupdate === 'function') this.state.subscribeTrigger(info.output.id, onupdate);
-			if(typeof onframe === 'function') this.state.subscribe(info.output.id, onframe);
+				this.state.setState(info.msg.id,info.msg);
+				if(typeof onupdate === 'function') this.state.subscribeTrigger(info.msg.id, onupdate);
+			if(typeof onframe === 'function') this.state.subscribe(info.msg.id, onframe);
 			}
 			return info;
 		}
@@ -168,11 +178,11 @@ export class SessionStreaming {
 			this.socketId,
 			callback
 		)
-		if(info.output?.id) 
+		if(info.msg?.id) 
 		{	
-			this.state.setState(info.output.id,info.output);
-			if(typeof onupdate === 'function') this.state.subscribeTrigger(info.output.id, onupdate);
-			if(typeof onframe === 'function') this.state.subscribe(info.output.id, onframe);
+			this.state.setState(info.msg.id,info.msg);
+			if(typeof onupdate === 'function') this.state.subscribeTrigger(info.msg.id, onupdate);
+			if(typeof onframe === 'function') this.state.subscribe(info.msg.id, onframe);
 		}
 		return info;
 	}
@@ -193,12 +203,12 @@ export class SessionStreaming {
 			this.socketId,
 			callback
 		)
-		if(info.output?.id) 
+		if(info.msg?.id) 
 		{	
 
 			if(defaultStreamSetup) {
 				let object = {};
-				for(const prop in info.output.propnames) {
+				for(const prop in info.msg.propnames) {
 					object[prop] = undefined;
 				}
 
@@ -206,17 +216,17 @@ export class SessionStreaming {
 				this.datastream.setStream(
 					object,
 					{
-						keys:info.output.propnames
+						keys:info.msg.propnames
 					},
-					info.output.appname 
+					info.msg.appname 
 				);
 
-				//do this.datastream.updateStreamData(info.output.appname, {propname:'newdata'})
+				//do this.datastream.updateStreamData(info.msg.appname, {propname:'newdata'})
 			}
 
-			this.state.setState(info.output.id,info.output);
-			if(typeof onupdate === 'function') this.state.subscribeTrigger(info.output.id, onupdate);
-			if(typeof onframe === 'function') this.state.subscribe(info.output.id, onframe);
+			this.state.setState(info.msg.id,info.msg);
+			if(typeof onupdate === 'function') this.state.subscribeTrigger(info.msg.id, onupdate);
+			if(typeof onframe === 'function') this.state.subscribe(info.msg.id, onframe);
 		}
 		return info;
 	}
@@ -234,7 +244,7 @@ export class SessionStreaming {
 			callback
 		);
 
-		if(result.output) {
+		if(result.msg) {
 			this.state.unsubscribeAll(sessionId);
 		}
 		
@@ -272,7 +282,7 @@ export class SessionStreaming {
 			callback
 		);
 
-		if(result.output) {
+		if(result.msg) {
 			this.state.unsubscribeAll(sessionId);
 		}
 

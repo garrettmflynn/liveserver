@@ -1,7 +1,7 @@
 {
   "name": "@brainsatplay/websocket",
   "version": "0.0.0",
-  "main": "index.js",
+  "main": "./index.ts",
   "type": "module",
   "repository": "https://github.com/brainsatplay/LiveServer",
   "author": "Joshua Brewster, Garrett Flynn",

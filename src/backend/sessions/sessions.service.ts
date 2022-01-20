@@ -1,42 +1,49 @@
+import { RouteConfig, SettingsObject, UserObject } from "src/common/general.types";
+
 const DONOTSEND = "DONOTSEND";
 
 //TODO: one-off data calls based on session configs
 //      reimplement callbacks
-export default SessionsService
 export class SessionsService {
-    constructor(WebsocketController, running=true) {
-        // if(!WebsocketController) { console.error('Requires a WebsocketController instance.'); return; }
-        this.controller = WebsocketController;
+    name = 'sessions'
 
-        //should revamp this to use maps or plain objects
-		this.userSubscriptions=[]; //User to user data subscriptions
-		this.appSubscriptions=[]; //Synchronous apps (all players receive each other's data)
-        this.hostSubscriptions=[]; //Asynchronous apps (host receives all users data, users receive host data only)
-        
-        this.userSubs = {};
-        this.appSubs = {};
+     //should revamp this to use maps or plain objects
+     userSubscriptions=[]; //User to user data subscriptions
+     appSubscriptions=[]; //Synchronous apps (all players receive each other's data)
+     hostSubscriptions=[]; //Asynchronous apps (host receives all users data, users receive host data only)
+     
+     userSubs = {};
+     appSubs = {};
 
-        this.sessionTimeout = 20 * 60*1000; //min*s*ms game session timeout with no activity. 20 min default
-        
+     sessionTimeout = 20 * 60*1000; //min*s*ms game session timeout with no activity. 20 min default
+     
+     LOOPING: boolean = true
+     delay = 10; //ms loop timer delay
+
+     callbacks: RouteConfig[]
+     controller: any;
+
+    constructor(Controller, running=true) {
+        // if(!Controller) { console.error('Requires a Controller instance.'); return; }
+        this.controller = Controller;
         this.LOOPING = running;
-        this.delay = 10; //ms loop timer delay
 
         //FYI "this" scope references this class, "self" scope references the controller scope.
-        this.defaultCallbacks = [
+        this.callbacks = [
             {
-                case:'updateUserStreamData',
+                route:'updateUserStreamData',
                 callback:(self,args,origin,user) => {
                     return this.updateUserStreamData(user,args);
                 }
             },
             {
-                case:'createSession',
+                route:'createSession',
                 callback:(self,args,origin,user) => {
                     return this.createSession(user,args[0],args[1]);
                 }
             },
             {
-                case:'subscribeToSession',
+                route:'subscribeToSession',
                 callback:(self,args,origin,user) => {
                     if(this.controller.USERS.get(args[0]))
                         return this.subscribeToUser(user,args[0],user.id,args[1],args[2]); //can input arguments according to the type of session you're subscribing to
@@ -44,7 +51,7 @@ export class SessionsService {
                 }
             },
             {
-                case:'unsubscribeFromSession',
+                route:'unsubscribeFromSession',
                 aliases:['kickUser'],
                 callback:(self,args,origin,user) => {
                     if(!args[0]) return this.unsubscribe(user,user.id,args[1]);
@@ -52,102 +59,99 @@ export class SessionsService {
                 }
             },
             {
-                case:'getSessionData',
+                route:'getSessionData',
                 callback:(self,args,origin,user) => {
                     return this.getSessionData(args[0]);
                 }
             }, 
             {
-                case:'deleteSession',
+                route:'deleteSession',
                 callback:(self,args,origin,user) => {
                     return this.deleteSession(user,args[0]);
                 }
             }, 
             {
-                case:'makeHost',
+                route:'makeHost',
                 callback:(self,args,origin,user) => {
                     return this.makeHost(user,args[0],args[1]);
                 }
             }, 
             {
-                case:'makeOwner',
+                route:'makeOwner',
                 callback:(self,args,origin,user) => {
                     return this.makeOwner(user,args[0],args[1]);
                 }
             }, 
             {
-                case:'makeAdmin',
+                route:'makeAdmin',
                 callback:(self,args,origin,user) => {
                     return this.makeAdmin(user,args[0],args[1]);
                 }
             }, 
             {
-                case:'makeModerator',
+                route:'makeModerator',
                 callback:(self,args,origin,user) => {
                     return this.makeModerator(user,args[0],args[1]);
                 }
             }, 
             {
-                case:'removeAdmin',
+                route:'removeAdmin',
                 callback:(self,args,origin,user) => {
                     return this.removeAdmin(user,args[0],args[1]);
                 }
             }, 
             {
-                case:'removeModerator',
+                route:'removeModerator',
                 callback:(self,args,origin,user) => {
                     return this.removeModerator(user,args[0],args[1]);
                 }
             }, 
             {
-                case:'banUser',
+                route:'banUser',
                 callback:(self,args,origin,user) => {
                     return this.banUser(user,args[0],args[1]);
                 }
             }, 
             {
-                case:'unbanUser',
+                route:'unbanUser',
                 callback:(self,args,origin,user) => {
                     return this.unbanUser(user,args[0],args[1]);
                 }
             }, 
             { //some manual overrides for the update loops
-                case:'updateSessionUsers',
+                route:'updateSessionUsers',
                 callback:(self,args,origin,user) => {
                     return this.updateSessionUsers(args[0]);
                 }
             }, 
             {
-                case:'updateUserStream',
+                route:'updateUserStream',
                 callback:(self,args,origin,user) => {
                     return this.updateUserStream(args[0]);
                 }
             }
         ]
     
-        this.addDefaultCallbacks();
-
         // if(running)
         //     this.subscriptionLoop();
     }
 
-    addDefaultCallbacks() {
-        if (this.controller) this.controller.callbacks.push(...this.defaultCallbacks);
-    }
-
     //Received user data from a user socket, now parse it into system
-	updateUserStreamData(user={},args={}){ 
+	updateUserStreamData(user:Partial<UserObject>={}, data:{
+        id?: string
+        args: {}
+    }={args: {}}){ 
 		//Send previous data off to storage
         
         let u;
-        if(args.id)
-            u = this.controller.USERS.get(args.id);
-        else u = this.controller.USERS.get(user.id);
+        if(data.id)
+            u = this.controller.USERS.get(data.id);
+        else u = this.controller.USERS.get(data.id);
 
         if(!u) return undefined;
 
-        for(const prop in msg.data) {
-            u.props[prop] = msg.data[prop];
+        for(const prop in data.args) {
+            u.props[prop] = data.args[prop];
             if(u.updatedPropnames.indexOf(prop) < 0)
                 u.updatedPropnames.push(prop);
         }
@@ -161,9 +165,9 @@ export class SessionsService {
 	}
 
     createSession(
-        user={},
+        user: Partial<UserObject>={},
         type='room', 
-        settings={}
+        settings: Partial<SettingsObject> = {}
     ) {
         if(type === 'room' || type === 'hostroom') {
 
@@ -212,7 +216,7 @@ export class SessionsService {
     }
 
     //For 2+ user sessions or asynchronous 'host' room communication
-    subscribeToSession(user={}, userId, sessionId, spectating=true) {
+    subscribeToSession(user:Partial<UserObject>={}, userId, sessionId, spectating=true) {
         let session = this.appSubs[sessionId];
         
         if(session) {
@@ -251,7 +255,7 @@ export class SessionsService {
                     if(u) {
                         result.hostData = {};
                         session.hostprops.forEach((p) => {
-                            if(u.props[p]) result.userData[id][p] = u.props[p];
+                            if(u.props[p]) result.userData[session.host][p] = u.props[p];
                         });
                     }
                 }
@@ -283,7 +287,7 @@ export class SessionsService {
         if(user.id !== listenerId && user.id !== sourceId && override === false) return undefined;
         if(!source || source.blocked.includes(listenerId) || source.blocked.includes(user.id)) return undefined; //blocked users can't make one-on-one streams
 
-        if(this.DEBUG) console.log(listenerId, sourceId)
+        if(this.controller.DEBUG) console.log(listenerId, sourceId)
         
         let sub = undefined;
         for(const prop in this.userSubs) {
@@ -322,7 +326,7 @@ export class SessionsService {
                 let result = JSON.parse(JSON.stringify(obj));
                 result.userData = {[sourceId]:{}};
                 for(const prop in propnames) {
-                    if(source.props[prop]) result.userData[sourceId][prop] = source[props][prop];
+                    if(source.props[prop]) result.userData[sourceId][prop] = source.props[prop];
                 }
 
                 u.sessions.push(obj.id);
@@ -342,7 +346,7 @@ export class SessionsService {
 
     
     //kick a user from an app session
-    kickUser(user={}, userId, sessionId, override=false) {
+    kickUser(user:Partial<UserObject>={}, userId, sessionId, override=false) {
         let session = this.appSubs[sessionId];
 
         if((!user.id && !userId) || !sessionId) return undefined;
@@ -389,7 +393,7 @@ export class SessionsService {
     unsubscribe = this.kickUser;
 
     //delete a session. It will time out otherwise
-    deleteSession(user={}, sessionId, override=false) {
+    deleteSession(user:Partial<UserObject>={}, sessionId, override=false) {
 
         if(this.appSubs[sessionId]) {
             if(override === true || this.appSubs[sessionId].ownerId === user.id || this.appSubs[sessionId].admins.includes(user.id)) {
@@ -452,7 +456,7 @@ export class SessionsService {
         else return undefined;
     }
 
-    makeHost(user={}, userId, sessionId, override=false) {
+    makeHost(user:Partial<UserObject>={}, userId, sessionId, override=false) {
         let session = this.appSubs[sessionId];
 
         if(session) {
@@ -465,7 +469,7 @@ export class SessionsService {
     }
 
     //only owner can make other users owner
-    makeOwner(user={}, userId, sessionId, override=false) {
+    makeOwner(user:Partial<UserObject>={}, userId, sessionId, override=false) {
         let session = this.appSubs[sessionId];
 
         if(session) { 
@@ -478,7 +482,7 @@ export class SessionsService {
     }
 
     //only owner can make users admin
-    makeAdmin(user={}, userId, sessionId, override=false) {
+    makeAdmin(user:Partial<UserObject>={}, userId, sessionId, override=false) {
         let session = this.appSubs[sessionId];
 
         if(session) { 
@@ -491,7 +495,7 @@ export class SessionsService {
     }
 
     //only owner can remove admins. admins can set settings and kick and ban or delete a session
-    removeAdmin(user={}, userId, sessionId, override=false) {
+    removeAdmin(user:Partial<UserObject>={}, userId, sessionId, override=false) {
         let session = this.appSubs[sessionId];
 
         if(session) {
@@ -504,7 +508,7 @@ export class SessionsService {
     }
  
     //admins and mods can make other users mods. mods can kick and ban. admins can set settings
-    makeModerator(user={}, userId, sessionId, override=false) {
+    makeModerator(user:Partial<UserObject>={}, userId, sessionId, override=false) {
         let session = this.appSubs[sessionId];
 
         if(session) { 
@@ -517,7 +521,7 @@ export class SessionsService {
     }   
 
     //only owner can remove admins. admins can set settings and kick and ban or delete a session
-    removeModerator(user={}, userId, sessionId, override=false) {
+    removeModerator(user:Partial<UserObject>={}, userId, sessionId, override=false) {
         let session = this.appSubs[sessionId];
 
         if(session) {
@@ -530,9 +534,9 @@ export class SessionsService {
     }
 
     //ban a user from an app session
-    banUser(user={}, userId, sessionId, override=false) {
+    banUser(user:Partial<UserObject>={}, userId, sessionId, override=false) {
         
-        this.kickUser(userId, sessionId);
+        this.kickUser(user, userId, sessionId);
         
         let session = this.appSubs[sessionId];
 
@@ -554,7 +558,7 @@ export class SessionsService {
     }
 
     //unban a user from an app session
-    unbanUser(user={}, userId, sessionId, override=false) {
+    unbanUser(user:Partial<UserObject>={}, userId, sessionId, override=false) {
         
         let session = this.appSubs[sessionId]
         if(session) { 
@@ -572,7 +576,7 @@ export class SessionsService {
 
     //this is an override to assign arbitrary key:value pairs to a session (danger!)
     //users will be updated on the next loop, returns the session info
-    setSessionSettings(user={},sessionId,settings={},override=false) {
+    setSessionSettings(user:Partial<UserObject>={},sessionId,settings={},override=false) {
         if(this.appSubs[sessionId]) {
             if(
                 this.appSubs[sessionId].admins.includes(user.id) 
@@ -600,14 +604,19 @@ export class SessionsService {
         let session = this.userSubs[sessionId];
         if(session) {
             let result = JSON.parse(JSON.stringify(session));
-            result.userData = {[sourceId]:{}};
+            result.userData = {};
 
-            let source = this.controller.USERS.get(session.source);
-            if(!source) this.removeUserToUserStream(undefined,session.id,undefined,true);
-            
-            for(const prop in session.propnames) {
-                if(source.props[prop]) result.userData[sourceId][prop] = source[props][prop];
-            }
+            session.users.forEach((sourceId) => {
+                result.userData[sourceId] = {}
+                let source = this.controller.USERS.get(session.source);
+
+                if(!source) this.removeUserToUserStream(undefined,session.id,undefined,true);
+                
+                for(const prop in session.propnames) {
+                    if(source.props[prop]) result.userData[sourceId][prop] = source.props[prop];
+                }
+            })
+
 
             return result;
         }
@@ -626,7 +635,7 @@ export class SessionsService {
                     if(u) {
                         if(!session.spectators.includes(id)) {
                             for(const prop in session.propnames) {
-                                if(u.props[prop]) result.userData[id][prop] = u[props][prop];
+                                if(u.props[prop]) result.userData[id][prop] = u.props[prop];
                             }
                         }
                     } else this.kickUser(undefined,id,session.id,true);
@@ -648,7 +657,7 @@ export class SessionsService {
         if(!session) return undefined;
 
         if(session.users.length === 0) {
-            if(session.lastTransmit - Date.now() >= this.sessionTimeout) delete this.appSubs[prop];
+            if(session.lastTransmit - Date.now() >= this.sessionTimeout) delete this.appSubs[sessionId];
             return undefined; 
         }
         let updateObj = JSON.parse(JSON.stringify(session));
@@ -666,10 +675,10 @@ export class SessionsService {
             }
 
             session.hostprops.forEach((prop) => {
-                if(host.updatedPropNames.includes(prop)) updateObj.userData[user][prop] = host.props[prop];
+                if(host.updatedPropNames.includes(prop)) updateObj.hostData[prop] = host.props[prop];
             });
             
-            if(Object.keys(updateObj.hostData) > 0) {
+            if(Object.keys(updateObj.hostData).length > 0) {
                 let toKick = [];
                 session.users.forEach((user) => {
                     let u = this.controller.USERS.get(user);
@@ -693,7 +702,7 @@ export class SessionsService {
                 updateObj.userData[user] = {};
                 session.propnames.forEach((prop) => {
                     if(!session.spectators.includes(user)) {
-                        if(u.updatedPropnames.includes(prop)) 
+                        if(u.updatedPropNames.includes(prop)) 
                             updateObj.userData[user][prop] = u.props[prop];
                     }
                 });
@@ -744,20 +753,23 @@ export class SessionsService {
             return undefined;
         }
         if(session.lastTransmit - Date.now() >= this.sessionTimeout) {
-            delete this.userSubs[prop];
+            delete this.userSubs[sessionId];
             return undefined;
         }
 
         updateObj.userData = {[session.source]:{}};
         session.propnames.forEach((p) => {
-            if(source.updatedPropnames.includes(p)) 
+            if(source.updatedPropNames.includes(p)) 
                 updateObj.userData[session.source][p] = source.props[p];
         });
 
         if(Object.keys(updateObj.userData).length > 0) {
-            u.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
-            updatedUsers[user] = true;
-            session.lastTransmit = Date.now();
+            const u = this.controller.USERS.get(session.listenerId)
+            if (u) {
+                u.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
+                updatedUsers[u.id] = true;
+                session.lastTransmit = Date.now();
+            }
         }
         
         return updatedUsers;
@@ -785,7 +797,7 @@ export class SessionsService {
             //clear update flags
             for(const prop in updatedUsers) {
                 let u = this.controller.USERS.get(prop);
-                if(u) u.updatedPropnames = [];
+                if(u) u.updatedPropNames = [];
             }
 
             setTimeout(this.streamLoop,this.delay);
@@ -794,3 +806,5 @@ export class SessionsService {
     }
 
 }
+
+export default SessionsService

@@ -2,10 +2,32 @@
 //import { streamUtils } from "./streamSession";
 
 import {Events} from '@brainsatplay/liveserver-common'
+import { MessageType } from 'src/common/general.types';
 
 export class WebsocketClient {
+
+    url: URL;
+    subprotocols
+    connected = false;
+    sendQueue = [];
+    streamUtils
+    sockets = [];
+    socketRot = 0;
+
+    responses = [];
+    functionQueue = {};
+
+    origin = `client${Math.floor(Math.random()*10000000000000)}`; //randomid you can use
+
+    EVENTS = new Events(this);
+    subEvent = (eventName, response=(result)=>{})=>{this.EVENTS.subEvent(eventName,response);}
+    unsubEvent = (eventName, sub) => {this.EVENTS.unsubEvent(eventName,sub)};
+    addEvent = (eventName, origin, functionName, id) => {this.EVENTS.addEvent(eventName, origin, functionName, id)};
+
+
+
     constructor(
-        socketUrl='https://localhost:80', 
+        socketUrl:URL|string='https://localhost:80', 
         subprotocols={_id:`user${Math.floor(Math.random() * 10000000000)}`},
         defaultSocket = true
     ) {
@@ -13,26 +35,7 @@ export class WebsocketClient {
         if (!(socketUrl instanceof URL)) this.url = new URL(socketUrl);
 
         this.subprotocols = subprotocols;
-
-        this.connected = false;
-        this.sendQueue = [];
-        this.streamUtils;
-
-        this.sockets = [];
-        this.socketRot = 0;
-
-        this.responses = [];
-        this.functionQueue = {};
-
-        this.origin = `client${Math.floor(Math.random()*10000000000000)}`; //randomid you can use
-
-
         
-        this.EVENTS = new Events(this);
-        this.subEvent = (eventName, response=(result)=>{})=>{this.EVENTS.subEvent(eventName,response);}
-        this.unsubEvent = (eventName, sub) => {this.EVENTS.unsubEvent(eventName,sub)};
-        this.addEvent = (eventName, origin, functionName, id) => {this.EVENTS.addEvent(eventName, origin, functionName, id)};
-
         if(this.url && defaultSocket) this.addSocket(this.url, subprotocols)
     }
 
@@ -44,8 +47,6 @@ export class WebsocketClient {
             dict.id = dict._id 
             delete dict._id
         }
-
-        console.log(dict)
 
         Object.keys(dict).forEach((str) => subprotocol.push(`brainsatplay.com/${str}/${dict[str]}?arr=` + Array.isArray(dict[str])))
         return encodeURIComponent(subprotocol.join(';'));
@@ -77,8 +78,6 @@ export class WebsocketClient {
             return undefined;
         }
 
-        console.log(socket);
-
         socket.onerror = (e) => {
             console.log('error', e);
         };
@@ -105,12 +104,12 @@ export class WebsocketClient {
 
     }
 
-    getSocket(id) {
+    getSocket(id:string) {
         if(!id) return this.sockets[0].socket;
 
         return this.sockets.find((o,i) => {
             if(o.id === id) return true;
-        });
+        })?.socket;
 
     }
 
@@ -118,7 +117,7 @@ export class WebsocketClient {
     addFunction(functionName,fstring,origin,id,callback=(result)=>{}) {
         if(functionName && fstring) {
             if(typeof fstring === 'function') fstring = fstring.toString();
-            let dict = {foo:'addfunc',args:[functionName,fstring],origin:origin}; //post to the specific worker
+            let dict = {route:'addfunc',msg:[functionName,fstring], id:origin}; //post to the specific worker
             if(!id) {
                 this.sockets.forEach((w) => {this.send(dict,w.id);});
                 return true;
@@ -127,7 +126,7 @@ export class WebsocketClient {
         }
       }
 
-    run(functionName,args=[],origin,id,callback=(result)=>{}) {
+    run(functionName:string,args:[]|object=[],origin:string,id:String,callback=(result)=>{}):any {
         if(functionName) {
             if(functionName === 'transferClassObject') {
               if(typeof args === 'object' && !Array.isArray(args)) {
@@ -136,7 +135,7 @@ export class WebsocketClient {
                 }
               }
             }
-            let dict = {case:functionName, args:args, origin:origin};
+            let dict = {route:functionName, args:args, origin:origin};
             return this.send(dict,callback,id);
         }
     }
@@ -148,19 +147,22 @@ export class WebsocketClient {
         this.run('setValues',values,origin,id);
     }
 
-    send = (msg, callback = (data) => {}, id) => {
+    send = (msg:MessageType, callback = (data) => {}, id?) => {
         return new Promise((resolve)=>{//console.log(msg);
             const resolver = (res) => 
             {    
-                if (callback) {
-                    callback(res);
-                }
+                if (callback) callback(res);
                 resolve(res);
             }
 
-            msg.callbackId = Math.random();//randomId()
-            this.functionQueue[msg.callbackId] = resolver;
-        
+            const callbackId = ''+Math.random();//randomId()
+            if (typeof msg === 'object'){
+                if (Array.isArray(msg)) msg.splice(1, 0, callbackId); // add callbackId before arguments
+                else msg.callbackId = callbackId; // add callbackId key
+            } // TODO: Handle string-encoded messsages
+
+            this.functionQueue[callbackId] = resolver;
+
             let socket;
             if(!id) {
                 socket = this.sockets[this.socketRot].socket;
@@ -169,6 +171,7 @@ export class WebsocketClient {
             }
             else { socket = this.getSocket(id); }
             // msg = JSON.stringifyWithCircularRefs(msg)
+
             if(!socket) return;
             let toSend = () => socket.send(msg, resolver);
             msg = JSON.stringify(msg);
@@ -182,6 +185,7 @@ export class WebsocketClient {
     onmessage = (res) => {
 
         res = JSON.parse(res.data);
+        console.error('onmessage',res)
 
         //this.streamUtils.processSocketMessage(res);
     
@@ -191,9 +195,9 @@ export class WebsocketClient {
         });
 
         if (res.callbackId) {
-            this.functionQueue[res.callbackId](res.data) // Run callback
+            this.functionQueue[res.callbackId](res.msg) // Run callback
             delete this.functionQueue[res.callbackId];
-        } else this.defaultCallback(res);
+        } else this.defaultCallback(res.msg);
 
         // State.data.serverResult = res;
 
@@ -221,17 +225,14 @@ export class WebsocketClient {
     }
 
     defaultCallback = (res) => {
-        console.log(res);
+        console.error('default',res)
     }
 
-    getSocket(id) {
-        return this.sockets.find((o) => {if(o.id === id) return true;})?.socket;
-    }
 
     isOpen = (id) => {
-        if(!id) return this.sockets[0]?.readyState === socket.OPEN;
+        if(!id) return this.sockets[0]?.readyState === 1;
         let socket = this.getSocket(id);
-        if(socket) return socket.readyState === socket.OPEN; 
+        if(socket) return socket.readyState === 1; 
         else return false;
     }
 

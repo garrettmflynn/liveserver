@@ -6,6 +6,7 @@
       "outDir": "dist/", /* Redirect output structure to the directory. */
       "module": "umd", /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', or 'ESNext'. */
       "declaration": true, /* Generates corresponding '.d.ts' file. */
+      "lib": ["webworker", "es5", "dom", "scripthost"],
       "importHelpers": true, /* Import emit helpers from 'tslib'. */
       "pretty": true, /* Stylize errors and messages using color and context (experimental). */
       "jsx": "react", /* Specify JSX code generation: 'preserve', 'react-native', or 'react'. */
@@ -17,17 +18,17 @@
       "skipLibCheck": true,
 
       /* -- Strict Type-Checking Options -- */
-      "alwaysStrict": true, /* Parse in strict mode and emit "use strict" for each source file. */
-      "noFallthroughCasesInSwitch": false, /* Report errors for fallthrough cases in switch statement. */
-      "noImplicitAny": true, /* Raise error on expressions and declarations with an implied 'any' type. */
-      "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
-      "noImplicitThis": true, /* Raise error on 'this' expressions with an implied 'any' type. */
-      "noUnusedLocals": true, /* Report errors on unused locals. */
-      "noUnusedParameters": true, /* Report errors on unused parameters. */
-      "strict": true, /* Enable all strict type-checking options. */
-      "strictFunctionTypes": true, /* Enable strict checking of function types. */
-      "strictNullChecks": true, /* Enable strict null checks. */
-      "strictPropertyInitialization": true, /* Ensure non-undefined class properties are initialized in the constructor. */
+      // "alwaysStrict": true, /* Parse in strict mode and emit "use strict" for each source file. */
+      // "noFallthroughCasesInSwitch": false, /* Report errors for fallthrough cases in switch statement. */
+      // "noImplicitAny": true, /* Raise error on expressions and declarations with an implied 'any' type. */
+      // "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
+      // "noImplicitThis": true, /* Raise error on 'this' expressions with an implied 'any' type. */
+      // "noUnusedLocals": true, /* Report errors on unused locals. */
+      // "noUnusedParameters": true, /* Report errors on unused parameters. */
+      // "strict": true, /* Enable all strict type-checking options. */
+      // "strictFunctionTypes": true, /* Enable strict checking of function types. */
+      // "strictNullChecks": true, /* Enable strict null checks. */
+      // "strictPropertyInitialization": true, /* Ensure non-undefined class properties are initialized in the constructor. */
       "esModuleInterop": true,
 
       /* -- Module Resolution Options -- */

@@ -23,7 +23,7 @@ export default function AllExample({server}) {
 
       // http.addRoute(customRoute)
       buttons.current.innerHTML = ''
-      http.subscribe('/defaults/routes', (data) => {
+      http.subscribe('/routes', (data) => {
 
         if (!Array.isArray(data)) data = [data]
         console.log('data', data)
@@ -36,8 +36,8 @@ export default function AllExample({server}) {
           buttons.current.insertAdjacentElement('beforeend', button)
           button.onclick = ( ) => {
             let args = []
-            if (o.route === '/defaults/routes') buttons.current.innerHTML = ''
-            if (o.route === '/defaults/addRoute') args = [customRoute]
+            if (o.route === '/routes') buttons.current.innerHTML = ''
+            if (o.route === '/addRoute') args = [customRoute]
             else if (vals[o.route] != null) args = [vals[o.route]]
 
             http.send(o.route, ...args).then(res => {

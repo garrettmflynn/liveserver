@@ -32,8 +32,9 @@ const exposedMethods = [
 // */[client_id]
 //  Custom routes specified by clients
 //
-// export default HTTPService
 export class HTTPService {
+
+    name = 'http'
 
     // app?: Application
     routes: Map<string, RouteConfig> = new Map()
@@ -48,7 +49,7 @@ export class HTTPService {
 
     constructor() {
 
-        this.load('defaults', this, (str:string) => exposedMethods.includes(str), (key, config) => {
+        this.load(undefined, this, (str:string) => exposedMethods.includes(str), (key, config) => {
             
             if (key === 'routes') {
                 config.callback = () => Array.from(this.routes.values()).map((o:any) => {return {
@@ -62,12 +63,12 @@ export class HTTPService {
         
     }
 
-    load = (name='test', service:object|any[], filter: (string:any) => boolean = () => true, transform:(name: string, config:RouteConfig)=>any=(_, config)=>config) => {
+    load = (name, service:object|any[], filter: (string:any) => boolean = () => true, transform:(name: string, config:RouteConfig)=>any=(_, config)=>config) => {
         
         // Add From an Array of Route Objects
         if (Array.isArray(service)){
             service.filter(filter).forEach(o => {
-                let cases = [o.case, ...(o.aliases) ? o.aliases : []]
+                let cases = [o.route, ...(o.aliases) ? o.aliases : []]
                 cases.forEach(k => {
                     this.addRoute(transform(k, {
                         route: `/${(name) ? `${name}/` : ''}` + k,
@@ -100,11 +101,13 @@ export class HTTPService {
         let path = req.route.path.replace(/\/?\*?\*/, '')
         let routePath = req.originalUrl.replace(path, '')
 
-        if (routePath.slice(0,19) == '/defaults/subscribe'){
+        console.log(routePath)
+        let toMatch = '/subscribe'
+        if (routePath.slice(0,toMatch.length) == toMatch){
             // Extract Subscription Endpoint (no join required)
-            if (routePath.slice(0,19) == '/defaults/subscribe'){
+            if (routePath.slice(0,toMatch.length) == toMatch){
 
-                routePath = routePath.slice(19) // get subscription path
+                routePath = routePath.slice(10) // get subscription path
                 this.subscribeSSE(routePath, req, res)
 
             } 
@@ -118,6 +121,7 @@ export class HTTPService {
     // Generic Route Handler for Any Route + Body
     handleRoute = async (route: string, body: string, method?:string) => {
 
+            console.log(route)
                 try {
                     
                     // Requires Client to Join Session
@@ -128,7 +132,7 @@ export class HTTPService {
                                     ?? this.routes.get(route) // default route callbacks
 
                     if (routeInfo){
-                        if (this.clients[info.id] || route === '/defaults/join'){
+                        if (this.clients[info.id] || route === '/join'){
 
                             // Check if Correct Method
                             if (!routeInfo.method || method === routeInfo.method){
@@ -154,13 +158,15 @@ export class HTTPService {
     }
 
     addRoute = async (config: RouteConfig) => {
+
+        console.log(config)
         let routes = (typeof config.id === 'string') ? this.clients[config.id]?.routes : this.routes
 
         if (routes.has(config.route)) return new Error(config.route + ' already exists for ' + config.id)
         else {
             if (config.callback instanceof Function ) {
                 routes.set(config.route, config)
-                this.runSubscriptions('/defaults/routes', [config])
+                this.runSubscriptions('/routes', [config])
                 return true
             } else return new Error('Callback is not a function.')
         }
@@ -224,3 +230,5 @@ export class HTTPService {
     }
     
 }
+
+export default HTTPService

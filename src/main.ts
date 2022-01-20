@@ -1,8 +1,8 @@
-import express from "express";
-import cors from "cors";
-import http from "http";
-import mongoose from "mongoose";
-import bodyParser from "body-parser";
+let express = require("express")
+let cors = require("cors")
+let http = require("http")
+let mongoose = require("mongoose")
+let bodyParser = require("body-parser")
 
 // Import the Backend API
 import * as api from "./backend";
@@ -44,40 +44,43 @@ mongoose
   });
 
 // ----------------- Initialize API ------------------
-function init(instance) {
-  let http = new api.http();
+function init(instance?:any) {
+
+  console.log(api)
+
+  let http = new api.HTTPService();
 
   app.get("**", http.http);
   app.post("**", http.http);
 
-  // // Websocket Server
-  // // let websocket = new api.WebsocketService(server, http.websocket)
-  // let websocket = new api.WebsocketService(server, (ws,subprotocols) => {
-  //   let id = controller.addUser(ws, subprotocols); //adds a user from a socket
-  //   ws.send(JSON.stringify({ msg: `User added: ${id}`, id: id }));
-  // });
+  // Websocket Server
+  // let websocket = new api.WebsocketService(server, http.websocket)
+  let websocket = new api.WebsocketService(server, (ws:WebSocket, subprotocols: {
+    [x: string]: any
+  }) => {
+    let id = controller.addUser(ws, subprotocols); //adds a user from a socket
+    ws.send(JSON.stringify({ msg: `User added: ${id}`, id: id }));
+  });
 
-  // let controller = new api.WebsocketController({
-  //   wss: websocket.wss,
-  //   db: {
-  //     mode: "mongdb",
-  //     instance,
-  //   },
-  //   debug: false,
-  // });
 
-  // // Create Services on HTTP Routes
-  // let multiplayer = new api.SessionsService();
-  // let osc = new api.OSCService();
-  // let database = new api.DatabaseService();
+  let controller = new api.Controller({
+    wss: websocket.wss,
+    debug: true,
+  });
 
-  // let services = {
-  //   multiplayer,
-  //   database,
-  //   osc,
-  //   websocket,
-  // };
-  // Object.keys(services).forEach((k) =>
-  //   http.load(k, services[k].defaultCallbacks)
-  // );
+  let multiplayer = new api.SessionsService(controller);
+  let osc = new api.OSCService();
+  let database = new api.DatabaseService(controller, {
+    mode: "mongdb",
+    instance,
+  });
+
+  // Functionality
+  controller.load(multiplayer)
+  controller.load(database)
+
+  // Networking
+  controller.load(osc)
+  controller.load(websocket)
+  controller.load(http)
 }

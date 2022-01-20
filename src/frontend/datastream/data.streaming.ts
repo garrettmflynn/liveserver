@@ -1,6 +1,24 @@
 //Allows you to stream outgoing data asynchronously with automatic buffering settings.
+
+import { UserObject } from "src/common/general.types";
+import { WebsocketClient } from "../WebsocketClient"
+
 //This hooks in with functions on the session.service tool for creating two way sessions.
 export class DataStreaming {
+
+	WebsocketClient?: WebsocketClient
+	socketId: string
+	socket: WebSocket
+	user: Partial<UserObject>;
+	LOOPING = true;ss
+	delay = 50; //ms update throttle
+	streamSettings = {};
+	streamFunctions: {
+		[x: string]: Function
+	}
+	STREAMLATEST = 0;
+	STREAMALLLATEST = 1;
+
 	constructor(WebsocketClient, userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}, socketId) {
 
 		if(!WebsocketClient) {
@@ -118,13 +136,10 @@ export class DataStreaming {
 				return result;
 			},
 		};
-
-		this.STREAMLATEST = 0;
-		this.STREAMALLLATEST = 1;
 		
 	}
 
-	setStreamFunc(name,key,callback=this.streamFunctions.allLatestValues) {
+	setStreamFunc(name,key,callback:number|Function=this.streamFunctions.allLatestValues) {
 		if(!this.streamSettings[name].settings[key]) 
 			this.streamSettings[name].settings[key] = {lastRead:0};
 		
@@ -157,16 +172,19 @@ export class DataStreaming {
 	//		}
 	setStream(
 		object={},   //the object you want to watch
-		settings={}, //settings object to specify how data is pulled from the object keys
+		settings: {
+			keys?: string[]
+			callback?: Function
+		}={}, //settings object to specify how data is pulled from the object keys
 		streamName=`stream${Math.floor(Math.random()*10000000000)}` //used to remove or modify the stream by name later
 	) {
 
 		///stream all of the keys from the object if none specified
 		if(settings.keys) { 
-			if(keys.length === 0) {
+			if(settings.keys.length === 0) {
 				let k = Object.keys(object);
 				if(k.length > 0) {
-					keys = Array.from(k);
+					settings.keys = Array.from(k);
 				}
 			}
 		} else {
@@ -178,7 +196,7 @@ export class DataStreaming {
 			settings
 		};
 
-		if(!settings.callback) settings.callback = this.STREAMALLLATEST;
+		// if(!settings.callback) settings.callback = this.STREAMALLLATEST;
 
 		settings.keys.forEach((prop) => {
 			if(settings[prop]?.callback)
@@ -217,7 +235,7 @@ export class DataStreaming {
 			let updateObj = {
 				cmd:'updateUserStreamData',
 				id:this.user._id,
-				args:{}
+				msg:{}
 			};
 
 			for(const prop in this.streamSettings) {
@@ -227,12 +245,12 @@ export class DataStreaming {
 							this.streamSettings[prop].object[key],
 							this.streamSettings[prop].settings[key]
 						);
-						if(data !== undefined) updateObj.args[key] = data; //overlapping props will be overwritten (e.g. duplicated controller inputs)
+						if(data !== undefined) updateObj.msg[key] = data; //overlapping props will be overwritten (e.g. duplicated controller inputs)
 					}
 				});
 			}
 
-			if(Object.keys(updateObj.args).length > 0)	
+			if(Object.keys(updateObj.msg).length > 0)	
 				this.socket.send(JSON.stringify(updateObj));
 			
 			setTimeout(()=>{this.streamLoop()},this.delay);

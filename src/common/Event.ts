@@ -16,6 +16,9 @@
  //could generalize this for the workers vs sockets better
  // and to enable crosstalk
  export class Events {
+    state = new StateManager({},undefined,false); //trigger only state (no overhead)
+    manager?
+
      constructor(manager=undefined) {
  
          this.state = new StateManager({},undefined,false); //trigger only state (no overhead)
@@ -72,15 +75,15 @@
  
      //use this to set values by event name, will post messages on threads or sockets too
      emit(eventName, input, idOrObj=undefined,transfer=undefined,port=undefined) {
-         let output = {eventName:eventName, output:input};
+         let output = {eventName:eventName, msg:input};
          
          if(!input || !eventName) return;
          if (this.manager !== undefined) { //when emitting values for workers, input should be an object like {input:0, foo'abc', origin:'here'} for correct worker callback usage
-             if(id !== undefined) this.manager.post(output,idOrObj,transfer);
+             if(idOrObj !== undefined) this.manager.post(output,idOrObj,transfer);
              else if (this.manager?.workers) {this.manager.workers.forEach((w)=>{this.manager.post(output,w.id,transfer);});}
              else if (this.manager?.sockets) {this.manager.sockets.forEach((s)=>{this.manager.post(output,s.id,transfer);});}
          } else if (typeof idOrObj === 'object') {
-             if(idOrObj.socket) idOrObj.socket.send(JSON.stringify(input)); //passed from WebsocketController
+             if(idOrObj.socket) idOrObj.socket.send(JSON.stringify(input)); //passed from Controller
          } else if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
          // run this in global scope of window or worker. since window.self = window, we're ok
              //if(port) console.log(port,output);
@@ -90,10 +93,10 @@
          this.state.setState({[eventName]:input}); //local event 
      }
  
-     callback = (msg) => {
-         if(typeof msg === 'object') {
-             if(msg.eventName !== undefined && msg.output !== undefined) {
-                 this.state.setState({[msg.eventName]:msg.output});
+     callback = (res) => {
+         if(typeof res === 'object') {
+             if(res.eventName !== undefined && res.msg !== undefined) {
+                 this.state.setState({[res.eventName]:res.msg});
              }
          }
      }

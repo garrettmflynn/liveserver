@@ -1,5 +1,16 @@
+import StateManager from 'anotherstatemanager'
+import { WebsocketClient } from "../WebsocketClient";
+
 //OSC stream frontend calls
 export class WebsocketOSCStreaming {
+
+			
+	WebsocketClient: WebsocketClient;
+	socketId: string;
+
+	state = new StateManager();
+	id = '' + Math.floor(Math.random() * 10000000000); // Give the session an ID
+
 	constructor(WebsocketClient, socketId) {
 		if(!WebsocketClient) {
 			console.error("SessionStreaming needs an active WebsocketClient");
@@ -18,19 +29,15 @@ export class WebsocketOSCStreaming {
 			} else this.socketId = this.WebsocketClient.sockets[0].id;
 		}
 		
-		this.state = new StateManager();
-
-        this.id = Math.floor(Math.random() * 10000000000); // Give the session an ID
-
 		this.WebsocketClient.addCallback('OSCStreaming',(result) => {
 			if(result.oscData){
-				this.setState(result.address+'_'+result.port, result.oscData); //update state
+				this.state.setState(result.address+'_'+result.port, result.oscData); //update state
 			}
 			if(result.oscError){
-				this.setState('oscError', result.oscError); //update state
+				this.state.setState('oscError', result.oscError); //update state
 			}
 			if(result.oscInfo){
-				this.setState('oscInfo', result.oscInfo); //update state
+				this.state.setState('oscInfo', result.oscInfo); //update state
 			}
 		})
 		
@@ -56,7 +63,7 @@ export class WebsocketOSCStreaming {
 			callback
 		);
 
-		if(info.output === true) {
+		if(info.msg === true) {
 			if(typeof onupdate === 'function') this.state.subscribeTrigger(remoteAddress+'_'+remotePort,onupdate);
 			if(typeof onframe === 'function') this.state.subscribe(remoteAddress+'_'+remotePort,onframe);
 		}
@@ -78,7 +85,7 @@ export class WebsocketOSCStreaming {
 			[message, localAddress, localPort, remoteAddress, remotePort],
 			this.id,
 			this.socketId,
-			callback
+			// callback
 		);
 
 		return true;
@@ -99,10 +106,10 @@ export class WebsocketOSCStreaming {
 			[localAddress, localPort, remoteAddress, remotePort],
 			this.id,
 			this.socketId,
-			callback
+			// callback
 		);
 
-		if(info.output) {
+		if(info.msg) {
 			this.state.unsubscribeAll(remoteAddress+'_'+remotePort);
 		}
 	}
@@ -119,7 +126,11 @@ export class WebsocketOSCStreaming {
 		if(typeof onupdate === 'function') sub1 = this.state.subscribeTrigger(remoteAddress+'_'+remotePort,onupdate);
 		if(typeof onframe === 'function') sub2 = this.state.subscribe(remoteAddress+'_'+remotePort,onframe);
 
-		let result = {};
+		let result: {
+			updateSub?: string
+			frameSub?: string
+		} = {};
+		
 		if(sub1) result.updateSub = sub1;
 		if(sub2) result.frameSub = sub2;
 
@@ -150,13 +161,13 @@ export class WebsocketOSCStreaming {
 		this.socket.send(JSON.stringify({cmd:'startOSC',args:[localAddress, localPort, remoteAddress, remotePort]}));
 		let sub = this.state.subscribeTrigger('commandResult', (newResult) => {
 			if (typeof newResult === 'object') {
-				if (newResult.cmd === 'oscInfo') {
+				if (newResult.msg === 'oscInfo') {
 					onsuccess(newResult.oscInfo);
 					this.state.unsubscribeTrigger('commandResult', sub);
 					return newResult.oscInfo
 				}
 			}
-			else if (newResult.cmd === 'oscError') {
+			else if (newResult.msg === 'oscError') {
 				this.state.unsubscribeTrigger('commandResult', sub);
 				console.log("OSC Error", newResult.oscError);
 				return []

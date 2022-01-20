@@ -12,8 +12,9 @@
   "scripts": {
     "start": "concurrently \"yarn backend\" \"cd docs && yarn && yarn run start\" -k --kill-others-on-fail -p \"{name}|\" -n \"BE,FE\" -c \"green,blue\"",
     "frontend": "cd docs && yarn && yarn run start",
-    "backend": "node builder.config.mjs run",
+    "backend": "node builder.config run",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "typecheck": "tsc --watch --preserveWatchOutput --noEmit",
     "build": "cd docs && yarn && yarn build",
     "package": "webpack --config browser.config.js --mode production"
   },

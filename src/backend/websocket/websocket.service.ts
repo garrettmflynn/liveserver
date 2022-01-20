@@ -1,17 +1,18 @@
 // Joshua Brewster, Garrett Flynn, AGPL v3.0
 import { WebSocketServer } from 'ws'
-import WebsocketController from './WebsocketController'
 
 // Create WS Server Instance
-export default WebsocketService
 export class WebsocketService{
-    constructor(httpServer, onsocket=()=>{}){
+
+  name = 'websocket'
+  server: any
+  wss = new WebSocketServer({ clientTracking: false, noServer: true });
+  onsocket: Function
+
+    constructor(httpServer, onsocket=(ws:WebSocket, subprotocols:{[x: string] : any})=>{}){
 
       this.server = httpServer
-      
-      
-      // Create Websocket Server
-      this.wss = new WebSocketServer({ clientTracking: false, noServer: true });
+
       this.onsocket = onsocket
 
       this.init()
@@ -38,7 +39,11 @@ export class WebsocketService{
             let subSplit = str.split('/')
             let [val, query] = subSplit[2].split('?')
 
-            const queries = {}
+            const queries: {
+              [x: string]: any
+              arr?: string
+            } = {}
+
             query.split('&').forEach(str => {
               const [key,val] = str.split('=')
               queries[key] = val
@@ -83,3 +88,5 @@ export class WebsocketService{
         // });
     }
 }
+
+export default WebsocketService

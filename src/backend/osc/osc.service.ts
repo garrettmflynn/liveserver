@@ -1,30 +1,34 @@
 import osc from "osc"
+import { RouteConfig } from "src/common/general.types"
 
 // Garrett Flynn, AGPL v3.0
+// TODO: Break OSC into another network protocol
 
-export default OSCService
 export class OSCService{
-    constructor(ws){
-        this.socket = ws
-        this.ports = []   
+    name = 'osc'
+
+    ports = []   
+    callbacks: RouteConfig[]
+
+    constructor(){
         
-        this.defaultCallbacks = [
+        this.callbacks = [
             { 
-                case:'startOSC',
+                route:'startOSC',
                 callback:(self,args,origin,u) => {
                   if(this.add(args[0],args[1],args[2],args[3])) return true;
                 }
               },
               { 
-                case:'sendOSC',
+                route:'sendOSC',
                 callback:(self,args,origin,u) => {
-                  if (commands.length > 2) u.osc.send(args[0],args[1],args[2]);
+                  if (args.length > 2) u.osc.send(args[0],args[1],args[2]);
                   else this.send(args[0]);
                   return 'DONOTSEND';
                 }
               },
               { 
-                case:'stopOSC',
+                route:'stopOSC',
                 callback:(self,args,origin,u) => {
                   if(this.remove(args[0], args[1])) return true;
                 }
@@ -46,7 +50,7 @@ export class OSCService{
         return info;
     }
 
-    send(dict, localAddress, localPort, remoteAddress, remotePort) {
+    send(dict, localAddress?, localPort?, remoteAddress?, remotePort?) {
         if (!localAddress || !localPort || !remoteAddress || !remotePort){
             this.ports.forEach(o => {
                 o.send(this.encodeMessage(dict))
@@ -76,7 +80,7 @@ export class OSCService{
             msg[key].forEach(v => {
                 args.push({value: v})
             })
-            bundle.packets.push({address: `/brainsatplay/${key}`, args: msg[key]})
+            bundle.packets.push({route: `/brainsatplay/${key}`, msg: msg[key]})
         }
         return bundle;
     }
@@ -92,16 +96,16 @@ export class OSCService{
 
         port.on("ready", () => {
             this.ports.push(port)
-            this.socket.send(JSON.stringify({msg:'oscInfo', oscInfo: this.info()}))
+            // this.socket.send(JSON.stringify({msg:'oscInfo', oscInfo: this.info()}))
         });
 
         port.on("error", (error) => {
-            if (error.code === 'EADDRINUSE') {this.socket.send(JSON.stringify({msg:'oscInfo', oscInfo: this.info()}))}
-            else this.socket.send(JSON.stringify({msg:'oscError', oscError: error.message}))
+            // if (error.code === 'EADDRINUSE') {this.socket.send(JSON.stringify({msg:'oscInfo', oscInfo: this.info()}))}
+            // else this.socket.send(JSON.stringify({msg:'oscError', oscError: error.message}))
         });
 
         port.on("message", (oscMsg) => {
-            this.socket.send(JSON.stringify({msg:'oscData', oscData: oscMsg, address:remoteAddress, port:remotePort}));
+            // this.socket.send(JSON.stringify({msg:'oscData', oscData: oscMsg, address:remoteAddress, port:remotePort}));
         });
 
         port.on("close", (msg) => {})
@@ -111,7 +115,7 @@ export class OSCService{
         return true;
     }
 
-    remove(localAddress, localPort, remoteAddress, remotePort) {
+    remove(localAddress?, localPort?, remoteAddress?, remotePort?) {
         if (!localAddress || !localPort || !remoteAddress || !remotePort){
             this.ports.forEach(o => {
                 o.close()
@@ -131,3 +135,5 @@ export class OSCService{
         }
     }
 }
+
+export default OSCService
