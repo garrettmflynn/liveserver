@@ -51,16 +51,15 @@ export class UserPlatform {
     //uses a bunch of the functions below to set up a user and get their data w/ some cross checking for consistent profiles
     setupUser(userData) {
         let userinfo = JSON.parse(JSON.stringify(userData)); //copy the token
-        if(!userinfo._id && userinfo._id) userinfo._id = userinfo._id;
         let changed = false;
 
-        console.log(userinfo._id)
-        this.getUserFromServer(userinfo._id,(data)=>{
+        console.log("Generating/Getting User: ", userinfo.id)
+        this.getUserFromServer(userinfo.id,(data)=>{
             // console.log("getUser", res);
             let u;
             let newu = false;
             if(!data.user?.id) { //no profile, create new one and push initial results
-                // if(!userinfo._id) userinfo._id = userinfo._id;
+                // if(!userinfo.id) userinfo.id = userinfo.id;
                 u = this.userStruct(userinfo,true);
                 newu = true;
                 this.setUserOnServer(u,(data)=>{
@@ -792,8 +791,11 @@ export class UserPlatform {
     userStruct (props={}, currentUser=false) {
         let user = DS.ProfileStruct(props,undefined,props);
 
-        user.id = props._id; //references the token id
-        user.ownerId = props._id;
+        if(props._id) user.id = props._id; //references the token id
+        else if(props.id) user.id = props.id;
+        else user.id = 'user'+Math.floor(Math.random()*10000000000);
+        user._id = user.id; //for mongo stuff
+        user.ownerId = user.id;
         for(const prop in props) {
             if(Object.keys(DS.ProfileStruct()).indexOf(prop) < 0) {
                 delete user[prop];
