@@ -32,7 +32,7 @@ let client = new WebsocketClient(
 let socketId = client.getSocket().id;
 //check console. 
 
-client.run('ping',undefined,socketId,callback=(result)=>{console.log(result)});
+client.run('ping',undefined,socketId,(result)=>{console.log(result)});
 
 
 ```
