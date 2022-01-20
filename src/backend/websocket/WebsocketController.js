@@ -349,7 +349,7 @@ class WebsocketController {
           },
           {
             case:'logout',
-            aliases:['removeUser'],
+            aliases:['removeUser','endsession'],
             callback:(self,args,origin,user) => {
               if(args[0]) self.removeUser(args[0])
               else self.removeUser(user);

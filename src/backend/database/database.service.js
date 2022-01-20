@@ -294,12 +294,6 @@ export class WebsocketDB {
                     }
                     return data;
                 } 
-            },
-            {
-                case:'endsession',
-                callback:(self,args,origin) => {
-                    return this.removeUser(u,socketId);
-                }
             }
         );
     }

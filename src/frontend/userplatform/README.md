@@ -18,7 +18,7 @@ let userinfo = {
     lastName:boyo
 };
 
-const platform = new UserPlatform(client, userinfo, socketId);
+const platform = new UserPlatform(client, userinfo, socketId); //sets up the user automatically if info provided, use null or false in userinfo otherwise or it will create a dummy user
 
 platform.sendMessage('123456','test');
 platform.ping();
@@ -31,5 +31,7 @@ platform.ping();
 
 ```
 
-Lots of functions for handling a user database with some basic form filling for stock data structures
+And lots of functions for handling a user database with some basic form filling for stock data structures
 
+platform.closeSocket();
+platform.endSession();

@@ -43,8 +43,9 @@ export class UserPlatform {
         if(this.socket) {if(this.socket.isOpen()) this.socket.close();}
     }
 
-    endSession() {
-        if(this.socket && this.currentUser) this.socket.send(JSON.stringify({cmd:'endsession',id:this.currentUser._id}));
+    logout() {
+        if(this.socket && this.currentUser) 
+            this.socket.send(JSON.stringify({cmd:'logout',id:this.currentUser._id}));
     }
 
     //TODO
