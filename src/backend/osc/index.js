@@ -1,1 +1,1 @@
-export * from './osc.service.js'
+export * from './osc.service'

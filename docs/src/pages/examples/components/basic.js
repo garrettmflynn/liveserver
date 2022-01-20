@@ -1,20 +1,22 @@
 import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
-import { UserPlatform } from '../../../../../src/frontend/index.js';
+import { UserPlatform, WebsocketClient } from '../../../../../src/frontend/index.js';
 
 export default function BasicExample({server}) {
   
     const ping = useRef(null);
     const output = useRef(null);
 
-    const platform = new UserPlatform({
+    const websocketClient = new WebsocketClient(server)
+
+    const platform = new UserPlatform(websocketClient, {
       _id:'123456', //we are using randomly generated ones from realm/mongodb
       username:'johnnyboi',
       email:'johnnyboi@boyo.com',
       firstName:'johnny',
       lastName:'boyo',
       test: ['what']
-  }, server);
+  });
   
     useEffect(() => {
       ping.current.onclick = () => {

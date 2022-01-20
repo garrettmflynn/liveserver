@@ -10,7 +10,7 @@ export class WebsocketClient {
         defaultSocket = true
     ) {
 
-        if (!(url instanceof URL)) this.url = new URL(socketUrl);
+        if (!(socketUrl instanceof URL)) this.url = new URL(socketUrl);
 
         this.subprotocols = subprotocols;
 

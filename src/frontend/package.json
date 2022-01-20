@@ -3,6 +3,7 @@
   "version": "0.0.11",
   "description": "Websockets with user communication, access controls, and notifications. Clientside and serverside data management plus mongodb integration.",
   "main": "index.js",
+  "type":"module",
   "directories": {
     "example": "example"
   },
@@ -21,7 +22,7 @@
   "author": "Joshua Brewster, Garrett Flynn",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
-    "@brainsatplay/liveserver-common": "0.0.0",
+    "@brainsatplay/liveserver-common": "*",
     "anotherstatemanager": "^1.0.4",
     "brainsatplay-data": "^0.0.9",
     "magicworker": "^1.0.8"

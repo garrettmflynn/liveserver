@@ -33,8 +33,7 @@ export class DataStreaming {
 			//these default functions will only send the latest of an array or value if changes are detected, and can handle single nested objects 
 			// you can use the setting to create watch properties (e.g. lastRead for these functions). 
 			// All data must be JSONifiable
-			allLatestValues:(prop,setting)=>{
-				let setting = setting;
+			allLatestValues:(prop, setting)=>{
 				let result = undefined;
 
 				if(Array.isArray(prop)) {
@@ -79,7 +78,6 @@ export class DataStreaming {
 				
 			},
 			latestValue:(prop,setting)=>{
-				let setting = setting;
 				let result = undefined;
 				if(Array.isArray(prop)) {
 					if(prop.length !== setting.lastRead) {

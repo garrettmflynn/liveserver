@@ -2,7 +2,8 @@ const DONOTSEND = "DONOTSEND";
 
 //TODO: one-off data calls based on session configs
 //      reimplement callbacks
-export class WebsocketSessionStreaming {
+export default SessionsService
+export class SessionsService {
     constructor(WebsocketController, running=true) {
         // if(!WebsocketController) { console.error('Requires a WebsocketController instance.'); return; }
         this.controller = WebsocketController;
@@ -793,5 +794,3 @@ export class WebsocketSessionStreaming {
     }
 
 }
-
-export default WebsocketSessionStreaming

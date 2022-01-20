@@ -8,7 +8,7 @@
   "license": "AGPL-3.0-or-later",
   "private": false,
   "dependencies": {
-    "@brainsatplay/liveserver-common": "0.0.0",
+    "@brainsatplay/liveserver-common": "*",
     "datastreams-api": "^0.0.4",
     "mongodb": "^4.3.0",
     "ws": "^8.4.2"

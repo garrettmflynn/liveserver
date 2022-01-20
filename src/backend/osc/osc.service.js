@@ -2,7 +2,8 @@ import osc from "osc"
 
 // Garrett Flynn, AGPL v3.0
 
-class OSCManager{
+export default OSCService
+export class OSCService{
     constructor(ws){
         this.socket = ws
         this.ports = []   
@@ -130,6 +131,3 @@ class OSCManager{
         }
     }
 }
-
-export { OSCManager }
-export default OSCManager

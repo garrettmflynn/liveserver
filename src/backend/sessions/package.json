@@ -1,5 +1,5 @@
 {
-  "name": "@brainsatplay/multiplayer",
+  "name": "@brainsatplay/sessions",
   "version": "0.0.0",
   "main": "index.js",
   "type":"module",

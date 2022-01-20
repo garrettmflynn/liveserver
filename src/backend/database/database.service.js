@@ -2,8 +2,8 @@
 //Users, user data, notifications, access controls
 // Joshua Brewster, Garrett Flynn, AGPL v3.0
 import { ObjectId } from "mongodb"
-
-export class WebsocketDB {
+export default DatabaseService
+export class DatabaseService {
 
     collectionNames = [
         'profile',
@@ -1265,5 +1265,3 @@ export class WebsocketDB {
 
 
 }
-
-export default WebsocketDB

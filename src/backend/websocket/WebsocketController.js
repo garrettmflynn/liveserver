@@ -1,11 +1,11 @@
 
-import { WebsocketDB } from '../database/database.service.js';
+import { WebsocketDB } from '../database/database.service';
 import { Events } from '@brainsatplay/liveserver-common'
-import { WebsocketRemoteStreaming } from '../multiplayer/session.service.js';
+import { WebsocketSessionStreaming } from '../sessions';
 
 //should make these toggleable
-import WebRTCService from 'datastreams-api/src/server/webrtc.service.js'
-import OSCManager from '../osc/osc.service.js'
+import WebRTCService from 'datastreams-api/src/server/webrtc.service'
+import OSCManager from '../osc/osc.service'
 
 const DONOTSEND = 'DONOTSEND';
 
@@ -31,7 +31,16 @@ class WebsocketController {
         this.EVENTSETTINGS = [];
         // this.serverInstances=appnames;
 		
-        this.options = options; //settings and utility classes
+        this.options = Object.assign({
+          db: {
+            mode: 'local',
+            instance: null
+          },
+          remoteService:true,
+          webrtc:true,
+          osc:true,
+          debug:true
+        }, options)
 
         //this.subscriptionLoop();
 
@@ -166,7 +175,7 @@ class WebsocketController {
         //should use an options object for these to pass in appropriate stuff e.g. the mongoose app
         if(this.useDB) this.dbService = new WebsocketDB(this, this.options.db, true);
         
-        if(this.useRemoteService) this.remoteService = new WebsocketRemoteStreaming(this);
+        if(this.useRemoteService) this.remoteService = new WebsocketSessionStreaming(this);
 
         if(this.useWebRTC) this.webrtc = new WebRTCService(options.wss);
 
@@ -244,7 +253,7 @@ class WebsocketController {
 
     this.USERS.set(id, newuser);
 
-    //add any additional properties sent. remote.service.js has more functions for using these
+    //add any additional properties sent. remote.service has more functions for using these
 
     if(this.webrtc) try {this.webrtc.addUser(socket,id)} catch (e) {console.error(e)}
 
@@ -454,7 +463,7 @@ class WebsocketController {
               return false;
             }
           },
-          { //internal event subscription, look at Event.js for usage, its essentially a function trigger manager for creating algorithms
+          { //internal event subscription, look at Event for usage, its essentially a function trigger manager for creating algorithms
             case: 'subevent', callback: (self, args, origin, user) => { //args[0] = eventName, args[1] = response function(self,args,origin) -> lets you reference self for setting variables
               if(typeof args[0] !== 'string') return false;
               
