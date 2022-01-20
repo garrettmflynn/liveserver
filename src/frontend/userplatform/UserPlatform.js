@@ -292,8 +292,14 @@ export class UserPlatform {
     
     //simple response test
     async ping(callback=(res)=>{console.log(res);}) {
-        let res = await this.socket.send({cmd:'ping',id:this.currentUser._id},callback);
-        return res;
+        return await this.WebsocketClient.run(
+            'ping',
+            undefined,
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        );
+        
     }
 
     //send a direct message to somebody

@@ -164,7 +164,7 @@ class WebsocketController {
     return false;
   }
      
-  handleData = (obj) => {
+  handleData = (obj,socketId) => {
     if(typeof obj === 'object' && !Array.isArray(obj)) { //if we got an object process it as most likely user data
       
       if(obj._id) obj.id = obj._id; //just in case
@@ -173,16 +173,16 @@ class WebsocketController {
           this.processCommand(obj.id,obj.cmd,obj.args, undefined, obj.callbackId);
       }
       else if(obj.cmd) {
-          this.processCommand(id, obj.cmd, obj.args, undefined, obj.callbackId)
+          this.processCommand(socketId, obj.cmd, obj.args, undefined, obj.callbackId)
       }
   
     }
     else if (Array.isArray(obj)) { //handle commands sent as arrays [username,cmd,arg1,arg2]
-        this.processCommand(id,obj[0],obj.slice(1), undefined, obj.callbackId);  
+        this.processCommand(socketId,obj[0],obj.slice(1), undefined, obj.callbackId);  
     }
     else if (typeof obj === 'string') { //handle string commands with spaces, 'username command arg1 arg2'
         let cmd = obj.split(' ');
-        this.processCommand(id,cmd[0],cmd.slice(1), undefined, obj.callbackId);
+        this.processCommand(socketId,cmd[0],cmd.slice(1), undefined, obj.callbackId);
     }
     else {
         // console.log(parsed);
@@ -203,10 +203,10 @@ class WebsocketController {
               // console.log(json);
               else if(Array.isArray(parsed)) { //push arrays of requests instead of single objects (more optimal potentially, though fat requests can lock up servers)
                   parsed.forEach((obj) => {
-                    this.handleData(obj)
+                    this.handleData(obj,socketId);
                   })
               }
-              else this.handleData(parsed);
+              else this.handleData(parsed,socketId);
           });
 
           socket.on('close', (s) => {
