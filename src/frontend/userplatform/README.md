@@ -27,7 +27,7 @@ platform.ping();
 
 //check console. 
 
-// You can create another user with another platform (platform2 = new UserPlatform(userdata2,socketurl)) instance as well and test it that way
+// You can create another user with another platform (platform2 = new UserPlatform(client, userinfo2)) instance as well and test it that way
 
 ```
 
