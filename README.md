@@ -1,6 +1,6 @@
 # Brains@Play Live Server Utilities
 
-These tools help us create socket servers for live communications.
+These tools help us create socket servers for live communications. WIP as we're reformatting and generalizing things
 
 This will take some time to fully document but the use cases it's being developed around are:
 
