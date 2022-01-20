@@ -57,7 +57,7 @@ export class UserPlatform {
 
     //TODO: make this able to be awaited to return the currentUser
     //uses a bunch of the functions below to set up a user and get their data w/ some cross checking for consistent profiles
-    setupUser(userinfo, callback=(currentUser)=>{}) {
+    async setupUser(userinfo, callback=(currentUser)=>{}) {
         if(!userinfo) {
             console.error('must provide an info object! e.g. {id:"abc123"}');
             callback(undefined);
@@ -68,131 +68,128 @@ export class UserPlatform {
         if(userinfo.id) userinfo._id = userinfo.id;
 
         console.log("Generating/Getting User: ", userinfo._id)
-        this.getUserFromServer(userinfo._id,(data)=>{
-            // console.log("getUser", res);
-            let u;
-            let newu = false;
-            if(!data.user?._id) { //no profile, create new one and push initial results
-                // if(!userinfo._id) userinfo._id = userinfo._id;
-                u = this.userStruct(userinfo,true);
-                newu = true;
-                this.setUserOnServer(u,(data)=>{
-                    console.log('setProfile', data);
-                    let structs = this.getLocalData(undefined,{'ownerId': u._id});
-                    if(structs?.length > 0) this.updateServerData(structs, (data)=>{
-                        console.log('setData', data);
-                    });
-                    this.setAuthorizationsByGroupOnServer(u);
-                });
-            }
-            else {
-                u = data.user;
-                u._id = userData._id; //replace the unique mongo id for the secondary profile struct with the id for the userinfo for temp lookup purposes
-                for(const prop in userinfo) { //checking that the token and user profile overlap correctly
-                    let dummystruct = this.userStruct();
-                    if(u[prop] && prop !== '_id') {
-                        if(Array.isArray(userinfo[prop])) {
-                            for(let i = 0; i < u[prop].length; i++) { //check user props that are not in the token
-                                //console.log(userinfo[prop][i]);
-                                if(userinfo[prop].indexOf(u[prop][i]) < 0) {
-                                    u[prop] = userinfo[prop]; 
-                                    changed = true;
-                                    break;
-                                }
-                            }
-                            if(!changed) for(let i = 0; i < userinfo[prop].length; i++) { //check tlken props that are not in the user
-                                //console.log(userinfo[prop][i]);
-                                if(u[prop].indexOf(userinfo[prop][i]) < 0) {
-                                    u[prop] = userinfo[prop]; 
-                                    changed = true;
-                                    break;
-                                }
+        let data = await this.getUserFromServer(userinfo._id,false);
+        // console.log("getUser", res);
+        let u;
+        let newu = false;
+        if(!data.user?._id) { //no profile, create new one and push initial results
+            // if(!userinfo._id) userinfo._id = userinfo._id;
+            u = this.userStruct(userinfo,true);
+            newu = true;
+            let newdata = await this.setUserOnServer(u,null);
+            console.log('setProfile', data);
+            let structs = this.getLocalData(undefined,{'ownerId': u._id});
+            if(structs?.length > 0) this.updateServerData(structs, (data)=>{
+                console.log('setData', data);
+            });
+            this.setAuthorizationsByGroupOnServer(u);
+        }
+        else {
+            u = data.user;
+            u._id = userData._id; //replace the unique mongo id for the secondary profile struct with the id for the userinfo for temp lookup purposes
+            for(const prop in userinfo) { //checking that the token and user profile overlap correctly
+                let dummystruct = this.userStruct();
+                if(u[prop] && prop !== '_id') {
+                    if(Array.isArray(userinfo[prop])) {
+                        for(let i = 0; i < u[prop].length; i++) { //check user props that are not in the token
+                            //console.log(userinfo[prop][i]);
+                            if(userinfo[prop].indexOf(u[prop][i]) < 0) {
+                                u[prop] = userinfo[prop]; 
+                                changed = true;
+                                break;
                             }
                         }
-                        else if(u[prop] !== userinfo[prop]) { 
-                            u[prop] = userinfo[prop];  
-                            changed = true;
+                        if(!changed) for(let i = 0; i < userinfo[prop].length; i++) { //check tlken props that are not in the user
+                            //console.log(userinfo[prop][i]);
+                            if(u[prop].indexOf(userinfo[prop][i]) < 0) {
+                                u[prop] = userinfo[prop]; 
+                                changed = true;
+                                break;
+                            }
                         }
-                    } else if (u[prop] !== userinfo[prop] && typeof dummystruct[prop] == 'string' && prop !== '_id') {
-                        //console.log(prop, u[prop])
+                    }
+                    else if(u[prop] !== userinfo[prop]) { 
                         u[prop] = userinfo[prop];  
                         changed = true;
                     }
-                }
-
-                if(data.authorizations){
-                    if(Array.isArray(data.authorizations)) {
-                        this.setLocalData(data.authorizations);
-                    }
-                }
-
-                if (data.groups){
-                    if(Array.isArray(data.groups)) {
-                        this.setLocalData(data.groups);
-                    }
+                } else if (u[prop] !== userinfo[prop] && typeof dummystruct[prop] == 'string' && prop !== '_id') {
+                    //console.log(prop, u[prop])
+                    u[prop] = userinfo[prop];  
+                    changed = true;
                 }
             }
 
-            if(newu) {this.currentUser = u; this.setLocalData(u);}
-            else {
-                this.getAllUserDataFromServer(u._id,undefined,(res)=>{
-                    console.log("getServerData", res);
-                    if(!data || data.length === 0) { 
-                    } else {
-                        this.setLocalData(data);
-                        
-                        //resolve redundant notifications
-                        let notes = data.filter((s) => {
-                            if(s.structType === 'notification') {
-                                if(this.getLocalData('authorization',s.parent._id)) {  
-                                    return true;
-                                }
-                                if(s.parent.structType === 'user' || s.parent.structType === 'authorization') {
-                                    return true;
-                                }
-                                if(!this.getLocalData(s.parent.structType,s.parent._id))
-                                    return true;
-                            }
-                        });
+            if(data.authorizations){
+                if(Array.isArray(data.authorizations)) {
+                    this.setLocalData(data.authorizations);
+                }
+            }
 
-                        //resolves extraneous comments
-                        let comments = data.filter((s) => {
-                            if(s.structType === 'comment') {                           
-                                return true;
-                            }
-                        });
+            if (data.groups){
+                if(Array.isArray(data.groups)) {
+                    this.setLocalData(data.groups);
+                }
+            }
+        }
 
-                        let toDelete = [];
-                        comments.forEach((comment) => {
-                            if(!this.getLocalData('comment',{'_id':comment._id})) toDelete.push(comment._id);
-                        });
-                        if(toDelete.length > 0) this.deleteDataFromServer(toDelete); //extraneous comments
+        if(newu) {this.currentUser = u; this.setLocalData(u);}
+        else {
+            let res = await this.getAllUserDataFromServer(u._id,undefined,false);
 
-                        if(notes.length > 0) {
-                            this.resolveNotifications(notes, false, undefined);
-                            changed = true;
+            console.log("getServerData", res);
+            if(!data || data.length === 0) { 
+            } else {
+                this.setLocalData(data);
+                
+                //resolve redundant notifications
+                let notes = data.filter((s) => {
+                    if(s.structType === 'notification') {
+                        if(this.getLocalData('authorization',s.parent._id)) {  
+                            return true;
                         }
-
-                        let filtered = data.filter((o) => {
-                            if(o.structType !== 'notification') return true;
-                        });
-
-                        if(this.tablet) this.tablet.sortStructsIntoTable(filtered);
-
+                        if(s.parent.structType === 'user' || s.parent.structType === 'authorization') {
+                            return true;
+                        }
+                        if(!this.getLocalData(s.parent.structType,s.parent._id))
+                            return true;
                     }
-
-                    // u = new UserObj(u)
-                    // u = getUserCodes(u, true)
-                    this.setLocalData(u); //user is now set up in whatever case 
-                    
-                    console.log('currentUser', u)
-                    this.currentUser = u;  
-                    console.log('collections', this.tablet.collections);
-
-                    callback(currentUser);
                 });
+
+                //resolves extraneous comments
+                let comments = data.filter((s) => {
+                    if(s.structType === 'comment') {                           
+                        return true;
+                    }
+                });
+
+                let toDelete = [];
+                comments.forEach((comment) => {
+                    if(!this.getLocalData('comment',{'_id':comment._id})) toDelete.push(comment._id);
+                });
+                if(toDelete.length > 0) this.deleteDataFromServer(toDelete); //extraneous comments
+
+                if(notes.length > 0) {
+                    this.resolveNotifications(notes, false, undefined);
+                    changed = true;
+                }
+
+                let filtered = data.filter((o) => {
+                    if(o.structType !== 'notification') return true;
+                });
+
+                if(this.tablet) this.tablet.sortStructsIntoTable(filtered);
+
             }
-        });
+
+            // u = new UserObj(u)
+            // u = getUserCodes(u, true)
+            this.setLocalData(u); //user is now set up in whatever case 
+            
+            console.log('currentUser', u)
+            this.currentUser = u;  
+            console.log('collections', this.tablet.collections);
+        }
+        callback(this.currentUser);
     }
 
     //default socket response for the platform
@@ -299,65 +296,119 @@ export class UserPlatform {
             this.socketId,
             callback
         );
-        
     }
 
     //send a direct message to somebody
     async sendMessage(userId='',message='',data=undefined,callback=(res)=>{console.log(res);}) {
         let args = [userId,message];
         if(data) args[2] = data;
-        let res = await this.socket.send({cmd:'sendMessage',args,id:this.currentUser._id},callback);
-        return res;
+        
+        return await this.WebsocketClient.run(
+            'sendMessage',
+            args,
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        );
     }
 
     //info can be email, id, username, or name. Returns their profile and authorizations
     async getUserFromServer (info='',callback=this.baseServerCallback) {
-        return await this.socket.send({cmd:'getProfile',args:[info], id:this.currentUser?._id },
-        callback);
+        
+        return await this.WebsocketClient.run(
+            'getProfile',
+            [info],
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        );
     }
 
     //get user basic info by id
     async getUsersByIdsFromServer (ids=[],callback=this.baseServerCallback) {
-        if(ids.length > 0) return await this.socket.send({cmd:'getProfilesByIds',args:[ids],id:this.currentUser?._id},
-        callback);
+    
+        return await this.WebsocketClient.run(
+            'getProfilesByIds',
+            [ids],
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        );
     }
     
     //info can be email, id, username, or name. Returns their profile and authorizations
     async getUsersByRolesFromServer (userRoles=[],callback=this.baseServerCallback) {
-        return await this.socket.send({cmd:'getProfilesByRoles',args:[userRoles], id:this.currentUser?._id },
-        callback);
+        return await this.WebsocketClient.run(
+            'getProfilesByRoles',
+            [userRoles],
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        );
     }
 
     async getAllUserDataFromServer(ownerId, excluded=[], callback=this.baseServerCallback) {
-        return await this.socket.send({cmd:'getAllData',args:[ownerId,excluded],id:this.currentUser?._id}, 
-        callback);
+        
+        return await this.WebsocketClient.run(
+            'getAllData',
+            [ownerId,excluded],
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        );
     }
 
     async getDataFromServer(collection,ownerId,searchDict,limit=0,skip=0,callback=this.baseServerCallback) {
-        return await this.socket.send({cmd:'getData',args:[collection,ownerId,searchDict,limit,skip], id:this.currentUser?._id}, 
-        callback);
+               
+        return await this.WebsocketClient.run(
+            'getData',
+            [collection,ownerId,searchDict,limit,skip],
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        );
     }
+
 
     //get struct based on the parentId 
     async getStructParentDataFromServer (struct,callback=this.baseServerCallback) {
         if(!struct.parent) return;
         let args = [struct.parent?.structType,'_id',struct.parent?._id];
-        return await this.socket.send({cmd:'getData',args:args, id:this.currentUser?._id },
-        callback);
+
+        return await this.WebsocketClient.run(
+            'getData',
+            args,
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        );
     }
     
-    //get struct(s) based on an array of ids or string id in the parent struct
-    async getStructChildDataFromServer (struct,childPropName='', limit=0, skip=0, callback=this.baseServerCallback) {
-        let children = struct[childPropName];
-        if(!children) return;
-        return await this.socket.send({cmd:'getChildren',args:[children,limit,skip], id:this.currentUser?._id },
-        callback);
-    }
+    // //get struct(s) based on an array of ids or string id in the parent struct
+    // async getStructChildDataFromServer (struct,childPropName='', limit=0, skip=0, callback=this.baseServerCallback) {
+    //     let children = struct[childPropName];
+    //     if(!children) return;
+      
+    //     return await this.WebsocketClient.run(
+    //         'getChildren',
+    //         [children,limit,skip],
+    //         this.WebsocketClient.origin,
+    //         this.socketId,
+    //         callback
+    //     );
+    // }
 
     //redundant macro
     async setUserOnServer (userStruct={},callback=this.baseServerCallback) {
-        return await this.socket.send({cmd:'setProfile',args:[this.stripStruct(userStruct)], id:this.currentUser?._id },
-        callback);
+
+        return await this.WebsocketClient.run(
+            'setProfile',
+            [this.stripStruct(userStruct)],
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        );
+
     }
 
     //updates a user's necessary profile details if there are any discrepancies with the token
@@ -404,9 +455,14 @@ export class UserPlatform {
             copies.push(this.stripStruct(struct));
         })
 
-        let res = await this.socket.send({ cmd: 'setData', args: copies, id:this.currentUser?._id }, 
-        callback);
-        return res; //returns refreshed data
+        return await this.WebsocketClient.run(
+            'setData',
+            copies,
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        );  //returns refreshed data
+
     }
     
     //delete a list of structs from local and server
@@ -425,64 +481,103 @@ export class UserPlatform {
         });
 
         console.log('deleting',toDelete);
-        
-        let res = await this.socket.send({cmd:'deleteData',args:toDelete, id:this.currentUser?._id },
-        callback);
 
-        return res;
+        return await this.WebsocketClient.run(
+            'deleteData',
+            toDelete,
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        );  
+
     }
 
     //delete user profile by ID
     async deleteUserFromServer (userId='', callback=this.baseServerCallback) {
         this.users.delete(userId);
-        let res = await this.socket.send({cmd:'deleteProfile',args:[userId], id:this.currentUser?._id },
-        callback);
-        return res;
+
+        return await this.WebsocketClient.run(
+            'deleteProfile',
+            [userId],
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        );  
     }
 
     //set a group struct
     async setGroupOnServer (groupStruct={},callback=this.baseServerCallback) {
-        let res = await this.socket.send({cmd:'setGroup',args:[this.stripStruct(groupStruct)], id:this.currentUser?._id },
-        callback);
-        return res;
+
+        return await this.WebsocketClient.run(
+            'setGroup',
+            [this.stripStruct(groupStruct)],
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        );  
     }
 
     //get group structs or single one by Id
     async getGroupsFromServer (userId=this.currentUser._id, groupId='',callback=this.baseServerCallback) {
-        let res = await this.socket.send({cmd:'getGroups',args:[userId,groupId],id:this.currentUser?._id},
-        callback);
-        return res;
+        
+        return await this.WebsocketClient.run(
+            'getGroups',
+            [userId,groupId],
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        ); 
     }
 
     //set an authorization struct
     async deleteGroupFromServer (groupStructId='',callback=this.baseServerCallback) {
-        let res = await this.socket.send({cmd:'deleteGroup',args:[groupStructId], id:this.currentUser?._id },
-        callback);
-        return res;
+
+        return await this.WebsocketClient.run(
+            'deleteGroup',
+            [groupStructId],
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        ); 
     }
 
     //set an authorization struct
     async setAuthorizationOnServer (authorizationStruct={},callback=this.baseServerCallback) {
-        let res = await this.socket.send({cmd:'setAuth',args:[this.stripStruct(authorizationStruct)], id:this.currentUser?._id },
-        callback);
-        return res;
+
+        return await this.WebsocketClient.run(
+            'setAuth',
+            [this.stripStruct(authorizationStruct)],
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        ); 
     }
 
     //get an authorization struct by Id
     async getAuthorizationsFromServer (userId=this.currentUser?._id, authorizationId='',callback=this.baseServerCallback) {
-        if(userId === undefined) userId = this.currentUser?._id;
-        let res = await this.socket.send({cmd:'getAuths',args:[userId,authorizationId],id:this.currentUser?._id},
-        callback);
-        return res;
+        if(userId === undefined) return;
+
+        return await this.WebsocketClient.run(
+            'getAuths',
+            [userId,authorizationId],
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        ); 
     }
 
     //delete an authoriztion off the server
     async deleteAuthorizationOnServer (authorization,callback=this.baseServerCallback) {
         if(!authorization) return;
         this.deleteLocalData(authorization);
-        let res = await this.socket.send({cmd:'deleteAuth',args:[authorization._id], id:this.currentUser?._id },
-        callback);
-        return res;
+        
+        return await this.WebsocketClient.run(
+            'deleteAuth',
+            [authorization._id],
+            this.WebsocketClient.origin,
+            this.socketId,
+            callback
+        ); 
     }
 
     //notifications are GENERALIZED
