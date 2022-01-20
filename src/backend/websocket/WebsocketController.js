@@ -344,11 +344,12 @@ class WebsocketController {
           console.log(this.USERS, u)
           if(u) {
               if(u.socket.readyState === 1 || u.socket.readyState === "1") {
-                  return toSend;
+                u.socket.send(JSON.stringify(toSend));
+                return true;
               } else return false;
           }
       } else if (typeof user === 'object') {
-          return toSend;
+          return true;
       }
       return false;
   }

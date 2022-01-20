@@ -273,6 +273,16 @@ export class UserPlatform {
     }    
 
     //generically add any struct to a user's server data
+
+    /**
+        let struct = {
+            _id: randomId(structType+'defaultId'),   //random id associated for unique identification, used for lookup and indexing
+            structType: structType,     //this is how you will look it up by type in the server
+            ownerId: parentUser?._id,     //owner user
+            timestamp: Date.now(),      //date of creation
+            parent: {structType:parentStruct?.structType,_id:parentStruct?._id}, //parent struct it's associated with (e.g. if it needs to spawn with it)
+        }
+     */
     addStruct (
         structType='struct', 
         props={}, //add any props you want to set, adding users[] with ids will tell who to notify if this struct is updated

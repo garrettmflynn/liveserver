@@ -34,7 +34,8 @@ platform.ping();
 And lots of functions for handling a user database with some basic form filling for stock data structures
 
 ```
-platform.setupUser(userinfo) //asks the server for the data of the given user info object to st up the user platform. This runs automatically if provided in the constructor
+
+let user = await platform.setupUser(userinfo,callback=(currentUser)=>{}) //asks the server for the data of the given user info object to st up the user platform. This runs automatically if provided in the constructor
 
 platform.onResult = (data) => {} //can set this to be run after the default server callback
 
@@ -43,10 +44,26 @@ platform.closeSocket(); //close the active socket
 
 platform.logout(); //log the user out of the server (closes connections)
 
-platform.createStruct(
+//create arbitrary structs with arbitrary data in our given format
+platform.addStruct(
     structType,
     props={},
-    parentUser={}
-)
+    parentUser,
+    parentStruct,
+    updateServer=true
+);
+
+/* General struct format:
+    let struct = {
+        _id: randomId(structType+'defaultId'),   //random id associated for unique identification, used for lookup and indexing
+        structType: structType,     //this is how you will look it up by type in the server
+        ownerId: parentUser?._id,     //owner user
+        timestamp: Date.now(),      //date of creation
+        parent: {structType:parentStruct?.structType,_id:parentStruct?._id}, //parent struct it's associated with (e.g. if it needs to spawn with it)
+    }
+*/
+
+
+
 
 ```
