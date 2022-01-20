@@ -32,7 +32,8 @@ let client = new WebsocketClient(
 let socketId = client.getSocket().id;
 //check console. 
 
-// You can create another user with another platform (platform2 = new UserPlatform(userdata2,socketurl)) instance as well and test it that way
+client.run('ping',undefined,socketId,callback=(result)=>{console.log(result)});
+
 
 ```
 
