@@ -40,6 +40,121 @@ class WebsocketController {
 
         this.callbacks = [];
 
+        this.defaultCallbacks = [
+          {   
+            case: 'ping',
+            callback:(self,args,origin,user) => {
+                return 'pong';
+            }
+        },
+        { //return a list of function calls available on the server
+          case: 'list', callback: (self, args, origin) => {
+            let list = [];
+            this.callbacks.forEach((obj) => {
+              list.push(obj.case);
+            });
+            if (args[0] === true) console.log('Server callbacks available: ', list); //list available functions
+            return list;
+          }
+        },
+        { //generic send message between two users (userId, message, other data)
+            case:'sendMessage',
+            aliases:['message','sendMsg'],
+            callback:(self,args,origin,user)=>{
+                return this.sendMsg(args[0],args[1],args[2]);
+            }
+        },
+        { //set user details for yourself
+            case:'setUserServerDetails',
+            callback:(self,args,origin,user)=>{
+              if(args[0]) user.username = args[0];
+              if(args[1]) user.password = args[1];
+              if(args[2]) user.props = args[2];
+              if(args[3]) {
+                user._id = args[3]; //not very wise to do in our schema
+                user.id = args[3];
+              } 
+            }
+        },
+        { //assign user props for yourself or someone else (by user unique id)
+            case:'setProps',
+            callback:(self,args,origin,user)=>{
+              if(typeof args === 'object' && !Array.isArray(args)) {
+                Object.assign(user.props,args);
+                return true;
+              }
+              else if (Array.isArray(args) && typeof args[1] === 'object') {
+                let u = this.USERS.get(args[0]);
+                if(u) Object.assign(u.props,args[1]);
+                return true;
+              }
+              return false;
+            }
+        },
+        { //get props of a user by id or of yourself
+            case:'getProps',
+            callback:(self,args,origin,user)=>{
+              if(args[0]) {
+                let u = this.USERS.get(args[0]);
+                if(u) return u.props;
+              }
+              else return user.props;
+            }
+        },
+        { //lists user keys
+          case:'listUsers',
+          callback:(self,args,origin,user)=>{
+            return Array.from(this.USERS.keys());
+          }
+        },
+        { //lists user keys
+          case:'blockUser',
+          callback:(self,args,origin,user)=>{
+            return this.blockUser(user,args[0]);
+          }
+        },
+        { //get basic details of a user or of yourself
+            case:'getUser',
+            callback:(self,args,origin,user)=>{
+              if(args[0]) {
+                let u = this.USERS.get(args[0]);
+                if(u) {
+                  return {
+                    _id:u._id,
+                    username:u.username,
+                    origin:u.origin,
+                    props:u.props,
+                    updatedPropNames:u.updatedPropNames,
+                    lastUpdate:u.lastUpdate,
+                    lastTransmit:u.lastTransmit,
+                    latency:u.latency
+                  }
+                }
+              }
+              else {
+                return {
+                  _id:user._id,
+                  username:user.username,
+                  origin:user.origin,
+                  props:user.props,
+                  updatedPropNames:user.updatedPropNames,
+                  lastUpdate:user.lastUpdate,
+                  lastTransmit:user.lastTransmit,
+                  latency:user.latency
+                }
+              }
+            }
+        },
+        {
+          case:'logout',
+          aliases:['removeUser','endsession'],
+          callback:(self,args,origin,user) => {
+            if(args[0]) self.removeUser(args[0])
+            else self.removeUser(user);
+          }
+        },
+        ]
+
         this.addDefaultCallbacks();
 
         if(!options.safe) this.addUnsafeCallbacks(); //addfunc, setValues, addevent, etc. All potentially compromising for production
@@ -242,120 +357,7 @@ class WebsocketController {
   addDefaultCallbacks() {
 
     //'self' and 'this' scope are the same here
-      this.callbacks.push(
-          {   
-              case: 'ping',
-              callback:(self,args,origin,user) => {
-                  return 'pong';
-              }
-          },
-          { //return a list of function calls available on the server
-            case: 'list', callback: (self, args, origin) => {
-              let list = [];
-              this.callbacks.forEach((obj) => {
-                list.push(obj.case);
-              });
-              if (args[0] === true) console.log('Server callbacks available: ', list); //list available functions
-              return list;
-            }
-          },
-          { //generic send message between two users (userId, message, other data)
-              case:'sendMessage',
-              aliases:['message','sendMsg'],
-              callback:(self,args,origin,user)=>{
-                  return this.sendMsg(args[0],args[1],args[2]);
-              }
-          },
-          { //set user details for yourself
-              case:'setUserServerDetails',
-              callback:(self,args,origin,user)=>{
-                if(args[0]) user.username = args[0];
-                if(args[1]) user.password = args[1];
-                if(args[2]) user.props = args[2];
-                if(args[3]) {
-                  user._id = args[3]; //not very wise to do in our schema
-                  user.id = args[3];
-                } 
-              }
-          },
-          { //assign user props for yourself or someone else (by user unique id)
-              case:'setProps',
-              callback:(self,args,origin,user)=>{
-                if(typeof args === 'object' && !Array.isArray(args)) {
-                  Object.assign(user.props,args);
-                  return true;
-                }
-                else if (Array.isArray(args) && typeof args[1] === 'object') {
-                  let u = this.USERS.get(args[0]);
-                  if(u) Object.assign(u.props,args[1]);
-                  return true;
-                }
-                return false;
-              }
-          },
-          { //get props of a user by id or of yourself
-              case:'getProps',
-              callback:(self,args,origin,user)=>{
-                if(args[0]) {
-                  let u = this.USERS.get(args[0]);
-                  if(u) return u.props;
-                }
-                else return user.props;
-              }
-          },
-          { //lists user keys
-            case:'listUsers',
-            callback:(self,args,origin,user)=>{
-              return Array.from(this.USERS.keys());
-            }
-          },
-          { //lists user keys
-            case:'blockUser',
-            callback:(self,args,origin,user)=>{
-              return this.blockUser(user,args[0]);
-            }
-          },
-          { //get basic details of a user or of yourself
-              case:'getUser',
-              callback:(self,args,origin,user)=>{
-                if(args[0]) {
-                  let u = this.USERS.get(args[0]);
-                  if(u) {
-                    return {
-                      _id:u._id,
-                      username:u.username,
-                      origin:u.origin,
-                      props:u.props,
-                      updatedPropNames:u.updatedPropNames,
-                      lastUpdate:u.lastUpdate,
-                      lastTransmit:u.lastTransmit,
-                      latency:u.latency
-                    }
-                  }
-                }
-                else {
-                  return {
-                    _id:user._id,
-                    username:user.username,
-                    origin:user.origin,
-                    props:user.props,
-                    updatedPropNames:user.updatedPropNames,
-                    lastUpdate:user.lastUpdate,
-                    lastTransmit:user.lastTransmit,
-                    latency:user.latency
-                  }
-                }
-              }
-          },
-          {
-            case:'logout',
-            aliases:['removeUser','endsession'],
-            callback:(self,args,origin,user) => {
-              if(args[0]) self.removeUser(args[0])
-              else self.removeUser(user);
-            }
-          },
-      );
+      this.callbacks.push( ...this.defaultCallbacks );
   }
 
     //potentially unsafe server callbacks which let you write

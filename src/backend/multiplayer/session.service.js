@@ -2,7 +2,6 @@ const DONOTSEND = "DONOTSEND";
 
 //TODO: one-off data calls based on session configs
 //      reimplement callbacks
-
 export class WebsocketSessionStreaming {
     constructor(WebsocketController, running=true) {
         if(!WebsocketController) { console.error('Requires a WebsocketController instance.'); return; }
@@ -20,17 +19,9 @@ export class WebsocketSessionStreaming {
         
         this.LOOPING = running;
         this.delay = 10; //ms loop timer delay
-    
-        this.addDefaultCallbacks();
 
-        if(running)
-            this.subscriptionLoop();
-    }
-
-    addDefaultCallbacks() {
-        
         //FYI "this" scope references this class, "self" scope references the controller scope.
-        this.controller.callbacks.push(
+        this.defaultCallbacks = [
             {
                 case:'updateUserStreamData',
                 callback:(self,args,origin,user) => {
@@ -131,7 +122,16 @@ export class WebsocketSessionStreaming {
                     return this.updateUserStream(args[0]);
                 }
             }
-        );
+        ]
+    
+        this.addDefaultCallbacks();
+
+        if(running)
+            this.subscriptionLoop();
+    }
+
+    addDefaultCallbacks() {
+        this.controller.callbacks.push(...this.defaultCallbacks);
     }
 
     //Received user data from a user socket, now parse it into system
@@ -793,3 +793,5 @@ export class WebsocketSessionStreaming {
     }
 
 }
+
+export default WebsocketSessionStreaming

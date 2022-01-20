@@ -27,275 +27,278 @@ export class WebsocketDB {
         this.mode = (this.db) ? ((dbOptions.mode) ? dbOptions.mode : 'local') : 'local'
         this.DEBUG = debug;
 
+        this.defaultCallbacks = [
+            {   
+                case:'setData', 
+            aliases:['setMongoData'],
+            callback: async (self,args,origin,u) => {
+                let data;
+                if(this.mode === 'mongo') {
+                    data = await this.setMongoData(u,args); //input array of structs
+                } else { 
+                    let non_notes = [];
+                    data = false;
+                    await Promise.all(args.map(async(structId) => {
+                        let struct = this.getLocalData(structId);
+                        let passed = await this.checkAuthorization(u,struct, this.mode);
+                        if(passed) {
+                            this.deleteLocalData(struct);
+                            data = true;
+                            if(struct.structType !== 'notification') non_notes.push(s);
+                        }
+                    }));
+                    if(non_notes.length > 0) this.checkToNotify(u,non_notes, this.mode);
+                    return true;
+                }
+                return data;
+            }
+        }, 
+        { 
+            case:'getData', 
+            aliases:['getMongoData','getUserData'],
+            callback:async (self,args,origin,u) => {
+                let data;
+                if(this.mode === 'mongo') {
+                    data = await this.getMongoData(u, args[0], args[1], args[2], args[4], args[5]);
+                } else {
+                    data = [];
+                    await Promise.all(args.map(async(structId) => {
+                        let struct = this.getLocalData(structId);
+                        let passed = await this.checkAuthorization(u,struct);
+                        if(passed) data.push(struct);
+                    }));
+                }
+                return data;
+            }
+        },     
+        {
+            case:'getAllData',
+            callback:async (self,args,origin,u) => {
+                let data;
+                if(this.mode === 'mongo') {
+                    data = await this.getAllUserMongoData(u,args[0],args[1]);
+                } else {
+                    let result = this.getLocalData(undefined,{ownerId:args[0]});
+                    data = [];
+                    await Promise.all(result.map(async (struct) => {
+                        if(args[1]) {
+                            if(args[1].indexOf(struct.structType) < 0) {
+                                let passed = await this.checkAuthorization(u,struct);
+                                if(passed) data.push(struct);
+                            }
+                        } else {
+                            let passed = await this.checkAuthorization(u,struct);
+                            if(passed) data.push(struct);
+                        }
+                    }));
+                }
+                return data;
+            }
+        }, 
+        {
+            case:'deleteData', 
+            callback:async (self,args,origin,u) => {
+                let data;
+                if(this.mode === 'mongo') {
+                    data = await this.deleteMongoData(u,args);
+                } else {
+                    data = false;
+                    await Promise.all(args.map(async (structId) => {
+                        let struct = this.getLocalData(structId);
+                        let passed = await this.checkAuthorization(u,struct);
+                        if(passed) this.deleteLocalData(struct);
+                        data = true;
+                    }));
+                }
+                return data;
+            }
+        },
+        {
+            case:'getProfile',
+            callback:async (self,args,origin,u) => {
+                let data;
+                if(this.mode === 'mongo') {
+                    data = await this.getMongoProfile(u,args[0]);
+                } else {
+                    let struct = this.getLocalData('profile',{_id:args[0]});
+                    if(!struct) data = {user:{}};
+                    else {
+                        let passed = await this.checkAuthorization(u,struct);
+                        if(passed) {
+                            let groups = this.getLocalData('group',{ownerId:args[0]});
+                            let auths = this.getLocalData('authorization',{ownerId:args[0]});
+                            data = {user:struct,groups:groups,authorizations:auths};
+                        } else data = {user:{}};
+                    }
+                }
+                return data;
+            }
+        },
+        {
+            case:'setProfile',
+            callback:async (self,args,origin,u) => {
+                let data;
+                if(this.mode === 'mongo') {
+                    data = await this.setMongoProfile(u,args[0]);
+                } else {
+                    let passed = await this.checkAuthorization(u,args[0], this.mode);
+                    if(passed) this.setLocalData(args[0]);
+                    return true;
+                }
+                return data;
+            }
+        },
+        {
+            case:'getProfilesByIds',
+            callback:async (self,args,origin,u) => { 
+                let data;
+                if(this.mode === 'mongo') {
+                    data = await this.getMongoProfilesByIds(u,args[0]);
+                } else {
+                    data = [];
+                    if(Array.isArray(args[0])) {
+                        let struct = this.getLocalData('profile',{_id:args[0]});
+                        if(struct) data.push(struct);
+                    }
+                }
+                return data;
+            }
+        },
+        {
+            case:'getProfilesByRoles',
+            callback:async (self,args,origin,u) => {
+                let data;
+                if(this.mode === 'mongo') {
+                    data = await this.getMongoProfilesByRoles(u,args[0]);
+                } else {
+                    let profiles = this.getLocalData('profile');
+                    data = [];
+                    profiles.forEach((struct) => {
+                        if(struct.userRoles?.includes(args[0])) {
+                            data.push(struct);
+                        }
+                    });
+                }
+                return data;
+            }
+        },
+        {
+            case:'getGroup',
+            aliases:['getGroups'],
+            callback:async (self,args,origin,u) => {
+                let data;
+                if(this.mode === 'mongo') {
+                    data = await this.getMongoGroups(u,args[0],args[1]);
+                } else {
+                    if(typeof args[1] === 'string') {
+                        data = this.getLocalData('group',{_id:args[1]});
+                    } else {
+                        data = [];
+                        let result = this.getLocalData('group');
+                        if(args[0]) {
+                            result.forEach((struct)=>{
+                                if(struct.users.includes(args[0])) data.push(struct);
+                            });
+                        }
+                        else {
+                            result.forEach((struct)=>{
+                                if(struct.users.includes(u.id)) data.push(struct);
+                            });
+                        }
+                    }
+                }
+                return data;
+            }
+        },
+        {
+            case:'setGroup',
+            callback:async (self,args,origin,u) => {
+                return await this.setGroup(u,args[0], this.mode);
+            }
+        },
+        {
+            case:'deleteGroup',
+            callback:async (self,args,origin,u) => {
+                let data;
+                if(this.mode === 'mongo') {
+                    data = await this.deleteMongoGroup(u,args[0]);
+                } else {
+                    let struct = this.getLocalData('group',args[0]);
+                    let passed = false;
+                    if(struct) passed = this.checkAuthorization(u,struct, this.mode);
+                    if(passed) {
+                        data = true;
+                    }
+                }
+                return data;
+            }
+        },
+        {
+            case:'deleteProfile',
+            callback:async (self,args,origin,u) => {
+                let data;
+                if(this.mode === 'mongo') {
+                    data = await this.deleteMongoProfile(u,args[0]);
+                } else {
+                    data = false;
+                    let struct = this.getLocalData(args[0]);
+                    if(struct) {
+                        let passed = this.checkAuthorization(u,struct, this.mode);
+                        if(passed) data = this.deleteLocalData(struct);
+                    }
+                }
+                return data;
+            }
+        },
+        {
+            case:'setAuth',
+            callback:async (self,args,origin,u) => {
+                return await this.setAuthorization(u, args[0], this.mode);
+            }
+        },
+        {
+            case:'getAuths',
+            callback:async (self,args,origin,u) => {
+                let data;
+                if(this.mode === 'mongo') {
+                    data = await this.getMongoAuthorizations(u,args[0],args[1]);
+                } else {
+                    if(args[1]) {
+                        let result = this.getLocalData('authorization',{_id:args[1]});
+                        if(result) data = [result];
+                    } else {
+                        data = this.getLocalData('authorization',{ownerId:args[0]});
+                    }
+                }
+                return data;
+            }
+        },
+        {
+            case:'deleteAuth',
+            callback:async (self,args,origin,u) => {
+                let data;
+                if(this.mode === 'mongo') {
+                    data = await this.deleteMongoAuthorization(u,args[0]);
+                } else {
+                    data = true;
+                    let struct = this.getLocalData('authorization',{_id:args[0]});
+                    if(struct) {
+                        let passed = this.checkAuthorization(u,struct, this.mode);
+                        if(passed) data = this.deleteLocalData(struct);
+                    }
+                    return data;
+                } 
+            }
+        }
+        ]
+
         this.addDefaultCallbacks();
     }
 
     addDefaultCallbacks() {
 
         //FYI "this" scope references this class, "self" scope references the controller scope.
-        this.controller.callbacks.push(
-            {   case:'setData', 
-                aliases:['setMongoData'],
-                callback: async (self,args,origin,u) => {
-                    let data;
-                    if(this.mode === 'mongo') {
-                        data = await this.setMongoData(u,args); //input array of structs
-                    } else { 
-                        let non_notes = [];
-                        data = false;
-                        await Promise.all(args.map(async(structId) => {
-                            let struct = this.getLocalData(structId);
-                            let passed = await this.checkAuthorization(u,struct, this.mode);
-                            if(passed) {
-                                this.deleteLocalData(struct);
-                                data = true;
-                                if(struct.structType !== 'notification') non_notes.push(s);
-                            }
-                        }));
-                        if(non_notes.length > 0) this.checkToNotify(u,non_notes, this.mode);
-                        return true;
-                    }
-                    return data;
-                }
-            }, 
-            { 
-                case:'getData', 
-                aliases:['getMongoData','getUserData'],
-                callback:async (self,args,origin,u) => {
-                    let data;
-                    if(this.mode === 'mongo') {
-                        data = await this.getMongoData(u, args[0], args[1], args[2], args[4], args[5]);
-                    } else {
-                        data = [];
-                        await Promise.all(args.map(async(structId) => {
-                            let struct = this.getLocalData(structId);
-                            let passed = await this.checkAuthorization(u,struct);
-                            if(passed) data.push(struct);
-                        }));
-                    }
-                    return data;
-                }
-            },     
-            {
-                case:'getAllData',
-                callback:async (self,args,origin,u) => {
-                    let data;
-                    if(this.mode === 'mongo') {
-                        data = await this.getAllUserMongoData(u,args[0],args[1]);
-                    } else {
-                        let result = this.getLocalData(undefined,{ownerId:args[0]});
-                        data = [];
-                        await Promise.all(result.map(async (struct) => {
-                            if(args[1]) {
-                                if(args[1].indexOf(struct.structType) < 0) {
-                                    let passed = await this.checkAuthorization(u,struct);
-                                    if(passed) data.push(struct);
-                                }
-                            } else {
-                                let passed = await this.checkAuthorization(u,struct);
-                                if(passed) data.push(struct);
-                            }
-                        }));
-                    }
-                    return data;
-                }
-            }, 
-            {
-                case:'deleteData', 
-                callback:async (self,args,origin,u) => {
-                    let data;
-                    if(this.mode === 'mongo') {
-                        data = await this.deleteMongoData(u,args);
-                    } else {
-                        data = false;
-                        await Promise.all(args.map(async (structId) => {
-                            let struct = this.getLocalData(structId);
-                            let passed = await this.checkAuthorization(u,struct);
-                            if(passed) this.deleteLocalData(struct);
-                            data = true;
-                        }));
-                    }
-                    return data;
-                }
-            },
-            {
-                case:'getProfile',
-                callback:async (self,args,origin,u) => {
-                    let data;
-                    if(this.mode === 'mongo') {
-                        data = await this.getMongoProfile(u,args[0]);
-                    } else {
-                        let struct = this.getLocalData('profile',{_id:args[0]});
-                        if(!struct) data = {user:{}};
-                        else {
-                            let passed = await this.checkAuthorization(u,struct);
-                            if(passed) {
-                                let groups = this.getLocalData('group',{ownerId:args[0]});
-                                let auths = this.getLocalData('authorization',{ownerId:args[0]});
-                                data = {user:struct,groups:groups,authorizations:auths};
-                            } else data = {user:{}};
-                        }
-                    }
-                    return data;
-                }
-            },
-            {
-                case:'setProfile',
-                callback:async (self,args,origin,u) => {
-                    let data;
-                    if(this.mode === 'mongo') {
-                        data = await this.setMongoProfile(u,args[0]);
-                    } else {
-                        let passed = await this.checkAuthorization(u,args[0], this.mode);
-                        if(passed) this.setLocalData(args[0]);
-                        return true;
-                    }
-                    return data;
-                }
-            },
-            {
-                case:'getProfilesByIds',
-                callback:async (self,args,origin,u) => { 
-                    let data;
-                    if(this.mode === 'mongo') {
-                        data = await this.getMongoProfilesByIds(u,args[0]);
-                    } else {
-                        data = [];
-                        if(Array.isArray(args[0])) {
-                            let struct = this.getLocalData('profile',{_id:args[0]});
-                            if(struct) data.push(struct);
-                        }
-                    }
-                    return data;
-                }
-            },
-            {
-                case:'getProfilesByRoles',
-                callback:async (self,args,origin,u) => {
-                    let data;
-                    if(this.mode === 'mongo') {
-                        data = await this.getMongoProfilesByRoles(u,args[0]);
-                    } else {
-                        let profiles = this.getLocalData('profile');
-                        data = [];
-                        profiles.forEach((struct) => {
-                            if(struct.userRoles?.includes(args[0])) {
-                                data.push(struct);
-                            }
-                        });
-                    }
-                    return data;
-                }
-            },
-            {
-                case:'getGroup',
-                aliases:['getGroups'],
-                callback:async (self,args,origin,u) => {
-                    let data;
-                    if(this.mode === 'mongo') {
-                        data = await this.getMongoGroups(u,args[0],args[1]);
-                    } else {
-                        if(typeof args[1] === 'string') {
-                            data = this.getLocalData('group',{_id:args[1]});
-                        } else {
-                            data = [];
-                            let result = this.getLocalData('group');
-                            if(args[0]) {
-                                result.forEach((struct)=>{
-                                    if(struct.users.includes(args[0])) data.push(struct);
-                                });
-                            }
-                            else {
-                                result.forEach((struct)=>{
-                                    if(struct.users.includes(u.id)) data.push(struct);
-                                });
-                            }
-                        }
-                    }
-                    return data;
-                }
-            },
-            {
-                case:'setGroup',
-                callback:async (self,args,origin,u) => {
-                    return await this.setGroup(u,args[0], this.mode);
-                }
-            },
-            {
-                case:'deleteGroup',
-                callback:async (self,args,origin,u) => {
-                    let data;
-                    if(this.mode === 'mongo') {
-                        data = await this.deleteMongoGroup(u,args[0]);
-                    } else {
-                        let struct = this.getLocalData('group',args[0]);
-                        let passed = false;
-                        if(struct) passed = this.checkAuthorization(u,struct, this.mode);
-                        if(passed) {
-                            data = true;
-                        }
-                    }
-                    return data;
-                }
-            },
-            {
-                case:'deleteProfile',
-                callback:async (self,args,origin,u) => {
-                    let data;
-                    if(this.mode === 'mongo') {
-                        data = await this.deleteMongoProfile(u,args[0]);
-                    } else {
-                        data = false;
-                        let struct = this.getLocalData(args[0]);
-                        if(struct) {
-                            let passed = this.checkAuthorization(u,struct, this.mode);
-                            if(passed) data = this.deleteLocalData(struct);
-                        }
-                    }
-                    return data;
-                }
-            },
-            {
-                case:'setAuth',
-                callback:async (self,args,origin,u) => {
-                    return await this.setAuthorization(u, args[0], this.mode);
-                }
-            },
-            {
-                case:'getAuths',
-                callback:async (self,args,origin,u) => {
-                    let data;
-                    if(this.mode === 'mongo') {
-                        data = await this.getMongoAuthorizations(u,args[0],args[1]);
-                    } else {
-                        if(args[1]) {
-                            let result = this.getLocalData('authorization',{_id:args[1]});
-                            if(result) data = [result];
-                        } else {
-                            data = this.getLocalData('authorization',{ownerId:args[0]});
-                        }
-                    }
-                    return data;
-                }
-            },
-            {
-                case:'deleteAuth',
-                callback:async (self,args,origin,u) => {
-                    let data;
-                    if(this.mode === 'mongo') {
-                        data = await this.deleteMongoAuthorization(u,args[0]);
-                    } else {
-                        data = true;
-                        let struct = this.getLocalData('authorization',{_id:args[0]});
-                        if(struct) {
-                            let passed = this.checkAuthorization(u,struct, this.mode);
-                            if(passed) data = this.deleteLocalData(struct);
-                        }
-                    }
-                    return data;
-                } 
-            }
-        );
+        this.controller.callbacks.push(this.defaultCallbacks);
     }
     
     notificationStruct(parentStruct= {}) {
@@ -1262,3 +1265,5 @@ export class WebsocketDB {
 
 
 }
+
+export default WebsocketDB

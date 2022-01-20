@@ -1,6 +1,7 @@
 import osc from "osc"
 
 // Garrett Flynn, AGPL v3.0
+
 class OSCManager{
     constructor(ws){
         this.socket = ws
