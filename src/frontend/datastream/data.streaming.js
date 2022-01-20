@@ -1,7 +1,7 @@
 //Allows you to stream outgoing data asynchronously with automatic buffering settings.
 //This hooks in with functions on the session.service tool for creating two way sessions.
 export class DataStreaming {
-	constructor(WebsocketClient, userinfo={id:'user'+Math.floor(Math.random()*10000000000)}, socketId) {
+	constructor(WebsocketClient, userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}, socketId) {
 
 		if(!WebsocketClient) {
 			console.error("UserPlatform needs an active WebsocketClient");
@@ -218,7 +218,7 @@ export class DataStreaming {
 		if(this.LOOPING) {
 			let updateObj = {
 				cmd:'updateUserStreamData',
-				id:this.user.id,
+				id:this.user._id,
 				args:{}
 			};
 

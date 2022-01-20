@@ -3,7 +3,7 @@ import { DataStreaming } from '../datastream/data.streaming';
 
 //Joshua Brewster, Garrett Flynn AGPL v3.0
 export class SessionStreaming {
-	constructor(WebsocketClient, userinfo={id:'user'+Math.floor(Math.random()*10000000000)}, socketId) {
+	constructor(WebsocketClient, userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}, socketId) {
 		
 		if(!WebsocketClient) {
 			console.error("SessionStreaming needs an active WebsocketClient");
@@ -223,7 +223,7 @@ export class SessionStreaming {
 
 	async unsubscribe( //can kick yourself or another user from a session
 		sessionId, //session id to unsubscribe from
-		userId=this.user.id, //user id to unsubscribe from session (yours by default)
+		userId=this.user._id, //user id to unsubscribe from session (yours by default)
 		callback=(result)=>{}
 	) {
 		let result = await this.WebsocketClient.run(

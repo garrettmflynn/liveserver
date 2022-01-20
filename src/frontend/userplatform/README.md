@@ -4,7 +4,7 @@ import { WebsocketClient, UserPlatform } from 'liveserver-frontend'
 
 let client = new WebsocketClient(
     socketUrl='https://localhost:80', 
-    subprotocols={id:`user${Math.floor(Math.random() * 10000000000)}`},
+    subprotocols={_id:`user${Math.floor(Math.random() * 10000000000)}`},
     true
 );
 
@@ -33,5 +33,20 @@ platform.ping();
 
 And lots of functions for handling a user database with some basic form filling for stock data structures
 
-platform.closeSocket();
-platform.endSession();
+```
+platform.setupUser(userinfo) //asks the server for the data of the given user info object to st up the user platform. This runs automatically if provided in the constructor
+
+platform.onResult = (data) => {} //can set this to be run after the default server callback
+
+
+platform.closeSocket(); //close the active socket
+
+platform.logout(); //log the user out of the server (closes connections)
+
+platform.createStruct(
+    structType,
+    props={},
+    parentUser={}
+)
+
+```

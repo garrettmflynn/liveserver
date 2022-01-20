@@ -3,7 +3,7 @@ import { DS, DataTablet } from 'brainsatplay-data'
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 
 export class UserPlatform {
-    constructor(WebsocketClient, userinfo={id:'user'+Math.floor(Math.random()*10000000000)}, socketId) {
+    constructor(WebsocketClient, userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}, socketId) {
         this.currentUser = userinfo;
 
         if(!WebsocketClient) {
@@ -43,26 +43,37 @@ export class UserPlatform {
         if(this.socket) {if(this.socket.isOpen()) this.socket.close();}
     }
 
-    logout() {
+    async logout(callback=(result)=>{}) {
         if(this.socket && this.currentUser) 
-            this.socket.send(JSON.stringify({cmd:'logout',id:this.currentUser._id}));
+            return await this.WebsocketClient.run(
+                'logout',
+                [this.currentUser.id],
+                this.WebsocketClient.origin,
+                this.socketId,
+                callback
+            );
+           
     }
 
-    //TODO
+    //TODO: make this able to be awaited to return the currentUser
     //uses a bunch of the functions below to set up a user and get their data w/ some cross checking for consistent profiles
-    setupUser(userData) {
-        let userinfo = JSON.parse(JSON.stringify(userData)); //copy the token
+    setupUser(userinfo, callback=(currentUser)=>{}) {
+        if(!userinfo) {
+            console.error('must provide an info object! e.g. {id:"abc123"}');
+            callback(undefined);
+            return undefined;
+        }
         let changed = false;
 
-        if(userinfo._id) userinfo.id = userinfo._id;
+        if(userinfo.id) userinfo._id = userinfo.id;
 
-        console.log("Generating/Getting User: ", userinfo.id)
-        this.getUserFromServer(userinfo.id,(data)=>{
+        console.log("Generating/Getting User: ", userinfo._id)
+        this.getUserFromServer(userinfo._id,(data)=>{
             // console.log("getUser", res);
             let u;
             let newu = false;
-            if(!data.user?.id) { //no profile, create new one and push initial results
-                // if(!userinfo.id) userinfo.id = userinfo.id;
+            if(!data.user?._id) { //no profile, create new one and push initial results
+                // if(!userinfo._id) userinfo._id = userinfo._id;
                 u = this.userStruct(userinfo,true);
                 newu = true;
                 this.setUserOnServer(u,(data)=>{
@@ -177,6 +188,8 @@ export class UserPlatform {
                     console.log('currentUser', u)
                     this.currentUser = u;  
                     console.log('collections', this.tablet.collections);
+
+                    callback(currentUser);
                 });
             }
         });
@@ -257,40 +270,17 @@ export class UserPlatform {
 
 
     //---------------------------------------------
-
-    structProps = {
-        _id: '',   //random id associated for unique identification, used for lookup and indexing
-        structType: '',     //this is how you will look it up by type in the server
-        ownerId: '',     //owner user
-        timestamp: Date.now(),      //date of creation
-        parent: {structType:'',id:''}, //parent struct it's associated with (e.g. if it needs to spawn with it)
-    };
     
     randomId(tag = '') {
         return `${tag+Math.floor(Math.random()+Math.random()*Math.random()*10000000000000000)}`;
     }    
 
-    /* Barebones struct format, append any additional props */
-    Struct(structType='struct', additionalProps={}, parentStruct=undefined,parentUser=undefined) {
-        let struct = {
-            _id: this.randomId('defaultId'+structType),   //random id associated for unique identification, used for lookup and indexing
-            structType: structType,     //this is how you will look it up by type in the server
-            ownerId: parentUser?._id,     //owner user
-            timestamp: Date.now(),      //date of creation
-            parent: {structType:parentStruct?.structType,_id:parentStruct?._id}, //parent struct it's associated with (e.g. if it needs to spawn with it)
-        }
-
-        if(!parentStruct?._id) delete struct.parent;
-        if(Object.keys(additionalProps).length > 0) Object.assign(struct,additionalProps);
-        return struct;
-    }
-
     //generically add any struct to a user's server data
     addStruct (
-        parentUser= undefined, 
         structType='struct', 
-        parentStruct=undefined,
         props={}, //add any props you want to set, adding users[] with ids will tell who to notify if this struct is updated
+        parentUser=undefined, 
+        parentStruct=undefined,
         updateServer = true
     ) {
         let newStruct = DS.Struct(structType, props, parentUser, parentStruct);
@@ -786,7 +776,7 @@ export class UserPlatform {
     }
 
     //create a struct with the prepared props to be filled out
-    createStruct(structType,props,parentStruct,parentUser=this.currentUser) {
+    createStruct(structType,props,parentUser=this.currentUser,parentStruct) {
         let struct = DS.Struct(structType,props,parentUser,parentStruct)
         return struct;
     }
@@ -821,7 +811,7 @@ export class UserPlatform {
         groups=[],
         expires=''
     ) => {
-        const newAuthorization = this.createStruct('authorization',undefined,undefined,parentUser);  
+        const newAuthorization = this.createStruct('authorization',undefined,parentUser,undefined);  
         newAuthorization.authorizedId = authorizedUserId; // Only pass ID
         newAuthorization.authorizedName = authorizedUserName; //set name
         newAuthorization.authorizerId = authorizerUserId; // Only pass ID
@@ -848,7 +838,7 @@ export class UserPlatform {
         peers=[], 
         clients=[], 
         updateServer=true) => {
-        let newGroup = this.createStruct('group',undefined,undefined,parentUser); //auto assigns instances to assigned users' data views
+        let newGroup = this.createStruct('group',undefined,parentUser); //auto assigns instances to assigned users' data views
 
         newGroup.name = name;
         newGroup.details = details;
@@ -868,7 +858,7 @@ export class UserPlatform {
     }
 
     addData = (parentUser= this.userStruct(), author='', title='', type='', data=[], expires='', updateServer=true) => {
-        let newDataInstance = this.createStruct('dataInstance',undefined,undefined,parentUser); //auto assigns instances to assigned users' data views
+        let newDataInstance = this.createStruct('dataInstance',undefined,parentUser); //auto assigns instances to assigned users' data views
         newDataInstance.author = author;
         newDataInstance.title = title;
         newDataInstance.type = type;
@@ -886,7 +876,7 @@ export class UserPlatform {
     addEvent = (parentUser=this.userStruct(), author='', event='', notes='', startTime=0, endTime=0, grade='', attachments=[], users=[], updateServer=true) => {
         if(users.length === 0) users = this.getLocalUserPeerIds(parentUser);
         
-        let newEvent = this.createStruct('event',undefined,undefined,parentUser);
+        let newEvent = this.createStruct('event',undefined,parentUser);
         newEvent.author = author;
         newEvent.event = event;
         newEvent.notes = notes;
@@ -914,7 +904,7 @@ export class UserPlatform {
         
         if(users.length === 0) users = this.getLocalUserPeerIds(parentUser); //adds the peer ids if none other provided
         
-        let newDiscussion = this.createStruct('discussion',undefined,undefined,parentUser);
+        let newDiscussion = this.createStruct('discussion',undefined,parentUser);
         newDiscussion.topic = topic;
         newDiscussion.category = category;
         newDiscussion.message = message;
@@ -935,7 +925,7 @@ export class UserPlatform {
     addChatroom = (parentUser=this.userStruct(), authorId='', message='', attachments=[], users=[], updateServer=true) => {
         if(users.length === 0) users = this.getLocalUserPeerIds(parentUser); //adds the peer ids if none other provided
         
-        let newChatroom = this.createStruct('chatroom',undefined,undefined,parentUser);
+        let newChatroom = this.createStruct('chatroom',undefined,parentUser);
         newChatroom.message = message;
         newChatroom.attachments = attachments;
         newChatroom.authorId = authorId;
@@ -960,7 +950,7 @@ export class UserPlatform {
         attachments=[],
         updateServer=true
         ) => {
-            let newComment = this.createStruct('comment',undefined,roomStruct,parentUser);
+            let newComment = this.createStruct('comment',undefined,parentUser,roomStruct);
             newComment.authorId = authorId;
             newComment.replyTo = replyTo?._id;
             newComment.message = message;
