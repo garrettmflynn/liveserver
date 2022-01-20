@@ -23,8 +23,13 @@ const platform = new UserPlatform(client, userinfo, socketId);
 platform.sendMessage('123456','test');
 platform.ping();
 
+
+
 //check console. 
 
 // You can create another user with another platform (platform2 = new UserPlatform(userdata2,socketurl)) instance as well and test it that way
 
 ```
+
+Lots of functions for handling a user database with some basic form filling for stock data structures
+

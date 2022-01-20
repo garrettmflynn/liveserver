@@ -53,6 +53,8 @@ export class UserPlatform {
         let userinfo = JSON.parse(JSON.stringify(userData)); //copy the token
         let changed = false;
 
+        if(userinfo._id) userinfo.id = userinfo._id;
+
         console.log("Generating/Getting User: ", userinfo.id)
         this.getUserFromServer(userinfo.id,(data)=>{
             // console.log("getUser", res);
@@ -805,6 +807,7 @@ export class UserPlatform {
         return user;
     }
 
+    //TODO: Update the rest of these to use the DB structs but this should all work the same for now
     authorizeUser = (
         parentUser=this.userStruct(),
         authorizerUserId='',
@@ -964,16 +967,6 @@ export class UserPlatform {
             newComment.users = roomStruct?.users;
             newComment.replies = [];
             newComment.ownerId = parentUser._id;
-
-            // let newComment = new CommentObj({
-            //     authorId,
-            //     replyTo: replyTo?._id,
-            //     message,
-            //     attachments,
-            //     users: roomStruct?.users,
-            //     replies: [],
-            //     ownerId: parentUser._id,
-            // })
 
 
             if (updateServer) replyTo?.replies.push(newComment._id);
