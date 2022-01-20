@@ -357,6 +357,7 @@ export class UserPlatform {
         );
     }
 
+    //pull all of the collections (except excluded collection names e.g. 'groups') for a user from the server
     async getAllUserDataFromServer(ownerId, excluded=[], callback=this.baseServerCallback) {
         
         return await this.WebsocketClient.run(
@@ -368,6 +369,7 @@ export class UserPlatform {
         );
     }
 
+    //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
     async getDataFromServer(collection,ownerId,searchDict,limit=0,skip=0,callback=this.baseServerCallback) {
                
         return await this.WebsocketClient.run(
@@ -408,7 +410,7 @@ export class UserPlatform {
     //     );
     // }
 
-    //redundant macro
+    //sets the user profile data on the server
     async setUserOnServer (userStruct={},callback=this.baseServerCallback) {
 
         return await this.WebsocketClient.run(
@@ -422,7 +424,7 @@ export class UserPlatform {
     }
 
     //updates a user's necessary profile details if there are any discrepancies with the token
-    async updateUserOnServer(usertoken,user=this.currentUser,callback=this.baseServerCallback) {
+    async checkUserToken(usertoken,user=this.currentUser,callback=this.baseServerCallback) {
         if(!usertoken) return false;
         let changed = false;
         for(const prop in usertoken) {
@@ -454,7 +456,7 @@ export class UserPlatform {
                 user[prop] = usertoken[prop];  changed = true;
             }
         }
-        if(changed) await this.setUserOnServer(user,callback);
+        if(changed) return await this.setUserOnServer(user,callback);
         return changed;
     }
 
@@ -502,8 +504,9 @@ export class UserPlatform {
 
     }
 
-    //delete user profile by ID
-    async deleteUserFromServer (userId='', callback=this.baseServerCallback) {
+    //delete user profile by ID on the server
+    async deleteUser (userId, callback=this.baseServerCallback) {
+        if(!userId) return;
         this.users.delete(userId);
 
         return await this.WebsocketClient.run(
@@ -515,7 +518,7 @@ export class UserPlatform {
         );  
     }
 
-    //set a group struct
+    //set a group struct on the server
     async setGroupOnServer (groupStruct={},callback=this.baseServerCallback) {
 
         return await this.WebsocketClient.run(
@@ -539,19 +542,21 @@ export class UserPlatform {
         ); 
     }
 
-    //set an authorization struct
-    async deleteGroupFromServer (groupStructId='',callback=this.baseServerCallback) {
+    //deletes a group off the server
+    async deleteGroupFromServer (groupId,callback=this.baseServerCallback) {
+        if(!groupId) return;
+        this.deleteLocalData(groupId);
 
         return await this.WebsocketClient.run(
             'deleteGroup',
-            [groupStructId],
+            [groupId],
             this.WebsocketClient.origin,
             this.socketId,
             callback
         ); 
     }
 
-    //set an authorization struct
+    //set an authorization struct on the server
     async setAuthorizationOnServer (authorizationStruct={},callback=this.baseServerCallback) {
 
         return await this.WebsocketClient.run(
@@ -577,26 +582,26 @@ export class UserPlatform {
     }
 
     //delete an authoriztion off the server
-    async deleteAuthorizationOnServer (authorization,callback=this.baseServerCallback) {
+    async deleteAuthorizationOnServer (authorizationId,callback=this.baseServerCallback) {
         if(!authorization) return;
-        this.deleteLocalData(authorization);
+        this.deleteLocalData(authorizationId);
         
         return await this.WebsocketClient.run(
             'deleteAuth',
-            [authorization._id],
+            [authorizationId],
             this.WebsocketClient.origin,
             this.socketId,
             callback
         ); 
     }
 
-    //notifications are GENERALIZED
+    //notifications are GENERALIZED for all structs, where all authorized users will receive notifications when those structs are updated
     async checkForNotificationsOnServer(userId=this.currentUser?._id) {
         return await this.getDataFromServer('notification',userId);
     }
 
     
-    //pass notifications you're ready to resolve by grabbing the data.
+    //pass notifications you're ready to resolve and set pull to true to grab the associated data structure.
     resolveNotifications = async (notifications=[], pull=true, user=this.currentUser) => {
         if(!user || notifications.length === 0) return;
         let structIds = [];
@@ -637,12 +642,12 @@ export class UserPlatform {
 
 
     //setup authorizations automatically based on group
-    async setAuthorizationsByGroupOnServer(u=this.currentUser) {
+    async setAuthorizationsByGroupOnServer(user=this.currentUser) {
 
-        let auths = this.getLocalData('authorization',{'ownerId': u._id});
+        let auths = this.getLocalData('authorization',{'ownerId': user._id});
         // console.log(u);
 
-        u.userRoles.forEach((group)=>{ //auto generate access authorizations accordingly
+        user.userRoles.forEach((group)=>{ //auto generate access authorizations accordingly
             //group format e.g.
             //reddoor_client
             //reddoor_peer
@@ -663,23 +668,23 @@ export class UserPlatform {
                         let theirname = groupie.username;
                         if(!theirname) theirname = groupie.email;
                         if(!theirname) theirname = groupie.id;
-                        let myname = u.username;
-                        if(!myname) myname = u.email;
-                        if(!myname) myname = u.id;
+                        let myname = user.username;
+                        if(!myname) myname = user.email;
+                        if(!myname) myname = user.id;
 
                         if(theirname !== myname) {
                             if(group.includes('client')) {
 
                                 //don't re-set up existing authorizations 
                                 let found = auths.find((a)=>{
-                                    if(a.authorizerId === groupie.id && a.authorizedId === u.id) return true;
+                                    if(a.authorizerId === groupie.id && a.authorizedId === user.id) return true;
                                 });
 
                                 if(!found) this.authorizeUser(
-                                    u,
+                                    user,
                                     groupie.id,
                                     theirname,
-                                    u.id,
+                                    user.id,
                                     myname,
                                     ['peer'],
                                     undefined,
@@ -689,12 +694,12 @@ export class UserPlatform {
 
                                 //don't re-set up existing authorizations 
                                 let found = auths.find((a)=>{
-                                    if(a.authorizedId === groupie.id && a.authorizerId === u.id) return true;
+                                    if(a.authorizedId === groupie.id && a.authorizerId === user.id) return true;
                                 });
 
                                 if(!found) this.authorizeUser(
-                                    u,
-                                    u.id,
+                                    user,
+                                    user.id,
                                     myname,
                                     groupie.id,
                                     theirname,
@@ -773,7 +778,7 @@ export class UserPlatform {
         
     }
 
-    // //get user data by auth struct, includes structType, owner limits, skips
+    //get user data by their auth struct (e.g. if you don't grab their id directly), includes collection, limits, skips
     async getUserDataByAuthorizationFromServer (authorizationStruct, collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) {
 
         let u = authorizationStruct.authorizerId;
@@ -790,20 +795,28 @@ export class UserPlatform {
         } else return undefined;
     }
 
-    // //get user data by auth struct group, includes structType, limits, skips
+    //get user data for all users in a group, includes collection, limits, skips
     async getUserDataByAuthorizationGroupFromServer (group='', collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) {
-        let auths = this.getAuthorizationGroupLocally(group);
-        auths.forEach((auth) => {
-            let u = authorizationStruct.authorizerId;
-            if(u) {
-                this.getUserFromServer(u,(data)=>{
-                    callback(data);
-                    if(!collection) this.getAllUserDataFromServer(u,['notification'],callback);
-                    else this.getDataFromServer(collection,u,searchDict,limit,skip,callback);
-                });
+        let auths = this.getLocalData('authorization');
+
+        let results = [];
+        await Promise.all(auths.map(async (o) => {
+            if(o.groups?.includes(group)) {
+                let u = auth.authorizerId;
+                if(u) {
+                    let data;
+                    let user = await this.getUserFromServer(u,callback);
+                    
+                    if(user) results.push(user);
+                    if(!collection) data = await this.getAllUserDataFromServer(u,['notification'],callback);
+                    else data = await this.getDataFromServer(collection,u,searchDict,limit,skip,callback);
+                    if(data) results.push(data);
+                }
+                return true;
             }
-        });
-        return true;
+        }))
+        
+        return results; //will be a weird result till this is tested more
     }
 
     //
@@ -869,7 +882,14 @@ export class UserPlatform {
         } else return false;
     }
 
-    deleteLocalData(struct) {
+    //pass a single struct or array of structs
+    deleteLocalData(structs) {
+        if(Array.isArray(structs)) structs.forEach(s => this.deleteStruct(s));
+        else this.deleteStruct(structs); //single
+    }
+
+    deleteStruct(struct) {
+        if(typeof struct === 'string') struct = this.getLocalData(struct); //get the struct if an id was supplied
         if(!struct) throw new Error('Struct not supplied')
         if(!struct.structType || !struct._id) return false;
         this.tablet.collections.get(struct.structType).delete(struct._id);
@@ -879,7 +899,6 @@ export class UserPlatform {
     //strips circular references from the struct used clientside, returns a soft copy with the changes
     stripStruct(struct={}) {
         const copy = Object.assign({ }, struct);
-        if (copy.parentStruct) delete copy.parentStruct;
         for(const prop in copy) {
             if(copy[prop] === undefined || copy[prop].constructor.name === 'Map') delete copy[prop]; //delete undefined 
         }
@@ -948,7 +967,8 @@ export class UserPlatform {
         admins=[], 
         peers=[], 
         clients=[], 
-        updateServer=true) => {
+        updateServer=true
+    ) => {
         let newGroup = this.createStruct('group',undefined,parentUser); //auto assigns instances to assigned users' data views
 
         newGroup.name = name;
@@ -968,7 +988,15 @@ export class UserPlatform {
         return newGroup;
     }
 
-    addData = (parentUser= this.userStruct(), author='', title='', type='', data=[], expires='', updateServer=true) => {
+    addData = (
+        parentUser= this.userStruct(), 
+        author='', 
+        title='', 
+        type='', 
+        data=[], 
+        expires='', 
+        updateServer=true
+    ) => {
         let newDataInstance = this.createStruct('dataInstance',undefined,parentUser); //auto assigns instances to assigned users' data views
         newDataInstance.author = author;
         newDataInstance.title = title;
@@ -984,7 +1012,18 @@ export class UserPlatform {
         return newDataInstance;
     }
 
-    addEvent = (parentUser=this.userStruct(), author='', event='', notes='', startTime=0, endTime=0, grade='', attachments=[], users=[], updateServer=true) => {
+    addEvent = (
+        parentUser=this.userStruct(), 
+        author='', 
+        event='', 
+        notes='', 
+        startTime=0, 
+        endTime=0,
+        grade='', 
+        attachments=[], 
+        users=[], 
+        updateServer=true
+    ) => {
         if(users.length === 0) users = this.getLocalUserPeerIds(parentUser);
         
         let newEvent = this.createStruct('event',undefined,parentUser);
@@ -1033,7 +1072,14 @@ export class UserPlatform {
         return newDiscussion;
     }
 
-    addChatroom = (parentUser=this.userStruct(), authorId='', message='', attachments=[], users=[], updateServer=true) => {
+    addChatroom = (
+        parentUser=this.userStruct(), 
+        authorId='', 
+        message='', 
+        attachments=[], 
+        users=[], 
+        updateServer=true
+    ) => {
         if(users.length === 0) users = this.getLocalUserPeerIds(parentUser); //adds the peer ids if none other provided
         
         let newChatroom = this.createStruct('chatroom',undefined,parentUser);
