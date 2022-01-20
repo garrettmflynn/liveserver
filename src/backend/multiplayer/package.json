@@ -1,0 +1,12 @@
+{
+  "name": "@brainsatplay/multiplayer",
+  "version": "0.0.0",
+  "main": "index.js",
+  "type":"module",
+  "repository": "https://github.com/brainsatplay/LiveServer",
+  "author": "Joshua Brewster, Garrett Flynn",
+  "license": "AGPL-3.0-or-later",
+  "private": false,
+  "dependencies": {
+  }
+}

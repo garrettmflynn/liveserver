@@ -1,4 +1,4 @@
-import express from 'express';
+import express, {Router} from 'express';
 import cors from 'cors';
 import http from 'http';
 import mongoose from 'mongoose';
@@ -6,6 +6,7 @@ import bodyParser from 'body-parser';
 
 // Import the Backend API
 import * as api from './backend/index.js'
+import { ServiceManager } from './backend/service.manager.js';
 
 const app = express();
 
@@ -19,6 +20,10 @@ app.use(cors()); // how to allow data to only intended website without cors
 let protocol = 'http';
 const port = process.env.PORT || '80';
 const server = http.createServer(app)
+
+ // Set Routes
+ const expressRouter = express.Router();
+ app.use("/", expressRouter);
 
 // Start Server
 server.listen(parseInt(port), () => {
@@ -49,5 +54,12 @@ function init(instance) {
   })
 
   wsServer.init()
+
+
+  let manager = new ServiceManager({
+    expressRouter, // HTTP REST API
+    wsServer // Websocket API
+    eventSourceServer // EventSource API
+  })
 
 }
