@@ -1,8 +1,8 @@
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 //import { streamUtils } from "./streamSession";
 
-import {Events} from '@brainsatplay/liveserver-common'
-import { MessageType } from 'src/common/general.types';
+import {Events, randomId} from '@brainsatplay/liveserver-common'
+import { MessageObject } from 'src/common/general.types';
 
 export class WebsocketClient {
 
@@ -90,13 +90,13 @@ export class WebsocketClient {
         };
 
         socket.onmessage = this.onmessage
-        socket.onclose = (msg) => {
+        socket.onclose = (message) => {
             this.connected = false;
             //this.streamUtils.info.connected = false;
             console.log('websocket closed');
         }
 
-        let id = "socket_"+Math.floor(Math.random()*10000000000);
+        let id = randomId('socket')
 
         this.sockets.push({socket:socket,id:id});
 
@@ -117,7 +117,7 @@ export class WebsocketClient {
     addFunction(functionName,fstring,origin,id,callback=(result)=>{}) {
         if(functionName && fstring) {
             if(typeof fstring === 'function') fstring = fstring.toString();
-            let dict = {route:'addfunc',msg:[functionName,fstring], id:origin}; //post to the specific worker
+            let dict = {route:'addfunc',message:[functionName,fstring], id:origin}; //post to the specific worker
             if(!id) {
                 this.sockets.forEach((w) => {this.send(dict,w.id);});
                 return true;
@@ -135,7 +135,7 @@ export class WebsocketClient {
                 }
               }
             }
-            let dict = {route:functionName, msg:args, id:origin};
+            let dict = {route:functionName, message:args, id:origin};
             return this.send(dict,callback,id);
         }
     }
@@ -147,8 +147,8 @@ export class WebsocketClient {
         this.run('setValues',values,origin,id);
     }
 
-    send = (msg:MessageType, callback = (data) => {}, id?) => {
-        return new Promise((resolve)=>{//console.log(msg);
+    send = (message:MessageObject, callback = (data) => {}, id?) => {
+        return new Promise((resolve)=>{//console.log(message);
             const resolver = (res) => 
             {    
                 if (callback) callback(res);
@@ -156,9 +156,9 @@ export class WebsocketClient {
             }
 
             const callbackId = ''+Math.random();//randomId()
-            if (typeof msg === 'object'){
-                if (Array.isArray(msg)) msg.splice(1, 0, callbackId); // add callbackId before arguments
-                else msg.callbackId = callbackId; // add callbackId key
+            if (typeof message === 'object'){
+                if (Array.isArray(message)) message.splice(1, 0, callbackId); // add callbackId before arguments
+                else message.callbackId = callbackId; // add callbackId key
             } // TODO: Handle string-encoded messsages
 
             this.functionQueue[callbackId] = resolver;
@@ -170,11 +170,11 @@ export class WebsocketClient {
                 if(this.socketRot === this.sockets.length) this.socketRot = 0;
             }
             else { socket = this.getSocket(id); }
-            // msg = JSON.stringifyWithCircularRefs(msg)
+            // message = JSON.stringifyWithCircularRefs(message)
 
             if(!socket) return;
-            let toSend = () => socket.send(msg, resolver);
-            msg = JSON.stringify(msg);
+            let toSend = () => socket.send(message, resolver);
+            message = JSON.stringify(message);
             if (socket.readyState === socket.OPEN) toSend();
             else this.sendQueue.push(toSend);
         });
@@ -195,9 +195,9 @@ export class WebsocketClient {
         });
 
         if (res.callbackId) {
-            this.functionQueue[res.callbackId](res.msg) // Run callback
+            this.functionQueue[res.callbackId](res.message) // Run callback
             delete this.functionQueue[res.callbackId];
-        } else this.defaultCallback(res.msg);
+        } else this.defaultCallback(res.message);
 
         // State.data.serverResult = res;
 

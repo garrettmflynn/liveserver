@@ -5,11 +5,11 @@ import BasicExample from './components/basic';
 import { useHistory } from 'react-router';
 import AllExample from './components/all';
 
-export default function ExampleSelector({server}) {
+export default function ExampleSelector({server, platform}) {
    const history = useHistory();
     var url = window.location;
     var name = new URLSearchParams(url.search).get('name');
-    const [example, setExample] = React.useState(name ?? 'http');
+    const [example, setExample] = React.useState(name ?? 'all');
 
 
     const renderExample = (name) => {
@@ -17,10 +17,12 @@ export default function ExampleSelector({server}) {
           case 'basic':
             return <BasicExample
             server={server}
+            platform={platform}
             />
-          case 'http':
+          case 'all':
             return <AllExample
             server={server}
+            platform={platform}
           />
         }
       }
@@ -36,8 +38,8 @@ export default function ExampleSelector({server}) {
         <button onClick={() => set('basic')}>
           Basic
         </button>
-        <button onClick={() => set('http')}>
-          All HTTP Routes
+        <button onClick={() => set('all')}>
+          All Routes
         </button>
         </nav>
 

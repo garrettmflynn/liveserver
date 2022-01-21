@@ -63,7 +63,7 @@ export class WebsocketOSCStreaming {
 			callback
 		);
 
-		if(info.msg === true) {
+		if(info.message === true) {
 			if(typeof onupdate === 'function') this.state.subscribeTrigger(remoteAddress+'_'+remotePort,onupdate);
 			if(typeof onframe === 'function') this.state.subscribe(remoteAddress+'_'+remotePort,onframe);
 		}
@@ -109,7 +109,7 @@ export class WebsocketOSCStreaming {
 			// callback
 		);
 
-		if(info.msg) {
+		if(info.message) {
 			this.state.unsubscribeAll(remoteAddress+'_'+remotePort);
 		}
 	}
@@ -161,13 +161,13 @@ export class WebsocketOSCStreaming {
 		this.socket.send(JSON.stringify({cmd:'startOSC',args:[localAddress, localPort, remoteAddress, remotePort]}));
 		let sub = this.state.subscribeTrigger('commandResult', (newResult) => {
 			if (typeof newResult === 'object') {
-				if (newResult.msg === 'oscInfo') {
+				if (newResult.message === 'oscInfo') {
 					onsuccess(newResult.oscInfo);
 					this.state.unsubscribeTrigger('commandResult', sub);
 					return newResult.oscInfo
 				}
 			}
-			else if (newResult.msg === 'oscError') {
+			else if (newResult.message === 'oscError') {
 				this.state.unsubscribeTrigger('commandResult', sub);
 				console.log("OSC Error", newResult.oscError);
 				return []

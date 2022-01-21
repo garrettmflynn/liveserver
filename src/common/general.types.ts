@@ -6,12 +6,12 @@ export type RouteConfig = {
     callback: (...args:any[]) => any
 }
 
-export type MessageType = string | any[] | {
+export type MessageObject = string | any[] | {
     id?: string;
     _id?: string;
     route: string; // what to do at the endpoint
     callbackId?: string; // unique id for the request (stored client-side)
-    msg: [] | any // data passed
+    message: [] | any // data passed
   }
 
 export type ClientObject = {
@@ -30,10 +30,13 @@ export type SettingsObject = {
     }
 }
 
+export type MessageType = undefined | 'subscription'
+
 export type UserObject = {
     id:string, 
     _id:string, //second reference (for mongodb parity)
     username:string,
+    password?: string,
     origin:string,
     socket?: WebSocket, 
     props: {},
@@ -43,4 +46,5 @@ export type UserObject = {
     lastUpdate:number,
     lastTransmit:number,
     latency:number,
+    routes: Map<string, RouteConfig>
   }

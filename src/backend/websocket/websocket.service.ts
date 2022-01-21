@@ -1,19 +1,20 @@
 // Joshua Brewster, Garrett Flynn, AGPL v3.0
 import { WebSocketServer } from 'ws'
+import { Service } from '../Service';
+import { randomId } from '../../common';
 
 // Create WS Server Instance
-export class WebsocketService{
+export class WebsocketService extends Service{
 
   name = 'websocket'
   server: any
   wss = new WebSocketServer({ clientTracking: false, noServer: true });
   onsocket: Function
 
-    constructor(httpServer, onsocket=(ws:WebSocket, subprotocols:{[x: string] : any})=>{}){
+    constructor(httpServer){
+      super()
 
       this.server = httpServer
-
-      this.onsocket = onsocket
 
       this.init()
 }
@@ -57,15 +58,37 @@ export class WebsocketService{
 
             // subprotocols should look like:
             /*
-              msg = {
+              message = {
                 id:'abc123' //unique identifier, or use _id:
                 username:'agentsmith' //ideally a unique username
               }
             */
 
-            this.onsocket(ws, subprotocols)
+            const id = randomId('websocket')
+            ws.on('open', () => {
+              this.notify({route: 'addUser', message: Object.assign(subprotocols, {socket: ws})}); // TODO: Ensure users actually added to the session
+            })
 
-            // console.log('user session started: ', msg);
+            ws.on('message', (json="") => {
+              let parsed = JSON.parse(json);
+              if(Array.isArray(parsed)) { //push arrays of requests instead of single objects (more optimal potentially, though fat requests can lock up servers)
+                  parsed.forEach((obj) => {
+                    obj.id = id
+                    this.notify(obj);
+                  })
+              } else {
+                parsed.id = id
+                this.notify(parsed);
+              }
+          });
+
+          ws.on('close', (s) => {
+              // console.log('session closed: ', id);
+              // this.removeUser(id);
+              this.notify({route: 'removeUser', message: [id]}); // TODO: Ensure users actually leave the session
+          });
+
+            // console.log('user session started: ', message);
             // ws.isAlive = true;
             // ws.on('pong', function(){this.isAlive = true;});
         });   

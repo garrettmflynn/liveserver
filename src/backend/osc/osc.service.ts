@@ -1,35 +1,39 @@
 import osc from "osc"
 import { RouteConfig } from "src/common/general.types"
+import { DONOTSEND } from "../Router";
+import { Service } from "../Service";
 
 // Garrett Flynn, AGPL v3.0
-// TODO: Break OSC into another network protocol
+// TODO: Break OSC into another network protocol ( totally untested )
 
-export class OSCService{
+export class OSCService extends Service {
     name = 'osc'
 
     ports = []   
-    callbacks: RouteConfig[]
 
     constructor(){
-        
-        this.callbacks = [
+        super()
+
+        this.routes = [
             { 
                 route:'startOSC',
-                callback:(self,args,origin,u) => {
+                callback:(self,args) => {
                   if(this.add(args[0],args[1],args[2],args[3])) return true;
                 }
               },
               { 
                 route:'sendOSC',
-                callback:(self,args,origin,u) => {
+                callback:(self,args,origin) => {
+                    const u = self.USERS.get(origin)
+                    if (!u) return false
                   if (args.length > 2) u.osc.send(args[0],args[1],args[2]);
                   else this.send(args[0]);
-                  return 'DONOTSEND';
+                  return DONOTSEND;
                 }
               },
               { 
                 route:'stopOSC',
-                callback:(self,args,origin,u) => {
+                callback:(self,args,origin) => {
                   if(this.remove(args[0], args[1])) return true;
                 }
               }
@@ -69,18 +73,18 @@ export class OSCService{
         }
     }
 
-    encodeMessage(msg){
+    encodeMessage(message){
         let bundle = {
             timeTag: osc.timeTag(0),
             packets: []
         }
-        for (let key in msg){
+        for (let key in message){
             let args = []
-            if (!Array.isArray(msg[key])) msg[key] = [msg[key]]
-            msg[key].forEach(v => {
+            if (!Array.isArray(message[key])) message[key] = [message[key]]
+            message[key].forEach(v => {
                 args.push({value: v})
             })
-            bundle.packets.push({route: `/brainsatplay/${key}`, msg: msg[key]})
+            bundle.packets.push({route: `/brainsatplay/${key}`, message: message[key]})
         }
         return bundle;
     }
@@ -96,19 +100,20 @@ export class OSCService{
 
         port.on("ready", () => {
             this.ports.push(port)
-            // this.socket.send(JSON.stringify({msg:'oscInfo', oscInfo: this.info()}))
+            // this.socket.send(JSON.stringify({message:'oscInfo', oscInfo: this.info()}))
         });
 
         port.on("error", (error) => {
-            // if (error.code === 'EADDRINUSE') {this.socket.send(JSON.stringify({msg:'oscInfo', oscInfo: this.info()}))}
-            // else this.socket.send(JSON.stringify({msg:'oscError', oscError: error.message}))
+            // if (error.code === 'EADDRINUSE') {this.socket.send(JSON.stringify({message:'oscInfo', oscInfo: this.info()}))}
+            // else this.socket.send(JSON.stringify({message:'oscError', oscError: error.message}))
         });
 
-        port.on("message", (oscMsg) => {
-            // this.socket.send(JSON.stringify({msg:'oscData', oscData: oscMsg, address:remoteAddress, port:remotePort}));
+        port.on("message", (o) => {
+            this.notify(o)
+            // this.socket.send(JSON.stringify({message:'oscData', oscData: oscMsg, address:remoteAddress, port:remotePort}));
         });
 
-        port.on("close", (msg) => {})
+        port.on("close", (message) => {})
         
         port.open();
 

@@ -1,10 +1,10 @@
 import { RouteConfig, SettingsObject, UserObject } from "src/common/general.types";
-
-const DONOTSEND = "DONOTSEND";
+import { DONOTSEND } from "../Router";
+import { Service } from "../Service";
 
 //TODO: one-off data calls based on session configs
 //      reimplement callbacks
-export class SessionsService {
+export class SessionsService extends Service {
     name = 'sessions'
 
      //should revamp this to use maps or plain objects
@@ -20,32 +20,38 @@ export class SessionsService {
      LOOPING: boolean = true
      delay = 10; //ms loop timer delay
 
-     callbacks: RouteConfig[]
      controller: any;
 
-    constructor(Controller, running=true) {
-        // if(!Controller) { console.error('Requires a Controller instance.'); return; }
-        this.controller = Controller;
+    constructor(Router, running=true) {
+        super()
+        // if(!Router) { console.error('Requires a Router instance.'); return; }
+        this.controller = Router;
         this.LOOPING = running;
 
         //FYI "this" scope references this class, "self" scope references the controller scope.
-        this.callbacks = [
+        this.routes = [
             {
                 route:'updateUserStreamData',
-                callback:(self,args,origin,user) => {
+                callback:(self,args,origin) => {
+                    const user = self.USERS.get(origin)
+                    if (!user) return false
                     return this.updateUserStreamData(user,args);
                 }
             },
             {
                 route:'createSession',
-                callback:(self,args,origin,user) => {
+                callback:(self,args,origin) => {
+                    const user = self.USERS.get(origin)
+                    if (!user) return false
                     return this.createSession(user,args[0],args[1]);
                 }
             },
             {
                 route:'subscribeToSession',
-                callback:(self,args,origin,user) => {
-                    if(this.controller.USERS.get(args[0]))
+                callback:(self,args,origin) => {
+                    const user = self.USERS.get(origin)
+                    if (!user) return false
+                    if(self.USERS.get(args[0]))
                         return this.subscribeToUser(user,args[0],user.id,args[1],args[2]); //can input arguments according to the type of session you're subscribing to
                     else return this.subscribeToSession(user,args[0],args[1],args[2]);
                 }
@@ -53,80 +59,100 @@ export class SessionsService {
             {
                 route:'unsubscribeFromSession',
                 aliases:['kickUser'],
-                callback:(self,args,origin,user) => {
-                    if(!args[0]) return this.unsubscribe(user,user.id,args[1]);
-                    return this.unsubscribe(user,args[0],args[1]);
+                callback:(self,args,origin) => {
+                    const user = self.USERS.get(origin)
+                    if (!user) return false
+                    if(!args[0]) return this.unsubscribeFromSession(user,user.id,args[1]);
+                    return this.unsubscribeFromSession(user,args[0],args[1]);
                 }
             },
             {
                 route:'getSessionData',
-                callback:(self,args,origin,user) => {
+                callback:(self,args,origin) => {
                     return this.getSessionData(args[0]);
                 }
             }, 
             {
                 route:'deleteSession',
-                callback:(self,args,origin,user) => {
+                callback:(self,args,origin) => {
+                    const user = self.USERS.get(origin)
+                    if (!user) return false
                     return this.deleteSession(user,args[0]);
                 }
             }, 
             {
                 route:'makeHost',
-                callback:(self,args,origin,user) => {
+                callback:(self,args,origin) => {
+                    const user = self.USERS.get(origin)
+                    if (!user) return false
                     return this.makeHost(user,args[0],args[1]);
                 }
             }, 
             {
                 route:'makeOwner',
-                callback:(self,args,origin,user) => {
+                callback:(self,args,origin) => {
+                    const user = self.USERS.get(origin)
+                    if (!user) return false
                     return this.makeOwner(user,args[0],args[1]);
                 }
             }, 
             {
                 route:'makeAdmin',
-                callback:(self,args,origin,user) => {
+                callback:(self,args,origin) => {
+                    const user = self.USERS.get(origin)
+                    if (!user) return false
                     return this.makeAdmin(user,args[0],args[1]);
                 }
             }, 
             {
                 route:'makeModerator',
-                callback:(self,args,origin,user) => {
+                callback:(self,args,origin) => {
+                    const user = self.USERS.get(origin)
+                    if (!user) return false
                     return this.makeModerator(user,args[0],args[1]);
                 }
             }, 
             {
                 route:'removeAdmin',
-                callback:(self,args,origin,user) => {
+                callback:(self,args,origin) => {
+                    const user = self.USERS.get(origin)
+                    if (!user) return false
                     return this.removeAdmin(user,args[0],args[1]);
                 }
             }, 
             {
                 route:'removeModerator',
-                callback:(self,args,origin,user) => {
+                callback:(self,args,origin) => {
+                    const user = self.USERS.get(origin)
+                    if (!user) return false
                     return this.removeModerator(user,args[0],args[1]);
                 }
             }, 
             {
                 route:'banUser',
-                callback:(self,args,origin,user) => {
+                callback:(self,args,origin) => {
+                    const user = self.USERS.get(origin)
+                    if (!user) return false
                     return this.banUser(user,args[0],args[1]);
                 }
             }, 
             {
                 route:'unbanUser',
-                callback:(self,args,origin,user) => {
+                callback:(self,args,origin) => {
+                    const user = self.USERS.get(origin)
+                    if (!user) return false
                     return this.unbanUser(user,args[0],args[1]);
                 }
             }, 
             { //some manual overrides for the update loops
                 route:'updateSessionUsers',
-                callback:(self,args,origin,user) => {
+                callback:(self,args,origin) => {
                     return this.updateSessionUsers(args[0]);
                 }
             }, 
             {
                 route:'updateUserStream',
-                callback:(self,args,origin,user) => {
+                callback:(self,args,origin) => {
                     return this.updateUserStream(args[0]);
                 }
             }
@@ -260,7 +286,7 @@ export class SessionsService {
                     }
                 }
                 if(user.id !== userId) { //make sure the new user receives the data
-                    newUser.socket.send(JSON.stringify({msg:'sessionData',data:result}));
+                    newUser.socket.send(JSON.stringify({route:'sessionData',message:result}));
                     newUser.sessions.push(session.id);
                 } else if(user.sessions) user.sessions.push(session.id);
                 
@@ -331,7 +357,7 @@ export class SessionsService {
 
                 u.sessions.push(obj.id);
                 //console.log('subscribed to user');
-                //u.socket.send(JSON.stringify({msg:'subscribed', sub:obj.id}))
+                //u.socket.send(JSON.stringify({message:'subscribed', sub:obj.id}))
                 return result;
             }
             else {
@@ -390,7 +416,7 @@ export class SessionsService {
 
     //aliases
     kick = this.kickUser;
-    unsubscribe = this.kickUser;
+    unsubscribeFromSession = this.kickUser;
 
     //delete a session. It will time out otherwise
     deleteSession(user:Partial<UserObject>={}, sessionId, override=false) {
@@ -683,7 +709,7 @@ export class SessionsService {
                 session.users.forEach((user) => {
                     let u = this.controller.USERS.get(user);
                     if(!u) toKick.push(user);
-                    else if (user !== session.host) u.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
+                    else if (user !== session.host) u.socket.send(JSON.stringify({route:'sessionData',message:updateObj}));
                     updatedUsers[user] = true;
                 });
                 toKick.forEach((id) => {
@@ -718,7 +744,7 @@ export class SessionsService {
         if(session.type === 'hostroom') {
             let host = this.controller.USERS.get(session.host);
             if(host) {   
-                host.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
+                host.socket.send(JSON.stringify({route:'sessionData',message:updateObj}));
                 updatedUsers[session.host] = true;
             }
             session.lastTransmit = Date.now();
@@ -727,7 +753,7 @@ export class SessionsService {
             session.users.forEach((user) => {
                 let u = this.controller.USERS.get(user);
                 if(u) {
-                    u.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
+                    u.socket.send(JSON.stringify({route:'sessionData',message:updateObj}));
                     updatedUsers[user] = true;
                 }
             });
@@ -766,7 +792,7 @@ export class SessionsService {
         if(Object.keys(updateObj.userData).length > 0) {
             const u = this.controller.USERS.get(session.listenerId)
             if (u) {
-                u.socket.send(JSON.stringify({msg:'sessionData',data:updateObj}));
+                u.socket.send(JSON.stringify({route:'sessionData',message:updateObj}));
                 updatedUsers[u.id] = true;
                 session.lastTransmit = Date.now();
             }

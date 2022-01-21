@@ -235,7 +235,7 @@ export class DataStreaming {
 			let updateObj = {
 				cmd:'updateUserStreamData',
 				id:this.user._id,
-				msg:{}
+				message:{}
 			};
 
 			for(const prop in this.streamSettings) {
@@ -245,12 +245,12 @@ export class DataStreaming {
 							this.streamSettings[prop].object[key],
 							this.streamSettings[prop].settings[key]
 						);
-						if(data !== undefined) updateObj.msg[key] = data; //overlapping props will be overwritten (e.g. duplicated controller inputs)
+						if(data !== undefined) updateObj.message[key] = data; //overlapping props will be overwritten (e.g. duplicated controller inputs)
 					}
 				});
 			}
 
-			if(Object.keys(updateObj.msg).length > 0)	
+			if(Object.keys(updateObj.message).length > 0)	
 				this.socket.send(JSON.stringify(updateObj));
 			
 			setTimeout(()=>{this.streamLoop()},this.delay);

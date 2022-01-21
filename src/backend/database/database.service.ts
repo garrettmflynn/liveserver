@@ -2,18 +2,18 @@
 //Users, user data, notifications, access controls
 // Joshua Brewster, Garrett Flynn, AGPL v3.0
 import { ObjectId } from "mongodb"
-import { Controller } from "..";
+import { Router } from "..";
 import { RouteConfig, UserObject } from 'src/common/general.types';
+import { randomId } from "src/common";
+import { Service } from "../Service";
 
-export class DatabaseService {
+export class DatabaseService extends Service{
     
     name = 'database'
-    controller: Controller;
+    controller: Router;
     db: any;
     collections = new Map();
     mode: 'local' | 'mongodb' | string
-
-    callbacks: RouteConfig[] = []
 
     collectionNames = [
         'profile',
@@ -29,21 +29,26 @@ export class DatabaseService {
         'date'
     ];
 
-    constructor (Controller, dbOptions?:{
+    constructor (Router, dbOptions?:{
         mode?: 'local' | 'mongodb' | string,
         instance?: any
     }, debug=true) {
-        // if(!Controller) { console.error('Requires a Controller instance.'); return; }
-        this.controller = Controller;
+        super()
+
+        // if(!Router) { console.error('Requires a Router instance.'); return; }
+        this.controller = Router;
         this.db = dbOptions?.instance;
         this.collections = new Map();
         this.mode = (this.db) ? ((dbOptions.mode) ? dbOptions.mode : 'local') : 'local'
 
-        this.callbacks = [
+        this.routes = [
             {   
                 route:'setData', 
             aliases:['setMongoData'],
-            callback: async (self,args,origin,u) => {
+            callback: async (self,args,origin) => {
+                const u = self.USERS.get(origin)
+                if (!u) return false
+
                 let data;
                 if(this.mode === 'mongo') {
                     data = await this.setMongoData(u,args); //input array of structs
@@ -68,7 +73,10 @@ export class DatabaseService {
         { 
             route:'getData', 
             aliases:['getMongoData','getUserData'],
-            callback:async (self,args,origin,u) => {
+            callback:async (self,args,origin) => {
+                const u = self.USERS.get(origin)
+                if (!u) return false
+
                 let data;
                 if(this.mode === 'mongo') {
                     data = await this.getMongoData(u, args[0], args[1], args[2], args[4], args[5]);
@@ -85,7 +93,10 @@ export class DatabaseService {
         },     
         {
             route:'getAllData',
-            callback:async (self,args,origin,u) => {
+            callback:async (self,args,origin) => {
+                const u = self.USERS.get(origin)
+                if (!u) return false
+
                 let data;
                 if(this.mode === 'mongo') {
                     data = await this.getAllUserMongoData(u,args[0],args[1]);
@@ -109,7 +120,10 @@ export class DatabaseService {
         }, 
         {
             route:'deleteData', 
-            callback:async (self,args,origin,u) => {
+            callback:async (self,args,origin) => {
+                const u = self.USERS.get(origin)
+                if (!u) return false
+
                 let data;
                 if(this.mode === 'mongo') {
                     data = await this.deleteMongoData(u,args);
@@ -127,7 +141,11 @@ export class DatabaseService {
         },
         {
             route:'getProfile',
-            callback:async (self,args,origin,u) => {
+            callback:async (self,args,origin) => {
+                const u = self.USERS.get(origin)
+                if (!u) return false
+
+                console.log('getProfile', u)
                 let data;
                 if(this.mode === 'mongo') {
                     data = await this.getMongoProfile(u,args[0]);
@@ -148,7 +166,10 @@ export class DatabaseService {
         },
         {
             route:'setProfile',
-            callback:async (self,args,origin,u) => {
+            aliases: ['addUser'],
+            callback:async (self,args,origin) => {
+                const u = self.USERS.get(origin)
+                if (!u) return false
                 let data;
                 if(this.mode === 'mongo') {
                     data = await this.setMongoProfile(u,args[0]);
@@ -162,7 +183,10 @@ export class DatabaseService {
         },
         {
             route:'getProfilesByIds',
-            callback:async (self,args,origin,u) => { 
+            callback:async (self,args,origin) => { 
+                const u = self.USERS.get(origin)
+                if (!u) return false
+
                 let data;
                 if(this.mode === 'mongo') {
                     data = await this.getMongoProfilesByIds(u,args[0]);
@@ -178,7 +202,10 @@ export class DatabaseService {
         },
         {
             route:'getProfilesByRoles',
-            callback:async (self,args,origin,u) => {
+            callback:async (self,args,origin) => {
+                const u = self.USERS.get(origin)
+                if (!u) return false
+
                 let data;
                 if(this.mode === 'mongo') {
                     data = await this.getMongoProfilesByRoles(u,args[0]);
@@ -197,7 +224,10 @@ export class DatabaseService {
         {
             route:'getGroup',
             aliases:['getGroups'],
-            callback:async (self,args,origin,u) => {
+            callback:async (self,args,origin) => {
+                const u = self.USERS.get(origin)
+                if (!u) return false
+
                 let data;
                 if(this.mode === 'mongo') {
                     data = await this.getMongoGroups(u,args[0],args[1]);
@@ -224,13 +254,19 @@ export class DatabaseService {
         },
         {
             route:'setGroup',
-            callback:async (self,args,origin,u) => {
+            callback:async (self,args,origin) => {
+                const u = self.USERS.get(origin)
+                if (!u) return false
+
                 return await this.setGroup(u,args[0], this.mode);
             }
         },
         {
             route:'deleteGroup',
-            callback:async (self,args,origin,u) => {
+            callback:async (self,args,origin) => {
+                const u = self.USERS.get(origin)
+                if (!u) return false
+
                 let data;
                 if(this.mode === 'mongo') {
                     data = await this.deleteMongoGroup(u,args[0]);
@@ -247,7 +283,11 @@ export class DatabaseService {
         },
         {
             route:'deleteProfile',
-            callback:async (self,args,origin,u) => {
+            aliases: ['removeUser'],
+            callback:async (self,args,origin) => {
+                const u = self.USERS.get(origin)
+                if (!u) return false
+
                 let data;
                 if(this.mode === 'mongo') {
                     data = await this.deleteMongoProfile(u,args[0]);
@@ -264,13 +304,18 @@ export class DatabaseService {
         },
         {
             route:'setAuth',
-            callback:async (self,args,origin,u) => {
+            callback:async (self,args,origin) => {
+                const u = self.USERS.get(origin)
+                if (!u) return false
                 return await this.setAuthorization(u, args[0], this.mode);
             }
         },
         {
             route:'getAuths',
-            callback:async (self,args,origin,u) => {
+            callback:async (self,args,origin) => {
+                const u = self.USERS.get(origin)
+                if (!u) return false
+
                 let data;
                 if(this.mode === 'mongo') {
                     data = await this.getMongoAuthorizations(u,args[0],args[1]);
@@ -287,7 +332,10 @@ export class DatabaseService {
         },
         {
             route:'deleteAuth',
-            callback:async (self,args,origin,u) => {
+            callback:async (self,args,origin) => {
+                const u = self.USERS.get(origin)
+                if (!u) return false
+
                 let data;
                 if(this.mode === 'mongo') {
                     data = await this.deleteMongoAuthorization(u,args[0]);
@@ -312,7 +360,7 @@ export class DatabaseService {
         let struct = {
             structType:structType,
             timestamp:Date.now(),
-            id:this.controller.randomId(structType),
+            id:randomId(structType),
             note:'',
             ownerId: '',
             parentUserId: '',

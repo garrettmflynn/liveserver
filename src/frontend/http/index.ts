@@ -27,7 +27,7 @@ class HTTPClient {
 
     setRemote = (base:string, path:string) => {
         this.remote = (path) ? new URL(path, base) : new URL(base)
-        return this.join()
+        // return this.join()
     }
 
 
@@ -44,7 +44,7 @@ class HTTPClient {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: safeStringify({id: this.id, data: config})
+                body: safeStringify({id: this.id, message: config})
             })
         } else return false
     }
@@ -59,11 +59,11 @@ class HTTPClient {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: safeStringify({id: this.id, data: args})
+                body: safeStringify({id: this.id, message: args})
             }).then(async (res) => {
                 const json = await res.json()
                 if (!res.ok) return json.message
-                else return json.data
+                else return json.message
             }).catch((err) => {
                 return err.message
             })
@@ -74,7 +74,7 @@ class HTTPClient {
 
         if (this.remote) {
 
-            const events = new EventSource(createURL('/subscribe' + route, this.remote));
+            const events = new EventSource(createURL('/events' + route, this.remote));
             events.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 callback(data)

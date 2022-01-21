@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import {http} from '../../../../../src/frontend';
 
-export default function AllExample({server}) {
+export default function AllExample({server, platform}) {
   
     const buttons = useRef(null);
     const output = useRef(null);
@@ -10,9 +10,6 @@ export default function AllExample({server}) {
     let vals = {
       '/add': 0
     }
-
-    // let extension = '/session'
-    http.setRemote(server)
 
     let customRoute = {
       route: '/add',
@@ -23,10 +20,9 @@ export default function AllExample({server}) {
 
       // http.addRoute(customRoute)
       buttons.current.innerHTML = ''
-      http.subscribe('/routes', (data) => {
+      platform.send('list').then((data) => {
 
         if (!Array.isArray(data)) data = [data]
-        console.log('data', data)
         data.forEach(o => {
 
           // o = {route: string, arguments: []}
@@ -36,12 +32,12 @@ export default function AllExample({server}) {
           buttons.current.insertAdjacentElement('beforeend', button)
           button.onclick = ( ) => {
             let args = []
-            if (o.route === '/routes') buttons.current.innerHTML = ''
-            if (o.route === '/addRoute') args = [customRoute]
+            if (o.route === '/list') buttons.current.innerHTML = ''
+            if (o.route === '/unsafe/addfunc') args = [customRoute]
             else if (vals[o.route] != null) args = [vals[o.route]]
 
-            http.send(o.route, ...args).then(res => {
-              if (!res?.error) output.current.innerHTML = vals[o.route] = res
+            platform.send(o.route, ...args).then(res => {
+              if (!res?.error) output.current.innerHTML = JSON.stringify(vals[o.route] = res)
               else output.current.innerHTML = res.error
       
             }).catch(err => {

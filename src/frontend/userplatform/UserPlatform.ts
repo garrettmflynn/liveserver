@@ -1,12 +1,20 @@
 import { DS, DataTablet } from 'brainsatplay-data'
-import { WebsocketClient } from '../WebsocketClient';
+import { randomId } from '../../common';
+import { RouteConfig } from '../../common/general.types';
+import { safeStringify } from '../../common/parse.utils';
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
+
+function createRoute (path:string, remote:string|URL) {
+    let baseUrl = (remote instanceof URL) ? remote : new URL(remote)
+    path = (baseUrl.pathname === '/') ? path : baseUrl.pathname + path
+    let href = (new URL(path, baseUrl.href)).href
+    return href
+}
 
 export class UserPlatform {
 
     currentUser: any
 		
-	WebsocketClient: WebsocketClient
 	socketId: string
 
     socket: any;
@@ -14,54 +22,76 @@ export class UserPlatform {
     tablet = new DataTablet(); //DataTablet (for alyce)
     collections = this.tablet.collections;
 
-    constructor(WebsocketClient, userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}, socketId) {
+    // HTTP Port
+    routes: Map<string, RouteConfig> = new Map()
+    remote?: URL
+    id: string = randomId()
+
+    // Generalized Protocol Support
+    protocols?: {
+        websocket?,
+    } = {}
+
+    constructor(userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}) {
         this.currentUser = userinfo;
+        if (this.currentUser.id) this.currentUser._id = this.currentUser.id
 
-        if(!WebsocketClient) {
-			console.error("UserPlatform needs an active WebsocketClient");
-			return;
-		}
-		
-		this.WebsocketClient = WebsocketClient;
-		this.socketId = socketId;
+		// if(!socketId) {
+		// 	if(!this.WebsocketClient.sockets[0]) {
+		// 		this.socketId = this.WebsocketClient.addSocket(); //try to add a socket
+		// 		if(!this.socketId) {
+		// 			return;
+		// 		}
+		// 	} else this.socketId = this.WebsocketClient.sockets[0].id;
+		// }
 
-		if(!socketId) {
-			if(!this.WebsocketClient.sockets[0]) {
-				this.socketId = this.WebsocketClient.addSocket(); //try to add a socket
-				if(!this.socketId) {
-					return;
-				}
-			} else this.socketId = this.WebsocketClient.sockets[0].id;
-		}
-
-        this.socket = this.WebsocketClient.getSocket(this.socketId);
+        // this.socket = this.WebsocketClient.getSocket(this.socketId);
         
 
-        if(this.socket && userinfo) {
-            this.setupUser(userinfo);
-            this.WebsocketClient.defaultCallback = this.baseServerCallback;
+        // if(this.socket && userinfo) {
+        //     this.setupUser(userinfo);
+        //     this.WebsocketClient.defaultCallback = this.baseServerCallback;
+        // }
+
+        // return await this.WebsocketClient.run(
+        //     'getProfile',
+        //     [info],
+        //     this.WebsocketClient.origin,
+        //     this.socketId,
+        //     callback
+        // );
+
+        window.onbeforeunload = () => {
+            this.logout()
         }
         
     }
 
-    //------------------------------------------------
-    //Socket stuff
-    //------------------------------------------------
+    setRemote = (base:string, path:string) => {
+        this.remote = (path) ? new URL(path, base) : new URL(base)
 
-    closeSocket() {
-        if(this.socket) {if(this.socket.isOpen()) this.socket.close();}
+        // Register User on the Server
+        if (this.remote) this.setupUser(this.currentUser);
+    }
+
+
+    //------------------------------------------------
+    // Commands
+    //------------------------------------------------
+    async login(callback=(result)=>{}) {
+        if(this.currentUser) {
+            let res = await this.send('login')
+            callback(res)
+            return res
+        }
     }
 
     async logout(callback=(result)=>{}) {
-        if(this.socket && this.currentUser) 
-            return await this.WebsocketClient.run(
-                'logout',
-                [this.currentUser.id],
-                this.WebsocketClient.origin,
-                this.socketId,
-                callback
-            );
-           
+        if(this.currentUser) {
+            let res = await this.send('logout')
+            callback(res)
+            return res
+        }
     }
 
     //TODO: make this able to be awaited to return the currentUser
@@ -77,22 +107,24 @@ export class UserPlatform {
 
         if(userinfo.id) userinfo._id = userinfo.id;
 
+        let res = await this.login();
         console.log("Generating/Getting User: ", userinfo._id)
-        let data = await this.getUserFromServer(userinfo._id);
+        let data = await this.getUserFromDatabase(userinfo._id);
         // console.log("getUser", res);
         let u;
         let newu = false;
+        console.log('data', data)
         if(!data.user?._id) { //no profile, create new one and push initial results
             // if(!userinfo._id) userinfo._id = userinfo._id;
             u = this.userStruct(userinfo,true);
             newu = true;
-            let newdata = await this.setUserOnServer(u,null);
+            let newdata = await this.setUserOnDatabase(u);
             console.log('setProfile', data);
             let structs = this.getLocalData(undefined,{'ownerId': u._id});
             if(structs?.length > 0) this.updateServerData(structs, (data)=>{
                 console.log('setData', data);
             });
-            this.setAuthorizationsByGroupOnServer(u);
+            this.setAuthorizationsByGroupOnDatabase(u);
         }
         else {
             u = data.user;
@@ -144,7 +176,7 @@ export class UserPlatform {
 
         if(newu) {this.currentUser = u; this.setLocalData(u);}
         else {
-            let res = await this.getAllUserDataFromServer(u._id,undefined);
+            let res = await this.getAllUserDataFromDatabase(u._id,undefined);
 
             console.log("getServerData", res);
             if(!data || data.length === 0) { 
@@ -176,7 +208,7 @@ export class UserPlatform {
                 comments.forEach((comment) => {
                     if(!this.getLocalData('comment',{'_id':comment._id})) toDelete.push(comment._id);
                 });
-                if(toDelete.length > 0) this.deleteDataFromServer(toDelete); //extraneous comments
+                if(toDelete.length > 0) this.deleteDataFromDatabase(toDelete); //extraneous comments
 
                 if(notes.length > 0) {
                     this.resolveNotifications(notes, false, undefined);
@@ -205,7 +237,6 @@ export class UserPlatform {
     //default socket response for the platform
     baseServerCallback = (data) => {
 
-        // console.log("Socket command result:", data)
         let structs = data;
         if(typeof data === 'object' && data?.structType) structs = [data];
         if(Array.isArray(data)) { //getUserData response
@@ -260,10 +291,10 @@ export class UserPlatform {
             });
         } 
 
-        if (data?.msg === 'notifications') {
-            this.checkForNotificationsOnServer(); //pull notifications
+        if (data?.message === 'notifications') {
+            this.checkForNotificationsOnDatabase(); //pull notifications
         }
-        if (data?.msg === 'deleted') {
+        if (data?.message === 'deleted') {
             this.deleteLocalData(data.id); //remove local instance
         }
         
@@ -309,105 +340,69 @@ export class UserPlatform {
     
     //simple response test
     async ping(callback=(res)=>{console.log(res);}) {
-        return await this.WebsocketClient.run(
-            'ping',
-            undefined,
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        );
+        let res = await this.send('ping')
+        callback(res)
+        return res
     }
 
     //send a direct message to somebody
     async sendMessage(userId='',message='',data=undefined,callback=(res)=>{console.log(res);}) {
         let args = [userId,message];
         if(data) args[2] = data;
-        
-        return await this.WebsocketClient.run(
-            'sendMessage',
-            args,
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        );
+
+        let res = await this.send('sendMessage', ...args)
+        callback(res)
+        return res
     }
 
     //info can be email, id, username, or name. Returns their profile and authorizations
-    async getUserFromServer (info='',callback=this.baseServerCallback) {
-        
-        return await this.WebsocketClient.run(
-            'getProfile',
-            [info],
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        );
+    async getUserFromDatabase (info='',callback=this.baseServerCallback) {
+        let res = await this.send('database/getProfile', info)
+        callback(res)
+        return res
     }
 
     //get user basic info by id
-    async getUsersByIdsFromServer (ids=[],callback=this.baseServerCallback) {
-    
-        return await this.WebsocketClient.run(
-            'getProfilesByIds',
-            [ids],
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        );
+    async getUsersByIdsFromDatabase (ids=[],callback=this.baseServerCallback) {
+        let res = await this.send('database/getProfilesByIds', ids)
+        callback(res)
+        return res
     }
     
     //info can be email, id, username, or name. Returns their profile and authorizations
-    async getUsersByRolesFromServer (userRoles=[],callback=this.baseServerCallback) {
-        return await this.WebsocketClient.run(
-            'getProfilesByRoles',
-            [userRoles],
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        );
+    async getUsersByRolesFromDatabase (userRoles=[],callback=this.baseServerCallback) {
+        let res = await this.send('database/getProfilesByRoles', userRoles)
+        callback(res)
+        return res
     }
 
     //pull all of the collections (except excluded collection names e.g. 'groups') for a user from the server
-    async getAllUserDataFromServer(ownerId, excluded=[], callback=this.baseServerCallback) {
-        
-        return await this.WebsocketClient.run(
-            'getAllData',
-            [ownerId,excluded],
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        );
+    async getAllUserDataFromDatabase(ownerId, excluded=[], callback=this.baseServerCallback) {
+        let res = await this.send('database/getAllData', ownerId, excluded)
+        callback(res)
+        return res
     }
 
     //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
-    async getDataFromServer(collection,ownerId?,searchDict?,limit:number=0,skip:number=0,callback=this.baseServerCallback) {
-               
-        return await this.WebsocketClient.run(
-            'getData',
-            [collection,ownerId,searchDict,limit,skip],
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        );
+    async getDataFromDatabase(collection,ownerId?,searchDict?,limit:number=0,skip:number=0,callback=this.baseServerCallback) {
+        let res = await this.send('database/getData', collection,ownerId,searchDict,limit,skip)
+        callback(res)
+        return res
     }
 
 
     //get struct based on the parentId 
-    async getStructParentDataFromServer (struct,callback=this.baseServerCallback) {
+    async getStructParentDataFromDatabase (struct,callback=this.baseServerCallback) {
         if(!struct.parent) return;
         let args = [struct.parent?.structType,'_id',struct.parent?._id];
 
-        return await this.WebsocketClient.run(
-            'getData',
-            args,
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        );
+        let res = await this.send('database/getData', ...args)
+        callback(res)
+        return res
     }
     
     // //get struct(s) based on an array of ids or string id in the parent struct
-    // async getStructChildDataFromServer (struct,childPropName='', limit=0, skip=0, callback=this.baseServerCallback) {
+    // async getStructChildDataFromDatabase (struct,childPropName='', limit=0, skip=0, callback=this.baseServerCallback) {
     //     let children = struct[childPropName];
     //     if(!children) return;
       
@@ -421,16 +416,10 @@ export class UserPlatform {
     // }
 
     //sets the user profile data on the server
-    async setUserOnServer (userStruct={},callback=this.baseServerCallback) {
-
-        return await this.WebsocketClient.run(
-            'setProfile',
-            [this.stripStruct(userStruct)],
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        );
-
+    async setUserOnDatabase (userStruct={},callback=this.baseServerCallback) {
+        let res = await this.send('database/setProfile', this.stripStruct(userStruct))
+        callback(res)
+        return res
     }
 
     //updates a user's necessary profile details if there are any discrepancies with the token
@@ -466,7 +455,7 @@ export class UserPlatform {
                 user[prop] = usertoken[prop];  changed = true;
             }
         }
-        if(changed) return await this.setUserOnServer(user,callback);
+        if(changed) return await this.setUserOnDatabase(user,callback);
         return changed;
     }
 
@@ -477,18 +466,14 @@ export class UserPlatform {
             copies.push(this.stripStruct(struct));
         })
 
-        return await this.WebsocketClient.run(
-            'setData',
-            copies,
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        );  //returns refreshed data
+        let res = await this.send('database/setData', ...copies)
+        callback(res)
+        return res
 
     }
     
     //delete a list of structs from local and server
-    async deleteDataFromServer (structs=[],callback=this.baseServerCallback) {
+    async deleteDataFromDatabase (structs=[],callback=this.baseServerCallback) {
         let toDelete = [];
         structs.forEach((struct) => {
             if(struct?.structType && struct?._id) {
@@ -503,14 +488,9 @@ export class UserPlatform {
         });
 
         console.log('deleting',toDelete);
-
-        return await this.WebsocketClient.run(
-            'deleteData',
-            toDelete,
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        );  
+        let res = await this.send('database/deleteData', ...toDelete)
+        callback(res)
+        return res
 
     }
 
@@ -518,95 +498,64 @@ export class UserPlatform {
     async deleteUser (userId, callback=this.baseServerCallback) {
         if(!userId) return;
 
-        return await this.WebsocketClient.run(
-            'deleteProfile',
-            [userId],
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        );  
+        let res = await this.send('database/deleteProfile', userId)
+        callback(res)
+        return res
     }
 
     //set a group struct on the server
-    async setGroupOnServer (groupStruct={},callback=this.baseServerCallback) {
-
-        return await this.WebsocketClient.run(
-            'setGroup',
-            [this.stripStruct(groupStruct)],
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        );  
+    async setGroupOnDatabase (groupStruct={},callback=this.baseServerCallback) {
+        let res = await this.send('database/setGroup', this.stripStruct(groupStruct))
+        callback(res)
+        return res
     }
 
     //get group structs or single one by Id
-    async getGroupsFromServer (userId=this.currentUser._id, groupId='',callback=this.baseServerCallback) {
-        
-        return await this.WebsocketClient.run(
-            'getGroups',
-            [userId,groupId],
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        ); 
+    async getGroupsFromDatabase (userId=this.currentUser._id, groupId='',callback=this.baseServerCallback) {
+        let res = await this.send('database/getGroups', userId,groupId)
+        callback(res)
+        return res
     }
 
     //deletes a group off the server
-    async deleteGroupFromServer (groupId,callback=this.baseServerCallback) {
+    async deleteGroupFromDatabase (groupId,callback=this.baseServerCallback) {
         if(!groupId) return;
         this.deleteLocalData(groupId);
 
-        return await this.WebsocketClient.run(
-            'deleteGroup',
-            [groupId],
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        ); 
+        let res = await this.send('database/deleteGroup', groupId)
+        callback(res)
+        return res
     }
 
     //set an authorization struct on the server
-    async setAuthorizationOnServer (authorizationStruct={},callback=this.baseServerCallback) {
+    async setAuthorizationOnDatabase (authorizationStruct={},callback=this.baseServerCallback) {
 
-        return await this.WebsocketClient.run(
-            'setAuth',
-            [this.stripStruct(authorizationStruct)],
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        ); 
+        let res = await this.send('database/setAuth', this.stripStruct(authorizationStruct))
+        callback(res)
+        return res
     }
 
     //get an authorization struct by Id
-    async getAuthorizationsFromServer (userId=this.currentUser?._id, authorizationId='',callback=this.baseServerCallback) {
+    async getAuthorizationsFromDatabase (userId=this.currentUser?._id, authorizationId='',callback=this.baseServerCallback) {
         if(userId === undefined) return;
-
-        return await this.WebsocketClient.run(
-            'getAuths',
-            [userId,authorizationId],
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        ); 
+        let res = await this.send('database/getAuths', userId, authorizationId)
+        callback(res)
+        return res
     }
 
     //delete an authoriztion off the server
-    async deleteAuthorizationOnServer (authorizationId,callback=this.baseServerCallback) {
+    async deleteAuthorizationOnDatabase (authorizationId,callback=this.baseServerCallback) {
         if(!authorizationId) return;
         this.deleteLocalData(authorizationId);
         
-        return await this.WebsocketClient.run(
-            'deleteAuth',
-            [authorizationId],
-            this.WebsocketClient.origin,
-            this.socketId,
-            callback
-        ); 
+        let res = await this.send('database/deleteAuth', authorizationId)
+        callback(res)
+        return res
     }
 
     //notifications are GENERALIZED for all structs, where all authorized users will receive notifications when those structs are updated
-    async checkForNotificationsOnServer(userId=this.currentUser?._id) {
-        return await this.getDataFromServer('notification',userId);
+    async checkForNotificationsOnDatabase(userId=this.currentUser?._id) {
+        return await this.getDataFromDatabase('notification',userId);
     }
 
     
@@ -629,7 +578,7 @@ export class UserPlatform {
             //console.log(this.structs.get(struct._id));
         });
 
-        this.deleteDataFromServer(notificationIds); //delete server entries
+        this.deleteDataFromDatabase(notificationIds); //delete server entries
         if(pull) {
             nTypes.reverse().forEach((note,i)=>{
                 // if(note === 'comment') { //when resolving comments we need to pull the tree (temp)
@@ -640,18 +589,18 @@ export class UserPlatform {
                 //     structIds.splice(i,1);
                 // }
                 if(note === 'user') {
-                    this.getUserFromServer(notificationIds[i]);
+                    this.getUserFromDatabase(notificationIds[i]);
                     structIds.splice(structIds.length-i-1,1);
                 }
             });
-            if(structIds.length > 0) return await this.getDataFromServer(structIds);
+            if(structIds.length > 0) return await this.getDataFromDatabase(structIds);
         }
         return true;
     } 
 
 
     //setup authorizations automatically based on group
-    async setAuthorizationsByGroupOnServer(user=this.currentUser) {
+    async setAuthorizationsByGroupOnDatabase(user=this.currentUser) {
 
         let auths = this.getLocalData('authorization',{'ownerId': user._id});
         // console.log(u);
@@ -671,7 +620,7 @@ export class UserPlatform {
                 otherrole = team+'_owner';
             }
             if(otherrole) {
-                this.getUsersByRolesFromServer([otherrole],(data) => {
+                this.getUsersByRolesFromDatabase([otherrole],(data) => {
                     //console.log(res.data)
                     data?.forEach((groupie)=>{
                         let theirname = groupie.username;
@@ -726,7 +675,7 @@ export class UserPlatform {
 
     
     //delete a discussion or chatroom and associated comments
-    async deleteRoomOnServer(roomStruct) {
+    async deleteRoomOnDatabase(roomStruct) {
         if(!roomStruct) return false;
 
         let toDelete = [roomStruct];
@@ -737,13 +686,13 @@ export class UserPlatform {
         });
 
         if(roomStruct)
-            return await this.deleteDataFromServer(toDelete);
+            return await this.deleteDataFromDatabase(toDelete);
         else return false;
 
     }
 
     //delete comment and associated replies by recursive gets
-    async deleteCommentOnServer(commentStruct) {
+    async deleteCommentOnDatabase(commentStruct) {
         let allReplies = [commentStruct];
         let getRepliesRecursive = (head=commentStruct) => {
             if(head?.replies) {
@@ -783,19 +732,19 @@ export class UserPlatform {
         }
 
         if(toUpdate.length > 0) await this.updateServerData(toUpdate);
-        return await this.deleteDataFromServer(allReplies);
+        return await this.deleteDataFromDatabase(allReplies);
         
     }
 
     //get user data by their auth struct (e.g. if you don't grab their id directly), includes collection, limits, skips
-    async getUserDataByAuthorizationFromServer (authorizationStruct, collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) {
+    async getUserDataByAuthorizationFromDatabase (authorizationStruct, collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) {
 
         let u = authorizationStruct.authorizerId;
         if(u) {
             return new Promise(async resolve => {
-               this.getUserFromServer(u,async (data)=> {
-                    if(!collection) await this.getAllUserDataFromServer(u,['notification'],callback);
-                    else await this.getDataFromServer(collection,u,searchDict,limit,skip,callback);
+               this.getUserFromDatabase(u,async (data)=> {
+                    if(!collection) await this.getAllUserDataFromDatabase(u,['notification'],callback);
+                    else await this.getDataFromDatabase(collection,u,searchDict,limit,skip,callback);
 
                     resolve(data)
                     callback(data);
@@ -805,7 +754,7 @@ export class UserPlatform {
     }
 
     //get user data for all users in a group, includes collection, limits, skips
-    async getUserDataByAuthorizationGroupFromServer (group='', collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) {
+    async getUserDataByAuthorizationGroupFromDatabase (group='', collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) {
         let auths = this.getLocalData('authorization');
 
         let results = [];
@@ -814,11 +763,11 @@ export class UserPlatform {
                 let u = o.authorizerId;
                 if(u) {
                     let data;
-                    let user = await this.getUserFromServer(u,callback);
+                    let user = await this.getUserFromDatabase(u,callback);
                     
                     if(user) results.push(user);
-                    if(!collection) data = await this.getAllUserDataFromServer(u,['notification'],callback);
-                    else data = await this.getDataFromServer(collection,u,searchDict,limit,skip,callback);
+                    if(!collection) data = await this.getAllUserDataFromDatabase(u,['notification'],callback);
+                    else data = await this.getDataFromDatabase(collection,u,searchDict,limit,skip,callback);
                     if(data) results.push(data);
                 }
                 return true;
@@ -967,7 +916,7 @@ export class UserPlatform {
         newAuthorization.associatedAuthId = '';
         newAuthorization.ownerId = parentUser._id;
 
-        this.setAuthorizationOnServer(newAuthorization);
+        this.setAuthorizationOnDatabase(newAuthorization);
        
         return newAuthorization;
     }
@@ -994,7 +943,7 @@ export class UserPlatform {
         //this.setLocalData(newGroup);
         
         if(updateServer) {
-            this.setGroupOnServer(newGroup);
+            this.setGroupOnDatabase(newGroup);
         }
 
         return newGroup;
@@ -1150,4 +1099,61 @@ export class UserPlatform {
             return newComment;
     }
 
+
+
+    // ----------------------------- HTTP Client Port -------------------------------------
+    // // Create a Custom Route Scoped to Your ID
+    // addRoute = async (config: RouteConfig) => {        
+    //     if (this.remote){
+
+    //         config.id = this.id
+    //         this.routes.set(config.route, config)
+
+    //         return await fetch(createRoute('/addRoute', this.remote), {
+    //             method: 'POST', 
+    //             mode: 'cors', // no-cors, *cors, same-origin
+    //             headers: {
+    //                 'Content-Type': 'application/json',
+    //             },
+    //             body: safeStringify({id: this.id, data: config})
+    //         })
+    //     } else throw new Error('Remote is not specified')
+    // }
+
+    send = async (route:string, ...args:any[]) => {
+
+        if (this.remote){
+            return await fetch(createRoute(route, this.remote), {
+                method: 'POST',
+                mode: 'cors', // no-cors, *cors, same-origin
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: safeStringify({id: this.currentUser._id, message: args})
+            }).then(async (res) => {
+                const json = await res.json()
+                if (!res.ok) throw json.message
+                else return json.message
+            }).catch((err) => {
+                throw err.message
+            })
+        } else throw 'Remote is not specified'
+    }
+
+    subscribe = async (route:string, callback: Function) => {
+
+
+        // TODO: Allow subscription through WebSockets
+        if (this.remote) {
+
+            const events = new EventSource(createRoute('/events' + route, this.remote));
+            events.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                callback(data)
+            };
+
+            return events
+        } else throw 'Remote is not specified'
+
+    }
 }

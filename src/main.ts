@@ -48,25 +48,18 @@ function init(instance?:any) {
 
   let http = new api.HTTPService();
 
-  app.get("**", http.http);
-  app.post("**", http.http);
+  app.get("**", http.controller);
+  app.post("**", http.controller);
 
   // Websocket Server
   // let websocket = new api.WebsocketService(server, http.websocket)
-  let websocket = new api.WebsocketService(server, (ws:WebSocket, subprotocols: {
-    [x: string]: any
-  }) => {
-    let id = controller.addUser(ws, subprotocols); //adds a user from a socket
-    ws.send(JSON.stringify({ msg: `User added: ${id}`, id: id }));
-  });
+  let websocket = new api.WebsocketService(server);
 
-
-  let controller = new api.Controller({
-    wss: websocket.wss,
+  let controller = new api.Router({
     // debug: true,
   });
 
-  let multiplayer = new api.SessionsService(controller);
+  let sessions = new api.SessionsService(controller);
   let osc = new api.OSCService();
   let database = new api.DatabaseService(controller, {
     mode: "mongdb",
@@ -74,7 +67,7 @@ function init(instance?:any) {
   });
 
   // Functionality
-  controller.load(multiplayer)
+  controller.load(sessions)
   controller.load(database)
 
   // Networking
