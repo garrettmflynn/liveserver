@@ -3,7 +3,7 @@ import { Service } from '@brainsatplay/liveserver-common/Service';
 import { randomId } from '../../common';
 import { MessageObject, MessageType, RouteConfig } from '../../common/general.types';
 import { safeStringify } from '../../common/parse.utils';
-import { WebsocketClient } from './protocols/WebsocketClient';
+import { WebsocketClient } from '../protocols/WebsocketClient';
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 
 function createRoute (path:string, remote:string|URL) {
