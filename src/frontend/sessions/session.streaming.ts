@@ -1,94 +1,66 @@
 import StateManager from 'anotherstatemanager'
-import { SettingsObject } from 'src/common/general.types';
+import { MessageObject, SettingsObject, SubscriptionCallbackType } from 'src/common/general.types';
 import { DataStreaming } from '../datastream/data.streaming';
-import { WebsocketClient } from '../WebsocketClient';
+import { Service } from '@brainsatplay/liveserver-common/Service';
 
 //Joshua Brewster, Garrett Flynn AGPL v3.0
-export class SessionStreaming {
+export class SessionsService extends Service {
 	
-	WebsocketClient: WebsocketClient
-	socketId: string
 	user: any
 	datastream: DataStreaming
-
 	state = new StateManager();
-
-	id = '' + Math.floor(Math.random() * 10000000000); // Give the session an ID
-	
 	apps = new Map();
 	subscriptions = new Map();
+	protocols = {
+		websocket: true
+	}
 
-
-
-	constructor(WebsocketClient, userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}, socketId) {
+	constructor(userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}) {
 		
-		if(!WebsocketClient) {
-			console.error("SessionStreaming needs an active WebsocketClient");
-			return;
-		}
+		super()
 		
-		this.WebsocketClient = WebsocketClient;
-		this.socketId = socketId;
-
-		if(!socketId) {
-			if(!this.WebsocketClient.sockets[0]) {
-				this.socketId = this.WebsocketClient.addSocket(); //try to add a socket
-				if(!this.socketId) {
-					return;
-				}
-			} else this.socketId = this.WebsocketClient.sockets[0].id;
-		}
-
 		this.user = userinfo;
 		
-		this.datastream = new DataStreaming(this.WebsocketClient, userinfo, this.socketId);
+		this.datastream = new DataStreaming(userinfo);
 
-		this.WebsocketClient.addCallback('SessionStreaming',(res)=>{
-			if(res.message === 'sessionData' && res.message.id) {
-				this.state.setState(res.message.id,res.message);
-			}
+		//  Pass Datastream Values to the UserPlatform
+		this.datastream.subscribe((o) => {
+			this.notify(o)
 		})
-
+		
+		// Add Routes to Listen For
+		this.routes.push({
+			route: 'sessionData',
+			callback: (o: MessageObject)=>{
+				if(o.message?.id) {
+					this.state.setState(o.message.id,o.message);
+				}
+			},
+		})
 	}
 
 	async getUser(userId,callback=(result)=>{}) {
-		return await this.WebsocketClient.run(
-			'getUserStreamData',
-			[userId],
-			this.id,
-			this.socketId,
-			callback
-		);	
+		let res = await this.notify({route: 'getUserStreamData', message: [userId]})
+		callback(res)
+		return res
 	}
 
 	async getUsersInSession(sessionId,callback=(result)=>{}) {
-		return await this.WebsocketClient.run(
-			'getSessionUsers',
-			[sessionId],
-			this.id,
-			this.socketId,
-			callback
-		);
+		let res = await this.notify({route: 'getSessionUsers', message: [sessionId]})
+		callback(res)
+		return res
 	}
 
 	async getSessionsFromServer(appname,callback=(result)=>{}) {
-		return await this.WebsocketClient.run(
-			'getSessions',
-			[appname],
-			this.id,
-			this.socketId,
-			callback
-		);
+		let res = await this.notify({route: 'getSessions', message: [appname]})
+		callback(res)
+		return res
 	}
 
 	async getSessionData(sessionId,callback=(result)=>{}) {
-		return await this.WebsocketClient.run(
-			'getSessionData',
-			[sessionId],
-			this.id,
-			this.socketId,
-			callback
-		);
+		let res = await this.notify({route: 'getSessionData', message: [sessionId]})
+		callback(res)
+		return res
 	}
 
 	//create and subscribe to a live data session
@@ -130,18 +102,14 @@ export class SessionStreaming {
 		}
 
 		if(options.type === 'room' || options.type === 'hostedroom') {
-			let info = await this.WebsocketClient.run(
-				'createSession',
-				[
-					options.appname,
-					options.type,
-					sessionSettings
-				],
-				this.id,
-				this.socketId,
-				callback
-			)
-			if(info.message?.id) 
+			let info = await this.notify({route: 'createSession', message: [
+				options.appname,
+				options.type,
+				sessionSettings
+			]})
+			callback(info)
+
+			if(info?.message?.id) 
 			{	
 				this.state.setState(info.message.id,info.message);
 				if(typeof onupdate === 'function') this.state.subscribeTrigger(info.message.id, onupdate);
@@ -168,16 +136,12 @@ export class SessionStreaming {
 		onupdate=undefined,  //per-update responses e.g. sequential data operations
 		onframe=undefined //frame tick responses e.g. frontend updates
 	) {
-		let info = await this.WebsocketClient.run( //subscribes you to a user stream by their id
-			'subscribeToUser',
-			[
-				userId,
-				propnames
-			],
-			this.id,
-			this.socketId,
-			callback
-		)
+
+		let info = await this.notify({route: 'subscribeToUser', message: [
+			userId,
+			propnames
+		]})
+		callback(info)
 		if(info.message?.id) 
 		{	
 			this.state.setState(info.message.id,info.message);
@@ -196,13 +160,9 @@ export class SessionStreaming {
 		onframe=undefined, //frame tick responses e.g. frontend updates
 		
 	) {
-		let info = await this.WebsocketClient.run(
-			'subscribeToSession',
-			[sessionId],
-			this.id,
-			this.socketId,
-			callback
-		)
+		let info = await this.notify({route: 'subscribeToSession', message: [sessionId]})
+		callback(info)
+	
 		if(info.message?.id) 
 		{	
 
@@ -231,19 +191,13 @@ export class SessionStreaming {
 		return info;
 	}
 
-	async unsubscribe( //can kick yourself or another user from a session
+	async unsubscribeFromSession( //can kick yourself or another user from a session
 		sessionId, //session id to unsubscribe from
 		userId=this.user._id, //user id to unsubscribe from session (yours by default)
 		callback=(result)=>{}
 	) {
-		let result = await this.WebsocketClient.run(
-			'unsubscribeFromSession',
-			[userId, sessionId],
-			this.id,
-			this.socketId,
-			callback
-		);
-
+		let result = await this.notify({route: 'unsubscribeFromSession', message: [userId, sessionId]})
+		callback(result)
 		if(result.message) {
 			this.state.unsubscribeAll(sessionId);
 		}
@@ -251,7 +205,7 @@ export class SessionStreaming {
 	}
 
 	//alias
-	kick = this.unsubscribe
+	kick = this.unsubscribeFromSession
 
 	//set values in a session, careful not to overwrite important stuff
 	async setSessionSettings(
@@ -259,34 +213,25 @@ export class SessionStreaming {
 		settings={}, //e.g. {propnames:['abc']}
 		callback=(result)=>{}
 	) {
-		return await this.WebsocketClient.run(
-			'setSessionSettings',
-			[sessionId, settings],
-			this.id,
-			this.socketId,
-			callback
-		);
+		let res = await this.notify({route: 'setSessionSettings', message: [sessionId, settings]})
+		callback(res)
+		return res
 	}
 
 	//delete a user or room session
 	async deleteSession(
 		sessionId, 
-		callback=(result)=>{}
+		callback=(res)=>{}
 	) {
 		if(!sessionId) return undefined;
-		let result = await this.WebsocketClient.run(
-			'deleteSession',
-			[sessionId],
-			this.id,
-			this.socketId,
-			callback
-		);
+		let res = await this.notify({route: 'deleteSession', message: [sessionId]})
+		callback(res)
 
-		if(result.message) {
+		if(res.message) {
 			this.state.unsubscribeAll(sessionId);
 		}
 
-		return result;
+		return res;
 	}
 
 	async makeHost( 
@@ -295,14 +240,9 @@ export class SessionStreaming {
 		callback=(result)=>{}
 	) {
 		if(!userId || !sessionId) return undefined;
-		return await this.WebsocketClient.run(
-			'makeHost',
-			[userId, sessionId],
-			this.id,
-			this.socketId,
-			callback
-		);
-		
+		let res = await this.notify({route: 'makeHost', message: [userId, sessionId]})
+		callback(res)
+		return res
 	}
 
 	//admins can make mods or kick and ban, only owners can make admins
@@ -312,13 +252,9 @@ export class SessionStreaming {
 		callback=(result)=>{}
 	) {
 		if(!userId || !sessionId) return undefined;
-		return await this.WebsocketClient.run(
-			'makeAdmin',
-			[userId, sessionId],
-			this.id,
-			this.socketId,
-			callback
-		);
+		let res = await this.notify({route: 'makeAdmin', message: [userId, sessionId]})
+		callback(res)
+		return res
 	}
 
 	//mods can kick and ban or make more mods
@@ -328,13 +264,9 @@ export class SessionStreaming {
 		callback=(result)=>{}
 	) {
 		if(!userId || !sessionId) return undefined;
-		return await this.WebsocketClient.run(
-			'makeModerator',
-			[userId, sessionId],
-			this.id,
-			this.socketId,
-			callback
-		);
+		let res = await this.notify({route: 'makeModerator', message: [userId, sessionId]})
+		callback(res)
+		return res
 	}
 
 	async makeOwner( 
@@ -343,13 +275,9 @@ export class SessionStreaming {
 		callback=(result)=>{}
 	) {
 		if(!userId || !sessionId) return undefined;
-		return await this.WebsocketClient.run(
-			'makeOwner',
-			[userId, sessionId],
-			this.id,
-			this.socketId,
-			callback
-		);
+		let res = await this.notify({route: 'makeOwner', message: [userId, sessionId]})
+		callback(res)
+		return res
 	}
 
 	async removeAdmin( 
@@ -358,13 +286,9 @@ export class SessionStreaming {
 		callback=(result)=>{}
 	) {
 		if(!userId || !sessionId) return undefined;
-		return await this.WebsocketClient.run(
-			'removeAdmin',
-			[userId, sessionId],
-			this.id,
-			this.socketId,
-			callback
-		);
+		let res = await this.notify({route: 'removeAdmin', message: [userId, sessionId]})
+		callback(res)
+		return res
 	}
 
 	async removeModerator( 
@@ -373,13 +297,9 @@ export class SessionStreaming {
 		callback=(result)=>{}
 	) {
 		if(!userId || !sessionId) return undefined;
-		return await this.WebsocketClient.run(
-			'removeModerator',
-			[userId, sessionId],
-			this.id,
-			this.socketId,
-			callback
-		);
+		let res = await this.notify({route: 'removeModerator', message: [userId, sessionId]})
+		callback(res)
+		return res
 	}	
 
 	//user will not be able to rejoin
@@ -389,13 +309,9 @@ export class SessionStreaming {
 		callback=(result)=>{}
 	) {
 		if(!userId || !sessionId) return undefined;
-		return await this.WebsocketClient.run(
-			'banUser',
-			[userId, sessionId],
-			this.id,
-			this.socketId,
-			callback
-		);
+		let res = await this.notify({route: 'banUser', message: [userId, sessionId]})
+		callback(res)
+		return res
 	}
 
 	async unbanUser( 
@@ -404,13 +320,9 @@ export class SessionStreaming {
 		callback=(result)=>{}
 	) {
 		if(!userId || !sessionId) return undefined;
-		return await this.WebsocketClient.run(
-			'unbanUser',
-			[userId, sessionId],
-			this.id,
-			this.socketId,
-			callback
-		);
+		let res = await this.notify({route: 'unbanUser', message: [userId, sessionId]})
+		callback(res)
+		return res
 	}
 	
 	//manual stream updates if the server isn't looping automatically, ignore otherwise
@@ -419,13 +331,9 @@ export class SessionStreaming {
 		callback=(result)=>{}
 	) {
 		if(!sessionId) return undefined;
-		return await this.WebsocketClient.run(
-			'updateUserStream',
-			[sessionId],
-			this.id,
-			this.socketId,
-			callback
-		);
+		let res = await this.notify({route: 'updateUserStream', message: [sessionId]})
+		callback(res)
+		return res
 	}
 		
 	async updateSessionUsers( 
@@ -433,12 +341,8 @@ export class SessionStreaming {
 		callback=(result)=>{}
 	) {
 		if(!sessionId) return undefined;
-		return await this.WebsocketClient.run(
-			'updateSessionUsers',
-			[sessionId],
-			this.id,
-			this.socketId,
-			callback
-		);
+		let res = await this.notify({route: 'updateSessionUsers', message: [sessionId]})
+		callback(res)
+		return res
 	}
 }

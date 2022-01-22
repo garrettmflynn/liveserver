@@ -47,6 +47,8 @@ mongoose
 function init(instance?:any) {
 
   let http = new api.HTTPService();
+  let events = new api.EventsService();
+  http.eventPath = events.name // set path
 
   app.get("**", http.controller);
   app.post("**", http.controller);
@@ -74,4 +76,6 @@ function init(instance?:any) {
   controller.load(osc)
   controller.load(websocket)
   controller.load(http)
+  controller.load(events)
+
 }

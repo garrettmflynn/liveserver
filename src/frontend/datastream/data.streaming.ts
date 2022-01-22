@@ -1,14 +1,11 @@
 //Allows you to stream outgoing data asynchronously with automatic buffering settings.
 
+import { Service } from "@brainsatplay/liveserver-common/Service";
 import { UserObject } from "src/common/general.types";
-import { WebsocketClient } from "../WebsocketClient"
 
 //This hooks in with functions on the session.service tool for creating two way sessions.
-export class DataStreaming {
+export class DataStreaming extends Service {
 
-	WebsocketClient?: WebsocketClient
-	socketId: string
-	socket: WebSocket
 	user: Partial<UserObject>;
 	LOOPING = true;ss
 	delay = 50; //ms update throttle
@@ -19,26 +16,8 @@ export class DataStreaming {
 	STREAMLATEST = 0;
 	STREAMALLLATEST = 1;
 
-	constructor(WebsocketClient, userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}, socketId) {
-
-		if(!WebsocketClient) {
-			console.error("UserPlatform needs an active WebsocketClient");
-			return;
-		}
-		
-		this.WebsocketClient = WebsocketClient;
-		this.socketId = socketId;
-
-		if(!socketId) {
-			if(!this.WebsocketClient.sockets[0]) {
-				this.socketId = this.WebsocketClient.addSocket(); //try to add a socket
-				if(!this.socketId) {
-					return;
-				}
-			} else this.socketId = this.WebsocketClient.sockets[0].id;
-		}
-
-        this.socket = this.WebsocketClient.getSocket(this.socketId);
+	constructor(userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}) {
+		super()
 
 		this.user = userinfo;
 
@@ -233,7 +212,7 @@ export class DataStreaming {
 	streamLoop() {
 		if(this.LOOPING) {
 			let updateObj = {
-				cmd:'updateUserStreamData',
+				route:'/sessions/updateUserStreamData',
 				id:this.user._id,
 				message:{}
 			};
@@ -250,8 +229,7 @@ export class DataStreaming {
 				});
 			}
 
-			if(Object.keys(updateObj.message).length > 0)	
-				this.socket.send(JSON.stringify(updateObj));
+			this.notify(updateObj) // Notify SessionService
 			
 			setTimeout(()=>{this.streamLoop()},this.delay);
 		}

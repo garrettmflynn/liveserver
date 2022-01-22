@@ -5,7 +5,7 @@ import { ObjectId } from "mongodb"
 import { Router } from "..";
 import { RouteConfig, UserObject } from 'src/common/general.types';
 import { randomId } from "src/common";
-import { Service } from "../Service";
+import { Service } from "@brainsatplay/liveserver-common/Service";
 
 export class DatabaseService extends Service{
     

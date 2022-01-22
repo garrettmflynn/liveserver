@@ -1,46 +1,45 @@
 import StateManager from 'anotherstatemanager'
-import { WebsocketClient } from "../WebsocketClient";
+import { Service } from '@brainsatplay/liveserver-common/Service';
+import { MessageObject } from 'src/common/general.types';
 
 //OSC stream frontend calls
-export class WebsocketOSCStreaming {
+export class OSCService extends Service{
 
-			
-	WebsocketClient: WebsocketClient;
-	socketId: string;
-
+	name = 'osc'
 	state = new StateManager();
-	id = '' + Math.floor(Math.random() * 10000000000); // Give the session an ID
 
-	constructor(WebsocketClient, socketId) {
-		if(!WebsocketClient) {
-			console.error("SessionStreaming needs an active WebsocketClient");
-			return;
-		}
-		
-		this.WebsocketClient = WebsocketClient;
-		this.socketId = socketId;
-
-		if(!socketId) {
-			if(!this.WebsocketClient.sockets[0]) {
-				this.socketId = this.WebsocketClient.addSocket(); //try to add a socket
-				if(!this.socketId) {
-					return;
+	// Responses to Monitor
+	routes = [
+			{
+				route: 'oscData',
+				callback: (message:any) => {
+					this.state.setState(message.address+'_'+message.port, message.oscData); //update state
 				}
-			} else this.socketId = this.WebsocketClient.sockets[0].id;
-		}
-		
-		this.WebsocketClient.addCallback('OSCStreaming',(result) => {
-			if(result.oscData){
-				this.state.setState(result.address+'_'+result.port, result.oscData); //update state
+			},
+			{
+				route: 'oscInfo',
+				callback: (message:any) => {
+					this.state.setState('oscInfo', message); //update state
+				}
+			},
+			{
+				route: 'oscClosed',
+				callback: (message:any) => {
+					this.state.setState('oscClosed', message); //update state
+				}
+			},
+			{
+				route: 'oscError',
+				callback: (message:any) => {
+					this.state.setState('oscError', message); //update state
+				}
 			}
-			if(result.oscError){
-				this.state.setState('oscError', result.oscError); //update state
-			}
-			if(result.oscInfo){
-				this.state.setState('oscInfo', result.oscInfo); //update state
-			}
-		})
-		
+		]
+
+	constructor() {
+
+		super()
+
 	}
 
 	async startOSC(
@@ -54,14 +53,8 @@ export class WebsocketOSCStreaming {
 	) {
 		if (!remoteAddress) remoteAddress = localAddress
 		if (!remotePort) remotePort = localPort
-
-		let info = await this.WebsocketClient.run(
-			'startOSC',
-			[localAddress, localPort, remoteAddress, remotePort],
-			this.id,
-			this.socketId,
-			callback
-		);
+		let info = await this.notify({route: 'startOSC', message: [localAddress, localPort, remoteAddress, remotePort]})
+		callback(info)
 
 		if(info.message === true) {
 			if(typeof onupdate === 'function') this.state.subscribeTrigger(remoteAddress+'_'+remotePort,onupdate);
@@ -80,15 +73,7 @@ export class WebsocketOSCStreaming {
 		if(!remoteAddress) remoteAddress = localAddress;
 		if(!remotePort) remotePort = localPort;
 		
-		await this.WebsocketClient.run(
-			'sendOSC',
-			[message, localAddress, localPort, remoteAddress, remotePort],
-			this.id,
-			this.socketId,
-			// callback
-		);
-
-		return true;
+		return await this.notify({route: 'sendOSC', message: [message, localAddress, localPort, remoteAddress, remotePort]})
 	}
 
 	async stopOSC(
@@ -101,14 +86,8 @@ export class WebsocketOSCStreaming {
 		if(!remoteAddress) remoteAddress = localAddress;
 		if(!remotePort) remotePort = localPort;
 		
-		let info = await this.WebsocketClient.run(
-			'stopOSC',
-			[localAddress, localPort, remoteAddress, remotePort],
-			this.id,
-			this.socketId,
-			// callback
-		);
-
+		let info = await this.notify({route: 'stopOSC', message: [localAddress, localPort, remoteAddress, remotePort]})
+		
 		if(info.message) {
 			this.state.unsubscribeAll(remoteAddress+'_'+remotePort);
 		}

@@ -8,19 +8,15 @@ export default function AllExample({server, platform}) {
     const output = useRef(null);
 
     let vals = {
-      '/add': 0
-    }
-
-    let customRoute = {
-      route: '/add',
-      callback: (a, b=1) => a + b
+      'add': 0
     }
 
     useEffect(async () => {
 
       // http.addRoute(customRoute)
-      buttons.current.innerHTML = ''
-      platform.send('list').then((data) => {
+      platform.subscribe('routes', (data) => {
+
+        buttons.current.innerHTML = ''
 
         if (!Array.isArray(data)) data = [data]
         data.forEach(o => {
@@ -32,9 +28,9 @@ export default function AllExample({server, platform}) {
           buttons.current.insertAdjacentElement('beforeend', button)
           button.onclick = ( ) => {
             let args = []
-            if (o.route === '/list') buttons.current.innerHTML = ''
-            if (o.route === '/unsafe/addfunc') args = [customRoute]
-            else if (vals[o.route] != null) args = [vals[o.route]]
+            if (o.route === 'routes') buttons.current.innerHTML = ''
+            if (o.route === 'unsafe/addfunc') args = ['add', (_, [a, b=1]) => a + b]
+            else if (o.route === 'add') args = [vals['add']]
 
             platform.send(o.route, ...args).then(res => {
               if (!res?.error) output.current.innerHTML = JSON.stringify(vals[o.route] = res)

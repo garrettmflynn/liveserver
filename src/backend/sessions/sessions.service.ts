@@ -1,6 +1,6 @@
 import { RouteConfig, SettingsObject, UserObject } from "src/common/general.types";
 import { DONOTSEND } from "../Router";
-import { Service } from "../Service";
+import { Service } from "src/common/Service";
 
 //TODO: one-off data calls based on session configs
 //      reimplement callbacks

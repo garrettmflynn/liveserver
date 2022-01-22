@@ -1,6 +1,6 @@
 // Joshua Brewster, Garrett Flynn, AGPL v3.0
 import { WebSocketServer } from 'ws'
-import { Service } from '../Service';
+import { Service } from '@brainsatplay/liveserver-common/Service';
 import { randomId } from '../../common';
 
 // Create WS Server Instance

@@ -2,7 +2,7 @@ import React from 'react';
 import Layout from '@theme/Layout';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import ExampleSelector from './selector';
-import { UserPlatform } from '../../../../src/frontend';
+import { OSCService, SessionsService, UserPlatform } from '../../../../src/frontend';
 
 const SERVER_URI = (window.location.href.includes('localhost')) ? 'http://localhost:80' : 'http://localhost:80' // Replace with production server URI
 const platform = new UserPlatform({
@@ -13,6 +13,13 @@ const platform = new UserPlatform({
   lastName:'boyo',
   test: ['what']
 });
+
+let services = [new SessionsService(), new OSCService()]
+services.forEach(service => {
+  platform.connect(service).then(() => {
+    console.log('Service connected!', service)
+  })
+})
 
 platform.setRemote(SERVER_URI)
 

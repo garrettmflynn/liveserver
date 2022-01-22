@@ -11,7 +11,7 @@ function createURL (path:string, remote:string|URL) {
     return href
 }
 
-class HTTPClient {
+class HTTPService {
 
     routes: Map<string, RouteConfig> = new Map()
     remote?: URL
@@ -97,8 +97,8 @@ class HTTPClient {
 }
 
 
-let http = new HTTPClient()
+let http = new HTTPService()
 
 // Export Instantiated Session
-export {http, HTTPClient}
+export {http, HTTPService}
 export default http

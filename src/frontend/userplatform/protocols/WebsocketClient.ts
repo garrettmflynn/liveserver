@@ -2,12 +2,11 @@
 //import { streamUtils } from "./streamSession";
 
 import {Events, randomId} from '@brainsatplay/liveserver-common'
-import { MessageObject } from 'src/common/general.types';
+import { MessageObject, UserObject } from 'src/common/general.types';
 
 export class WebsocketClient {
 
-    url: URL;
-    subprotocols
+    subprotocols?: Partial<UserObject>
     connected = false;
     sendQueue = [];
     streamUtils
@@ -27,16 +26,13 @@ export class WebsocketClient {
 
 
     constructor(
-        socketUrl:URL|string='https://localhost:80', 
         subprotocols={_id:`user${Math.floor(Math.random() * 10000000000)}`},
-        defaultSocket = true
+        url?:URL|string
     ) {
-
-        if (!(socketUrl instanceof URL)) this.url = new URL(socketUrl);
 
         this.subprotocols = subprotocols;
         
-        if(this.url && defaultSocket) this.addSocket(this.url, subprotocols)
+        if(url) this.addSocket(url, subprotocols)
     }
 
     //creates a url to be posted to the socket backend for parsing, mainly user info
@@ -53,8 +49,10 @@ export class WebsocketClient {
 
     }
 
-    addSocket(url=this.url, subprotocolObject=this.subprotocols) {
+    addSocket(url:string|URL=new URL('https://localhost:80'), subprotocolObject=this.subprotocols) {
         let socket;
+
+        if (!(url instanceof URL)) url = new URL(url)
         try {
             if (url.protocol === 'http:') {
             
@@ -173,8 +171,7 @@ export class WebsocketClient {
             // message = JSON.stringifyWithCircularRefs(message)
 
             if(!socket) return;
-            let toSend = () => socket.send(message, resolver);
-            message = JSON.stringify(message);
+            let toSend = () => socket.send(JSON.stringify(message), resolver);
             if (socket.readyState === socket.OPEN) toSend();
             else this.sendQueue.push(toSend);
         });

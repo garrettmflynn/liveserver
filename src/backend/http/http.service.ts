@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { ClientObject, MessageObject, RouteConfig } from "@brainsatplay/liveserver-common/general.types";
 import { safeParse } from "@brainsatplay/liveserver-common/parse.utils";
-import { Service } from "../Service";
+import { Service } from "@brainsatplay/liveserver-common/Service";
 import { randomId } from "src/common";
 
 // var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
@@ -18,13 +18,7 @@ export class HTTPService extends Service {
 
     name = 'http'
     id: string = randomId('http')
-    clients: {
-        [x: string]: ClientObject
-    } = {}
-
-    sse: {
-        [x: string]: Map<string, Function>
-    } = {}
+    eventPath = 'events'
 
     constructor() {
         super()
@@ -43,13 +37,16 @@ export class HTTPService extends Service {
         let route = request.originalUrl.replace(path, '')
         if (route[0] === '/') route = route.slice(1) // Remove leading slash from routes
 
-        let toMatch = 'events'
+        let toMatch = this.eventPath
         if (route.slice(0,toMatch.length) == toMatch){
             // Extract Subscription Endpoint (no join required)
             if (route.slice(0,toMatch.length) == toMatch){
 
                 route = route.slice(toMatch.length) // get subscription path
-                this.registerEvent(route, request, response)
+                this.notify({
+                    route: `${this.eventPath}/${route}`,
+                    message: [route, request, response]
+                })
             } 
         } else {
             let res = await this.handleRoute(route, request.body, Object.keys(request.route.methods).find(k => request.route.methods[k]))
@@ -68,40 +65,6 @@ export class HTTPService extends Service {
         // let client = this.clients[info.id] // reference for scoped custom functions
         let res = await this.notify(info as MessageObject)
         return res
-    }
-
-    registerEvent = async (route:string, request: Request, response: Response) => {
-        
-            const headers = {
-                'Content-Type': 'text/event-stream',
-                'Connection': 'keep-alive',
-                'Cache-Control': 'no-cache'
-              };
-        
-              response.writeHead(200, headers);
-                        
-              let callback = (data:any) => {
-                response.write(`message: ${JSON.stringify(data)}\n\n`);
-              }
-
-            this.notify({
-                message: {
-                    callback,
-                    cmd: 'subscribe'
-                },
-                route,
-            }, "subscription")
-
-            //   send(await this.run(route))
-            request.on('close', () => {
-                this.notify({
-                    message: {
-                        cmd: 'unsubscribe'
-                    },
-                    route,
-                }, "subscription")
-            });
-
     }
 }
 

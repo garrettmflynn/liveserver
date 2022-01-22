@@ -1,7 +1,7 @@
 import osc from "osc"
 import { RouteConfig } from "src/common/general.types"
 import { DONOTSEND } from "../Router";
-import { Service } from "../Service";
+import { Service } from "@brainsatplay/liveserver-common/Service";
 
 // Garrett Flynn, AGPL v3.0
 // TODO: Break OSC into another network protocol ( totally untested )
@@ -17,8 +17,9 @@ export class OSCService extends Service {
         this.routes = [
             { 
                 route:'startOSC',
-                callback:(self,args) => {
-                  if(this.add(args[0],args[1],args[2],args[3])) return true;
+                callback: async (self,args) => {
+                    const res = await this.add(args[0],args[1],args[2],args[3])
+                    return res
                 }
               },
               { 
@@ -89,35 +90,40 @@ export class OSCService extends Service {
         return bundle;
     }
 
-    add(localAddress="127.0.0.1",localPort=57121, remoteAddress=localAddress, remotePort=localPort) {
+    async add(localAddress="127.0.0.1",localPort=57121, remoteAddress=localAddress, remotePort=localPort) {
 
-        let port = new osc.UDPPort({
-            localAddress,
-            localPort,
-            remoteAddress,
-            remotePort
-        });
+        return new Promise(resolve => {
+        if (typeof localAddress === 'string' && typeof remoteAddress === 'string'){
+            let port = new osc.UDPPort({
+                localAddress,
+                localPort,
+                remoteAddress,
+                remotePort
+            });
 
-        port.on("ready", () => {
-            this.ports.push(port)
-            // this.socket.send(JSON.stringify({message:'oscInfo', oscInfo: this.info()}))
-        });
+            port.on("ready", () => {
+                this.ports.push(port)
+                resolve({route: 'oscInfo', message: port.options})
+            });
 
-        port.on("error", (error) => {
-            // if (error.code === 'EADDRINUSE') {this.socket.send(JSON.stringify({message:'oscInfo', oscInfo: this.info()}))}
-            // else this.socket.send(JSON.stringify({message:'oscError', oscError: error.message}))
-        });
+            port.on("error", (error) => {
+                resolve({route: 'oscError', message:  error.message})
+                this.notify({route: 'oscError', message: error.message}, true)
+                // if (error.code === 'EADDRINUSE') {this.socket.send(JSON.stringify({message:'oscInfo', oscInfo: this.info()}))}
+                // else this.socket.send(JSON.stringify({message:'oscError', oscError: error.message}))
+            });
 
-        port.on("message", (o) => {
-            this.notify(o)
-            // this.socket.send(JSON.stringify({message:'oscData', oscData: oscMsg, address:remoteAddress, port:remotePort}));
-        });
+            port.on("message", (o) => {
+                this.notify({route: 'oscData', message: o}, true)
+            });
 
-        port.on("close", (message) => {})
-        
-        port.open();
-
-        return true;
+            port.on("close", (message) => {
+                this.notify({route: 'oscClosed', message}, true)
+            })
+            
+            port.open();
+        }
+    })
     }
 
     remove(localAddress?, localPort?, remoteAddress?, remotePort?) {
