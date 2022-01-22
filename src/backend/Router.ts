@@ -5,15 +5,20 @@ import { UnsafeService } from './unsafe';
 
 export const DONOTSEND = 'DONOTSEND';
 
+
+// */ Router 
+// A class for handling arbitrary commands (loaded from custom services)
+// through networking protocols including HTTP, Websockets, OSC, and others.
+//
 // --------------- Route Structure ------------------
-// */
+// **/
 //  Default routes supplied by the Router.routes attribute
 //
 // */[service]
 //  Additional core routes specified by services loaded into the session
 //
 // */[client_id]
-//  Custom routes specified by clients
+//  Custom routes specified by clients (to implement...)
 //
 
 class Router {
@@ -180,8 +185,8 @@ class Router {
           route:'login',
           aliases:['addUser', 'startSession'],
           callback: async (self, args, origin) => {
-            let res = await self.addUser(args)
-            return { message: `User added: ${origin}`, id: origin }
+            let id = await self.addUser(...args)
+            return { message: `User added: ${id}`, id }
           }
         },
         {
@@ -190,7 +195,7 @@ class Router {
           callback:(self,args,origin) => {
             let user = self.USERS.get(origin)
               if (!user) return false
-            if(args[0]) self.removeUser(args[0])
+            if(args[0]) self.removeUser(...args)
             else self.removeUser(user);
           }
         },
@@ -272,11 +277,24 @@ class Router {
       }
   }
 
-  //h Track Users Connected to the LiveServer
+  // Track Users Connected to the LiveServer
   addUser(userinfo:Partial<UserObject>={}) {
+
+    // Grab Proper Id
     let id = randomId('user');
-      
-    let newuser: UserObject = {
+    if(userinfo.id) {
+      userinfo._id = userinfo.id;
+      id = userinfo.id;
+    }
+    else if (userinfo._id) {
+      userinfo.id = userinfo._id;
+      id = userinfo._id;
+    }
+
+    // Get Current User if Exists
+    const u = this.USERS.get(id);
+    
+    let newuser: UserObject = u ?? {
       id:id, 
       _id:id, //second reference (for mongodb parity)
       username:id,
@@ -292,15 +310,6 @@ class Router {
     } ;
 
     Object.assign(newuser,userinfo); //assign any supplied info
-
-    if(userinfo.id) {
-      userinfo._id = userinfo.id;
-      id = userinfo.id;
-    }
-    else if (userinfo._id) {
-      userinfo.id = userinfo._id;
-      id = userinfo._id;
-    }
 
     if(this.DEBUG) console.log('Adding User, Id:', id);
 

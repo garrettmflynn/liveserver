@@ -2,6 +2,7 @@
 import { WebSocketServer } from 'ws'
 import { Service } from '@brainsatplay/liveserver-common/Service';
 import { randomId } from '../../common';
+import { safeParse } from '@brainsatplay/liveserver-common/parse.utils';
 
 // Create WS Server Instance
 export class WebsocketService extends Service{
@@ -36,7 +37,7 @@ export class WebsocketService extends Service{
         // Connect Websocket
         this.wss.on('connection',  async (ws, req) => {
 
-          const subprotocols = {}
+          const subprotocols:{[x:string]: any} = {}
           let subArr = decodeURIComponent(ws.protocol).split(';')
           subArr.forEach((str) => {
             let subSplit = str.split('/')
@@ -56,7 +57,7 @@ export class WebsocketService extends Service{
 
           })
 
-            // ws.id = subprotocols.id[0] ?? `user${Math.floor(Math.random() * 10000000000)}`;
+            // const id = subprotocols.id ?? randomId('user')
 
             // subprotocols should look like:
             /*
@@ -65,21 +66,18 @@ export class WebsocketService extends Service{
                 username:'agentsmith' //ideally a unique username
               }
             */
-
-            const id = randomId('websocket')
-            ws.on('open', () => {
-              this.notify({route: 'addUser', message: Object.assign(subprotocols, {socket: ws})}); // TODO: Ensure users actually added to the session
-            })
+            const msg = await this.notify({route: 'addUser', message: [Object.assign(subprotocols, {socket: ws})]}); // TODO: Ensure users actually added to the session
 
             ws.on('message', (json="") => {
+              
               let parsed = JSON.parse(json);
               if(Array.isArray(parsed)) { //push arrays of requests instead of single objects (more optimal potentially, though fat requests can lock up servers)
                   parsed.forEach((obj) => {
-                    obj.id = id
+                    if (!obj.id) obj.id = msg.id
                     this.process(ws, obj);
                   })
               } else {
-                parsed.id = id
+                if (!parsed.id) parsed.id = msg.id
                 this.process(ws, parsed)
               }
           });
@@ -87,7 +85,7 @@ export class WebsocketService extends Service{
           ws.on('close', (s) => {
               // console.log('session closed: ', id);
               // this.removeUser(id);
-              this.notify({route: 'removeUser', message: [id]}); // TODO: Ensure users actually leave the session
+              this.notify({route: 'removeUser', message: [msg.id]}); // TODO: Ensure users actually leave the session
           });
 
             // console.log('user session started: ', message);
@@ -116,7 +114,8 @@ export class WebsocketService extends Service{
     process = async (ws, o) => {
       // console.log(o)
       this.defaultCallback(ws, o)
-      let res = this.notify(o);
+      let res = await this.notify(o);
+      res.callbackId = o.callbackId
       if (res instanceof Error) ws.send(JSON.stringify(res, Object.getOwnPropertyNames(res))) 
       else if (res != null) ws.send(JSON.stringify(res)) // send back  
     }

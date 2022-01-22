@@ -4,7 +4,7 @@
 import {Events, randomId} from '@brainsatplay/liveserver-common'
 import { MessageObject, UserObject } from 'src/common/general.types';
 import { Service } from '@brainsatplay/liveserver-common/Service';
-
+import { safeStringify } from  '@brainsatplay/liveserver-common/parse.utils';
 export class WebsocketClient extends Service {
 
     name = 'websocket'
@@ -167,6 +167,7 @@ export class WebsocketClient extends Service {
             }
 
             const callbackId = ''+Math.random();//randomId()
+            console.log(message)
             if (typeof message === 'object'){
                 if (Array.isArray(message)) message.splice(1, 0, callbackId); // add callbackId before arguments
                 else message.callbackId = callbackId; // add callbackId key
@@ -184,7 +185,9 @@ export class WebsocketClient extends Service {
             // message = JSON.stringifyWithCircularRefs(message)
 
             if(!socket) return;
-            let toSend = () => socket.send(JSON.stringify(message), resolver);
+
+            console.log('SEMDONMG', message)
+            let toSend = () => socket.send(safeStringify(message), resolver);
             if (socket.readyState === socket.OPEN) toSend();
             else this.sendQueue.push(toSend);
         });
@@ -204,10 +207,13 @@ export class WebsocketClient extends Service {
             else if (typeof foo === 'function') foo(res);
         });
 
-        if (res.callbackId) {
-            this.functionQueue[res.callbackId](res.message) // Run callback
-            delete this.functionQueue[res.callbackId];
-        } else this.defaultCallback(res.message);
+        console.log('Client res', res)
+        const callbackId = res.callbackId
+        if (callbackId) {
+            delete res.callbackId
+            this.functionQueue[callbackId](res) // Run callback
+            delete this.functionQueue[callbackId];
+        } else this.defaultCallback(res);
 
         // State.data.serverResult = res;
 

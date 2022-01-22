@@ -14,8 +14,10 @@ export default function AllExample({server, platform}) {
     useEffect(async () => {
 
       // http.addRoute(customRoute)
-      platform.subscribe('routes', (data) => {
+      platform.subscribe((o) => {
 
+        const data = o.message
+        if (o.route === 'routes'){
         buttons.current.innerHTML = ''
 
         if (!Array.isArray(data)) data = [data]
@@ -32,18 +34,36 @@ export default function AllExample({server, platform}) {
             if (o.route === 'unsafe/addfunc') args = ['add', (_, [a, b=1]) => a + b]
             else if (o.route === 'add') args = [vals['add']]
 
-            platform.send(o.route, ...args).then(res => {
-              if (!res?.error) output.current.innerHTML = JSON.stringify(vals[o.route] = res)
-              else output.current.innerHTML = res.error
-      
-            }).catch(err => {
-              output.current.innerHTML = err.error
-            })
+            // Sending Over HTTP Response
+            send(o.route, ...args)
           }
         })
+      } else {
+        
+        // Subscription Responses
+        console.log('Fromm Sub', data)
+        if (!data?.error) output.current.innerHTML = JSON.stringify(vals[o.route] = data)
+        else output.current.innerHTML = data.error
 
+      }
+      }, {protocol: 'http', routes: ['routes']}).then(async res => {
+        let routes =  await send('routes') // Get routes
+        console.log('Initialization', routes)
       })
     });
+
+    async function send(route, ...args){
+
+      return await platform.send(route, ...args).then(res => {
+
+        if (!res?.error) output.current.innerHTML = JSON.stringify(vals[o.route] = res)
+        else output.current.innerHTML = res.error
+
+      }).catch(err => {
+        output.current.innerHTML = err.error
+      })
+
+    }
   
     return (
       <header className={clsx('hero hero--primary')}>

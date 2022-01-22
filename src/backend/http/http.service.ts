@@ -3,6 +3,7 @@ import { ClientObject, MessageObject, RouteConfig } from "@brainsatplay/liveserv
 import { safeParse } from "@brainsatplay/liveserver-common/parse.utils";
 import { Service } from "@brainsatplay/liveserver-common/Service";
 import { randomId } from "src/common";
+import EventsService from "./events.service";
 
 // var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
 // var ARGUMENT_NAMES = /([^\s,]+)/g;
@@ -18,7 +19,8 @@ export class HTTPService extends Service {
 
     name = 'http'
     id: string = randomId('http')
-    eventPath = 'events'
+    eventService = new EventsService()
+    subscriptionHandler = this.eventService.subscriptionHandler
 
     constructor() {
         super()
@@ -37,33 +39,32 @@ export class HTTPService extends Service {
         let route = request.originalUrl.replace(path, '')
         if (route[0] === '/') route = route.slice(1) // Remove leading slash from routes
 
-        let toMatch = this.eventPath
+        console.log(route)
+
+        const method = Object.keys(request.route.methods).find(k => request.route.methods[k])
+        let info = safeParse(request.body)
+        info.method = method // specify route method
+
+        // Handle Subscribe Call Internally
+        let toMatch = `${this.name}/subscribe`
         if (route.slice(0,toMatch.length) == toMatch){
             // Extract Subscription Endpoint (no join required)
             if (route.slice(0,toMatch.length) == toMatch){
 
                 route = route.slice(toMatch.length) // get subscription path
-                this.notify({
-                    route: `${this.eventPath}/${route}`,
-                    message: [route, request, response]
-                })
+                await this.eventService.add(info, request, response)
             } 
         } else {
-            let res = await this.handleRoute(route, request.body, Object.keys(request.route.methods).find(k => request.route.methods[k]))
+            let res = await this.handleRoute(route, (info as MessageObject))
             if (res instanceof Error) response.status(404).send(JSON.stringify(res, Object.getOwnPropertyNames(res))) 
             else if (res != null) response.send(JSON.stringify(res as any)) // send back  
         }
     }
 
     // Generic Route Handler for Any Route + Body
-    handleRoute = async (route: string, body: string, method?:string) => {
-                    
-        // Requires Client to Join Session
-        let info = safeParse(body)
+    handleRoute = async (route: string, info: MessageObject) => {
         info.route = route // specify route
-        info.method = method // specify route method
-        // let client = this.clients[info.id] // reference for scoped custom functions
-        let res = await this.notify(info as MessageObject)
+        let res = await this.notify(info)
         return res
     }
 }

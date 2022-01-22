@@ -17,25 +17,23 @@ export class EventsService extends Service {
 
     name = 'events'
     id: string = randomId('events')
-    events: {
-        [x: string]: Map<string, Function>
-    } = {}
+    sources: Map<string, any> = new Map()
 
     subscriptionHandler = (o) => {
-        this.events[o.route]?.forEach(f => f(o))
+        this.sources[o.route]?.forEach(f => f(o))
     }
 
     // TODO: Add method to parse events to listen to from the Router...
 
-    routes = [
-        {
-            route: '**',
-            callback: async (self,[route, request, response]) => {
-                route = route.replace(this.name + '/', '')
-                return await this.add(route, request, response)
-            }
-        }
-    ]
+    // routes = [
+    //     {
+    //         route: '**',
+    //         callback: async (self,[route, request, response]) => {
+    //             route = route.replace(this.name + '/', '')
+    //             return await this.add(route, request, response)
+    //         }
+    //     }
+    // ]
 
     constructor() {
         super()
@@ -46,8 +44,16 @@ export class EventsService extends Service {
         // }))
     }
 
-    add = async (route:string, request: Request, response: Response) => {
+    add = async (info:any, request: Request, response: Response) => {
         
+        const id = info.message?.[0] ?? info.id
+        const routes = info.message?.[1]
+        let u = this.sources.get(id)
+
+        console.log(info, u)
+        if (!u){
+            u = {id, routes: []}
+
             const headers = {
                 'Content-Type': 'text/event-stream',
                 'Connection': 'keep-alive',
@@ -56,28 +62,29 @@ export class EventsService extends Service {
         
               response.writeHead(200, headers);
                         
-              let callback = (data:any) => {
+              u.callback = (data:any) => {
                 if(data.message && data.route) {
                     response.write(`data: ${JSON.stringify(data)}\n\n`);
                 }
               }
 
               // Store Subscriptions
-              const id = randomId()
+            //   if (!this.events[route]) this.events[route] = new Map()
+            //   this.events[route].set(id, callback)
 
-              if (!this.events[route]) this.events[route] = new Map()
-              this.events[route].set(id, callback)
-
-              // TODO: Add support for multiple args
-              let res = await this.notify({route, message: []}, true) // Getting current routes to pass along
-              callback(res) // send initial value
+            //   // TODO: Add support for multiple args
+            //   let res = await this.notify({route, message: []}, true) // Getting current routes to pass along
+            u.callback({route:'events/subscribe', message: id}) // send initial value
 
             // Cancel Subscriptions
             request.on('close', () => {
-                this.events[route].delete(id)
+                this.sources.delete(id)
             });
+        } else {
+            u.routes.push(...routes)
+        }
 
-            return id
+        return id
     }
 }
 

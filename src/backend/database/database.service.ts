@@ -145,7 +145,6 @@ export class DatabaseService extends Service{
                 const u = self.USERS.get(origin)
                 if (!u) return false
 
-                console.log('getProfile', u)
                 let data;
                 if(this.mode === 'mongo') {
                     data = await this.getMongoProfile(u,args[0]);

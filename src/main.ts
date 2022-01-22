@@ -4,7 +4,7 @@ let http = require("http")
 let mongoose = require("mongoose")
 let bodyParser = require("body-parser")
 
-// Import the Backend API
+// Import the LiveServer API
 import * as api from "./backend";
 
 // Set Environment Variables
@@ -46,36 +46,30 @@ mongoose
 // ----------------- Initialize API ------------------
 function init(instance?:any) {
 
+  // Instantiate the Router class to handle services
+  let controller = new api.Router({ debug: false });
+
+  // Enable HTTP Messages
   let http = new api.HTTPService();
-  let events = new api.EventsService();
-  http.eventPath = events.name // set path
 
   app.get("**", http.controller);
   app.post("**", http.controller);
+  // http.subscribe(o => {
+  //   console.log('Route', o)
+  // })
+  controller.load(http)
 
-  // Websocket Server
-  // let websocket = new api.WebsocketService(server, http.websocket)
+  // Enable WebSocket Messages
   let websocket = new api.WebsocketService(server);
+  controller.load(websocket)
 
-  let controller = new api.Router({
-    // debug: true,
-  });
-
-  let sessions = new api.SessionsService(controller);
+  // Enable OSC Messages
   let osc = new api.OSCService();
-  let database = new api.DatabaseService(controller, {
-    mode: "mongdb",
-    instance,
-  });
+  controller.load(osc)
 
-  // Functionality
+  // Enable Other Services
+  let sessions = new api.SessionsService(controller);
+  let database = new api.DatabaseService(controller, { mode: "mongdb", instance });
   controller.load(sessions)
   controller.load(database)
-
-  // Networking
-  controller.load(osc)
-  controller.load(websocket)
-  controller.load(http)
-  controller.load(events)
-
 }

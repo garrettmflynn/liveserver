@@ -5,14 +5,7 @@ import ExampleSelector from './selector';
 import { OSCClient, SessionsClient, UserPlatform, WebsocketClient } from '../../../../src/frontend';
 
 const SERVER_URI = (window.location.href.includes('localhost')) ? 'http://localhost:80' : 'http://localhost:80' // Replace with production server URI
-const platform = new UserPlatform({
-  _id:'123456', //we are using randomly generated ones from realm/mongodb
-  username:'johnnyboi',
-  email:'johnnyboi@boyo.com',
-  firstName:'johnny',
-  lastName:'boyo',
-  test: ['what']
-});
+const platform = new UserPlatform();
 
 let services = [new SessionsClient(), new OSCClient(), new WebsocketClient]
 services.forEach(service => {
