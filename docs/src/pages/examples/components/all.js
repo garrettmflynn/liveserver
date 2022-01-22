@@ -41,22 +41,16 @@ export default function AllExample({server, platform}) {
       } else {
         
         // Subscription Responses
-        console.log('Fromm Sub', data)
         if (!data?.error) output.current.innerHTML = JSON.stringify(vals[o.route] = data)
         else output.current.innerHTML = data.error
 
       }
-      }, {protocol: 'http', routes: ['routes']}).then(async res => {
-        let routes =  await send('routes') // Get routes
-        console.log('Initialization', routes)
-      })
+      }, {protocol: 'http', routes: ['routes']})
     });
 
     async function send(route, ...args){
-
       return await platform.send(route, ...args).then(res => {
-
-        if (!res?.error) output.current.innerHTML = JSON.stringify(vals[o.route] = res)
+        if (!res?.error && route != 'routes') output.current.innerHTML = JSON.stringify(vals[route] = res)
         else output.current.innerHTML = res.error
 
       }).catch(err => {

@@ -35,9 +35,9 @@ export class UserPlatform {
         [x: string]: RouteConfig
     } = {}
 
-    routeSubscriptions: {
-        [x: string]: Map<string, Function>
-    } = {}
+    subscription?: EventSource | WebsocketClient
+
+
 
     remote?: URL
     id: string = randomId()
@@ -1178,9 +1178,14 @@ export class UserPlatform {
 
         if (this.remote){
             let response
+
+            // Send over Websockets if Active
             if (this.protocols.websocket){
-                response = await this.protocols.websocket.send({id: this.currentUser._id, route, message: args}) // NOTE: Will handle response in the subscription
-            } else {
+                response = await this.protocols.websocket.send({id: this.currentUser._id, route, message: args}, {suppress: true}) // NOTE: Will handle response in the subscription
+            } 
+            
+            // Default to HTTP
+            else {
 
                 response = await fetch(createRoute(route, this.remote), {
                     method: 'POST',
@@ -1209,23 +1214,39 @@ export class UserPlatform {
             let toResolve =  (): Promise<any> => {
                 return new Promise(async resolve => {
 
-                    console.log('subscribe', options.protocol)
                     if ((options.protocol == null || options.protocol === 'websocket') && this.services.available['WebsocketService'] && this.services.clients['WebsocketClient']) {
-                        let client = new WebsocketClient(this.currentUser, this.remote)
-                        this.protocols.websocket = client // TODO: Enable multiple socket connections
-                        resolve(client.sockets[0].socket)
-
-                        client.addCallback('sub', onmessage)
+                        
+                        let subscriptionEndpoint = `${this.services.available['WebsocketService']}/subscribe`
+                        if (!this.subscription){
+                            this.subscription = this.protocols.websocket = new WebsocketClient(this.currentUser, this.remote) // TODO: Enable multiple socket connections to different servers
+                            this.subscription.addCallback('sub', onmessage)
+                        }
+                        this.subscription.send({
+                            route: subscriptionEndpoint,
+                            message: [options.routes]
+                        })
+                        resolve(this.subscription)
 
                     } else if ((options.protocol == null || options.protocol === 'http') && this.services.available['HTTPService']) { // TODO: Break out the HTTP Client
 
                         // EventSource ClientService (inline)
                         let subscriptionEndpoint = `${this.services.available['HTTPService']}/subscribe`
-                        const subscriber = new EventSource(createRoute(subscriptionEndpoint, this.remote))
-                        this.send(subscriptionEndpoint, [options.routes])
-                        subscriber.onmessage = onmessage
-                        this.protocols.http = subscriber
-                        resolve(subscriber)
+                        if (!this.subscription){
+                            this.subscription = new EventSource(createRoute(subscriptionEndpoint, this.remote))
+                            this.subscription.onopen = () => {
+                            this.subscription.onmessage = (event) => {
+                                let data = JSON.parse(event.data)
+
+                                // Ensure IDs are Linked
+                                if (data.route === 'events/subscribe'){
+                                    this.send(subscriptionEndpoint, options.routes, data.message) // Register and subscribed route
+                                    this.subscription.onmessage = onmessage
+                                    this.protocols.http = this.subscription
+                                    resolve(this.subscription)
+                                }
+                            }
+                        }
+                        } else this.send(subscriptionEndpoint, options.routes)
                     } else {
                         this.services.subscribeQueue.push(async () => {
                             let res = await toResolve()
@@ -1241,8 +1262,6 @@ export class UserPlatform {
         protocol?:string
     }) => {
 
-        console.log('subscribing', this.remote, options)
-
         if (this.remote) {
 
             return await this.createSubscription(options, (event) => {
@@ -1250,7 +1269,6 @@ export class UserPlatform {
                 const data = (typeof event.data === 'string') ? JSON.parse(event.data) : event
                 
                 // Note: Send whole data object through subscriptions
-                console.log('Message from subscription', data)
                 callback(data)
                 this.routes[data?.route]?.callback(data) // Run routes if specified by the response
             })

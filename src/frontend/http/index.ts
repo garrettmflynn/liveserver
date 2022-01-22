@@ -19,10 +19,6 @@ class HTTPClient {
 
     constructor() {
 
-        window.onbeforeunload = () => {
-            this.leave()
-        }
-
     }
 
     setRemote = (base:string, path:string) => {
@@ -68,30 +64,6 @@ class HTTPClient {
                 return err.message
             })
         } else return false
-    }
-
-    subscribe = async (route:string, callback: Function) => {
-
-        if (this.remote) {
-
-            const events = new EventSource(createURL('/events' + route, this.remote));
-            events.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                callback(data)
-            };
-
-            return events
-        } else return false
-
-    }
-
-
-    join = async (id:string=this.id) => {
-        return await this.send('/join', id)
-    }
-
-    leave = async (id:string=this.id) => {
-        return await this.send('/leave', id)
     }
     
 }

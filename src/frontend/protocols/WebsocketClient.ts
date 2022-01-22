@@ -20,7 +20,7 @@ export class WebsocketClient extends Service {
     socketRot = 0;
 
     responses = [];
-    functionQueue = {};
+    queue = {};
 
     origin = `client${Math.floor(Math.random()*10000000000000)}`; //randomid you can use
 
@@ -158,11 +158,15 @@ export class WebsocketClient extends Service {
         } 
     }
 
-    send = (message:MessageObject, callback = (data) => {}, id?) => {
+    send = (message:MessageObject, options: {
+        callback?:Function
+        id?: string
+        suppress?: boolean
+    } = {}) => {
         return new Promise((resolve)=>{//console.log(message);
             const resolver = (res) => 
             {    
-                if (callback) callback(res);
+                if (options.callback) options.callback(res);
                 resolve(res);
             }
 
@@ -173,20 +177,19 @@ export class WebsocketClient extends Service {
                 else message.callbackId = callbackId; // add callbackId key
             } // TODO: Handle string-encoded messsages
 
-            this.functionQueue[callbackId] = resolver;
+            this.queue[callbackId] = {resolve, suppress: options}
 
             let socket;
-            if(!id) {
+            if(!options.id) {
                 socket = this.sockets[this.socketRot].socket;
                 this.socketRot++; //can rotate through multiple sockets cuz why not
                 if(this.socketRot === this.sockets.length) this.socketRot = 0;
             }
-            else { socket = this.getSocket(id); }
+            else { socket = this.getSocket(options.id); }
             // message = JSON.stringifyWithCircularRefs(message)
 
             if(!socket) return;
 
-            console.log('SEMDONMG', message)
             let toSend = () => socket.send(safeStringify(message), resolver);
             if (socket.readyState === socket.OPEN) toSend();
             else this.sendQueue.push(toSend);
@@ -202,18 +205,24 @@ export class WebsocketClient extends Service {
 
         //this.streamUtils.processSocketMessage(res);
     
-        this.responses.forEach((foo,i) => {
-            if(typeof foo === 'object') foo.callback(res);
-            else if (typeof foo === 'function') foo(res);
-        });
+        let runResponses = () => {
+            this.responses.forEach((foo,i) => {
+                if(typeof foo === 'object') foo.callback(res);
+                else if (typeof foo === 'function') foo(res);
+            });
+        }
 
-        console.log('Client res', res)
+
         const callbackId = res.callbackId
         if (callbackId) {
             delete res.callbackId
-            this.functionQueue[callbackId](res) // Run callback
-            delete this.functionQueue[callbackId];
-        } else this.defaultCallback(res);
+            this.queue[callbackId].resolve(res) // Run callback
+            if (!this.queue[callbackId].suppress) runResponses()
+            delete this.queue[callbackId];
+        } else {
+            runResponses()
+            this.defaultCallback(res);
+        }
 
         // State.data.serverResult = res;
 

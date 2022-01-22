@@ -20,7 +20,9 @@ export class EventsService extends Service {
     sources: Map<string, any> = new Map()
 
     subscriptionHandler = (o) => {
-        this.sources[o.route]?.forEach(f => f(o))
+        this.sources.forEach(u => {
+            if (u.routes[o.route]) u.callback(o)
+        })
     }
 
     // TODO: Add method to parse events to listen to from the Router...
@@ -38,21 +40,23 @@ export class EventsService extends Service {
     constructor() {
         super()
 
-        // this.addRoute(transform(k, {
-        //     route: `/${(name) ? `${name}/` : ''}` + k,
-        //     callback: ((service as any)[k] instanceof Function) ? (service as any)[k] : () => (service as any)[k]
-        // }))
     }
 
     add = async (info:any, request: Request, response: Response) => {
         
-        const id = info.message?.[0] ?? info.id
-        const routes = info.message?.[1]
+        const tempId = info.message?.[1]
+        const id = tempId ?? info.id ?? randomId('sse') // temporary id (since EventSource cannot pass a body)
+        const routes = info.message?.[0]
         let u = this.sources.get(id)
 
-        console.log(info, u)
+        if (tempId && u) {
+            this.sources.delete(tempId)
+            u.id = id
+            this.sources.set(id, u)
+        }
+
         if (!u){
-            u = {id, routes: []}
+            u = {id, routes: {}}
 
             const headers = {
                 'Content-Type': 'text/event-stream',
@@ -63,25 +67,26 @@ export class EventsService extends Service {
               response.writeHead(200, headers);
                         
               u.callback = (data:any) => {
-                if(data.message && data.route) {
+                if(data?.message && data?.route) {
                     response.write(`data: ${JSON.stringify(data)}\n\n`);
                 }
               }
 
-              // Store Subscriptions
-            //   if (!this.events[route]) this.events[route] = new Map()
-            //   this.events[route].set(id, callback)
-
-            //   // TODO: Add support for multiple args
-            //   let res = await this.notify({route, message: []}, true) // Getting current routes to pass along
             u.callback({route:'events/subscribe', message: id}) // send initial value
 
             // Cancel Subscriptions
             request.on('close', () => {
-                this.sources.delete(id)
+                this.sources.delete(u.id)
             });
+
+            this.sources.set(id, u)
+
         } else {
-            u.routes.push(...routes)
+            routes.forEach(async route => {
+                let res = await this.notify({route, message: []}, true) // Getting current routes to pass along
+                u.callback(res)
+                u.routes[route] = true // TODO: Toggle off to cancel subscription
+            })
         }
 
         return id

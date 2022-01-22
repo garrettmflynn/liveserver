@@ -7,17 +7,15 @@ export class UnsafeService extends Service {
     routes = [
         { //add a local function, can implement whole algorithm pipelines on-the-fly
           route: 'addfunc', callback: async (self, args) => { //arg0 = name, arg1 = function string (arrow or normal)
-            console.log(args[1].toString(), typeof args[1])
 
             let newFunc = (typeof args[1] === 'string') ? parseFunctionFromText(args[1]) : args[1]
   
             let newCallback = { route: args[0], callback: newFunc };
-
-            console.log(newFunc.toString())
   
             self.routes.set(newCallback.route, newCallback) // TODO: Update EventSources subscribed to this event...
             
             // Trigger Subscriptions to Receive Update from Routes
+            console.log('SUPER ARTIFICIAL WAY TO NOTIFY SUBSCRIBERS')
             const message = await self.runCallback('routes')
             self.triggerSubscriptions({route: 'routes', message})
             return true;

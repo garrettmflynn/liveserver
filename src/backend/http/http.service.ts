@@ -25,6 +25,8 @@ export class HTTPService extends Service {
     constructor() {
         super()
 
+        this.eventService.subscribe(this.notify) // Pass out to the Router
+
         // this.addRoute(transform(k, {
         //     route: `/${(name) ? `${name}/` : ''}` + k,
         //     callback: ((service as any)[k] instanceof Function) ? (service as any)[k] : () => (service as any)[k]
@@ -38,8 +40,6 @@ export class HTTPService extends Service {
         let path = request.route.path.replace(/\/?\*?\*/, '')
         let route = request.originalUrl.replace(path, '')
         if (route[0] === '/') route = route.slice(1) // Remove leading slash from routes
-
-        console.log(route)
 
         const method = Object.keys(request.route.methods).find(k => request.route.methods[k])
         let info = safeParse(request.body)

@@ -1,6 +1,6 @@
 //Allows you to stream outgoing data asynchronously with automatic buffering settings.
 
-import { Service } from "@brainsatplay/liveserver-common/Service";
+import { Service } from '../../common/Service';
 import { UserObject } from "src/common/general.types";
 
 //This hooks in with functions on the session.service tool for creating two way sessions.
@@ -212,7 +212,7 @@ export class DataStreaming extends Service {
 	streamLoop() {
 		if(this.LOOPING) {
 			let updateObj = {
-				route:'/sessions/updateUserStreamData',
+				route:'sessions/updateUserStreamData',
 				id:this.user._id,
 				message:{}
 			};
