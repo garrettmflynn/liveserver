@@ -3,8 +3,14 @@
 
 import {Events, randomId} from '@brainsatplay/liveserver-common'
 import { MessageObject, UserObject } from 'src/common/general.types';
+import { Service } from '@brainsatplay/liveserver-common/Service';
 
-export class WebsocketClient {
+export class WebsocketClient extends Service {
+
+    name = 'websocket'
+    protocols = {
+		websocket: true
+	}
 
     subprotocols?: Partial<UserObject>
     connected = false;
@@ -29,7 +35,7 @@ export class WebsocketClient {
         subprotocols={_id:`user${Math.floor(Math.random() * 10000000000)}`},
         url?:URL|string
     ) {
-
+        super()
         this.subprotocols = subprotocols;
         
         if(url) this.addSocket(url, subprotocols)
@@ -182,7 +188,7 @@ export class WebsocketClient {
     onmessage = (res) => {
 
         res = JSON.parse(res.data);
-        console.error('onmessage',res)
+        // console.error('onmessage',res)
 
         //this.streamUtils.processSocketMessage(res);
     
@@ -222,7 +228,7 @@ export class WebsocketClient {
     }
 
     defaultCallback = (res) => {
-        console.error('default',res)
+        // console.error('default',res)
     }
 
 

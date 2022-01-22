@@ -4,7 +4,7 @@ import { DataStreaming } from '../datastream/data.streaming';
 import { Service } from '@brainsatplay/liveserver-common/Service';
 
 //Joshua Brewster, Garrett Flynn AGPL v3.0
-export class SessionsService extends Service {
+export class SessionsClient extends Service {
 	
 	user: any
 	datastream: DataStreaming

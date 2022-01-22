@@ -22,7 +22,6 @@ export class EventsService extends Service {
     } = {}
 
     subscriptionHandler = (o) => {
-        console.log('New request from ', o.route, this.events[o.route]) // TODO: Make this respond to updated data collections only...
         this.events[o.route]?.forEach(f => f(o))
     }
 

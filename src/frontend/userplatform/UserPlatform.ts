@@ -3,6 +3,7 @@ import { Service } from '@brainsatplay/liveserver-common/Service';
 import { randomId } from '../../common';
 import { MessageObject, MessageType, RouteConfig } from '../../common/general.types';
 import { safeStringify } from '../../common/parse.utils';
+import { WebsocketClient } from './protocols/WebsocketClient';
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 
 function createRoute (path:string, remote:string|URL) {
@@ -1200,26 +1201,34 @@ export class UserPlatform {
         } else throw 'Remote is not specified'
     }
 
-    createSubscription = async (route) => {
-            let toResolve =  (): Promise<EventSource | WebSocket> => {
-                return new Promise(resolve => {
+    createSubscription = async (route, onmessage:any) => {
+            let toResolve =  (): Promise<any> => {
+                return new Promise(async resolve => {
 
-                    if (this.services.available['WebsocketService']) {
+                    if (this.services.available['WebsocketService'] && this.services.clients['WebsocketClient']) {
                         console.log('WEBSOCKETS AVAILABLE')
-                        
-                        resolve(new EventSource(createRoute('/events' + route, this.remote)))
-                        // return await this.WebsocketClient.run(
-                        //     'getProfile',
-                        //     [info],
-                        //     this.WebsocketClient.origin,
-                        //     this.socketId,
-                        //     callback
-                        // );
-                    } else if (this.services.available['EventsService']) {
+                        let client = new WebsocketClient(this.currentUser, this.remote)
+                        resolve({
+                            subscriber: client.sockets[0],
+                            toSubscribe: async () => {
+                                await client.run(
+                                    `${this.services.available['WebsocketService']}/events/` + route,
+                                    [],
+                                    client.origin,
+                                    null,
+                                );
+                            }
+                        })
+
+                        client.addCallback('sub', onmessage)
+
+                    } else if (this.services.available['EventsService'] && this.services.clients['EventsService']) {
 
                         console.log('EVENTSOURCES AVAILABLE')
                         // EventSource ClientService (inline)
-                        resolve(new EventSource(createRoute('/events' + route, this.remote)))
+                        const subscriber = new EventSource(createRoute('/events/' + route, this.remote))
+                        subscriber.onmessage = onmessage
+                        resolve({subscriber})
                     } else {
                         this.services.subscribeQueue.push(async () => {
                             let res = await toResolve()
@@ -1237,32 +1246,22 @@ export class UserPlatform {
         // TODO: Allow subscription through WebSockets
         if (this.remote) {
 
-            let subscribedObject = await this.createSubscription(route)
+            let o = await this.createSubscription(route, (event) => {
+                const data = (typeof event.data === 'string') ? JSON.parse(event.data) : event
+                console.log('Message from subscription', data.message)
+                callback(data.message)
+                this.routes[data?.route]?.callback(data.message) // respond by parsing route listeners
+                // this.routeSubscriptions[route]?.forEach(f => f(data)) // respond by parsing route listeners
+            })
 
-            console.log('Subscribed object', subscribedObject, this.services)
-            if (subscribedObject) {
+            console.log('Subscribed object', o.subscriber, this.services)
+            if (o.subscriber) {
 
                 let id = randomId()
                 // if (!this.routeSubscriptions[route]) this.routeSubscriptions[route] = new Map()
                 // this.routeSubscriptions[route].set(id, callback)
 
-                subscribedObject.onopen = () => {
-                    console.log('Subscription active!')
-                }
-
-                subscribedObject.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                    console.log('Message from subscription', data.message)
-                    callback(data.message)
-                    this.routes[data?.route]?.callback(data.message) // respond by parsing route listeners
-                    // this.routeSubscriptions[route]?.forEach(f => f(data)) // respond by parsing route listeners
-                };
-
-                if ((subscribedObject as WebSocket).onclose){
-                    (subscribedObject as WebSocket).onclose = () => {
-                        console.log('Websocket connection cancelled!')
-                    }
-                }
+                if(o.toSubscribe instanceof Function) o.toSubscribe()
                 
                 return id
             } else throw 'No compatible networking service has successfully connected.'

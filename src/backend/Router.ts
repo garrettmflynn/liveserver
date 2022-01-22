@@ -382,7 +382,6 @@ class Router {
           // Handle Subscription Updates based on Internal Notifications
           if (internal){
             this.triggerSubscriptions(res)
-            console.log('Updating subscribers...')
           } 
           
           // Else Update Events and Return

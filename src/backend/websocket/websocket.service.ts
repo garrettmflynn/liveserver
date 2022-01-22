@@ -9,7 +9,9 @@ export class WebsocketService extends Service{
   name = 'websocket'
   server: any
   wss = new WebSocketServer({ clientTracking: false, noServer: true });
-  onsocket: Function
+  events: {
+    [x: string]: Map<string, Function>
+  } = {}
 
     constructor(httpServer){
       super()
@@ -74,11 +76,11 @@ export class WebsocketService extends Service{
               if(Array.isArray(parsed)) { //push arrays of requests instead of single objects (more optimal potentially, though fat requests can lock up servers)
                   parsed.forEach((obj) => {
                     obj.id = id
-                    this.notify(obj);
+                    this.process(ws, obj);
                   })
               } else {
                 parsed.id = id
-                this.notify(parsed);
+                this.process(ws, parsed)
               }
           });
 
@@ -109,6 +111,51 @@ export class WebsocketService extends Service{
         // this.wss.on('close', function close() {
         //   clearInterval(interval);
         // });
+    }
+
+    process = async (ws, o) => {
+      // console.log(o)
+      this.defaultCallback(ws, o)
+      let res = this.notify(o);
+      if (res instanceof Error) ws.send(JSON.stringify(res, Object.getOwnPropertyNames(res))) 
+      else if (res != null) ws.send(JSON.stringify(res)) // send back  
+    }
+
+      // Only Subscribe Websockets through Websockets
+  defaultCallback = async (ws, o) => {
+    let query = `${this.name}/events/`
+
+    // console.log(o.route, query)
+    if (o.route.slice(0,query.length) === query){
+        const route = o.route.replace(query, '')
+        return await this.addSubscription(route, ws)
+    }
+  } 
+
+
+    // Subscribe to Any Arbitrary Route Event
+    addSubscription = async (route:string, ws) => {
+
+        let callback = (data:any) => {
+          if(data.message && data.route) {
+              ws.send(JSON.stringify(data))
+          }
+        }
+
+        // Store Subscriptions
+        const id = randomId()
+
+        if (!this.events[route]) this.events[route] = new Map()
+        this.events[route].set(id, callback)
+
+        // TODO: Add support for multiple args
+        let res = await this.notify({route, message: []}, true) // Getting current routes to pass along
+        callback(res) // send initial value
+
+      // Cancel Subscriptions
+      ws.on('close', () => {
+          this.events[route].delete(id)
+      });
     }
 }
 
