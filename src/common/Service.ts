@@ -16,8 +16,11 @@ export class Service {
     }
 
 
-    // Notify subscribers (e.g. Router) of a New Message
-    notify = async (o: MessageObject, type?: MessageType) => {
+    // Notify subscribers (e.g. Router / UserPlatform ) of a New Message
+    notify = async (
+        o: MessageObject, // defines the route to activate
+        type?: boolean // specifies whether the notification is internal (true) OR from a client (false / default). Internal notifications will be only forwarded to route subscribers.
+    ) => {
         let responses = [];
 
         // Notify All Subscribers

@@ -1,4 +1,4 @@
-
+import StateManager from 'anotherstatemanager'
 import { Events, randomId, getParamNames } from '@brainsatplay/liveserver-common'
 import { AllMessageFormats, MessageObject, MessageType, RouteConfig, UserObject } from 'src/common/general.types';
 import { UnsafeService } from './unsafe';
@@ -31,7 +31,8 @@ class Router {
   SERVICES: Map<string, any> = new Map() // TODO: Detect changes and subscribe to them
   routes: Map<string, RouteConfig> = new Map() // TODO: Detect changes and subscribe to them
   defaultRoutes: any[] = []
-  
+
+  state = new StateManager() // TODO: Use this to notify subscribers to arbitrary routes
 
   // -------------------- User-Specified Options --------------------
   options: {
@@ -42,7 +43,6 @@ class Router {
   }
 
     constructor(options) {
-
 		
         Object.assign(this.options, options)
 

@@ -350,7 +350,6 @@ export class DatabaseService extends Service{
             }
         }
         ]
-
     }
 
     
