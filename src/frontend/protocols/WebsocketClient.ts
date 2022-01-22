@@ -27,7 +27,7 @@ export class WebsocketClient extends Service {
     EVENTS = new Events(this);
     subEvent = (eventName, response=(result)=>{})=>{this.EVENTS.subEvent(eventName,response);}
     unsubEvent = (eventName, sub) => {this.EVENTS.unsubEvent(eventName,sub)};
-    addEvent = (eventName, origin, functionName, id) => {this.EVENTS.addEvent(eventName, origin, functionName, id)};
+    addEvent = async (eventName, origin, functionName, id) => {this.EVENTS.addEvent(eventName, origin, functionName, id)};
 
 
 
@@ -118,19 +118,19 @@ export class WebsocketClient extends Service {
     }
 
     //add a callback to a worker
-    addFunction(functionName,fstring,origin,id,callback=(result)=>{}) {
+    async addFunction(functionName,fstring,origin,id,callback=(result)=>{}) {
         if(functionName && fstring) {
             if(typeof fstring === 'function') fstring = fstring.toString();
             let dict = {route:'addfunc',message:[functionName,fstring], id:origin}; //post to the specific worker
             if(!id) {
-                this.sockets.forEach((w) => {this.send(dict,w.id);});
+                this.sockets.forEach((s) => {this.send(dict,s.id);});
                 return true;
             } //post to all of the workers
-          else return this.send(dict,callback,id);
+            else return await this.send(dict,callback,id);
         }
       }
 
-    run(functionName:string,args:[]|object=[],origin:string,id:String,callback=(result)=>{}):any {
+    async run(functionName:string,args:[]|object=[],id:String,origin:string,callback=(result)=>{}) {
         if(functionName) {
             if(functionName === 'transferClassObject') {
               if(typeof args === 'object' && !Array.isArray(args)) {
@@ -140,15 +140,22 @@ export class WebsocketClient extends Service {
               }
             }
             let dict = {route:functionName, message:args, id:origin};
-            return this.send(dict,callback,id);
+            return await this.send(dict,callback,id);
         }
     }
 
     runFunction = this.run;
     
     //a way to set variables on a thread
-    setValues(values={},origin,id) {
-        this.run('setValues',values,origin,id);
+    async setValues(values={}, id, origin) {
+        if(id)
+            return await this.run('setValues',values,id,origin);
+        else {
+            this.sockets.forEach((s) => {
+            this.run('setValues',values,s.id,origin);
+            });
+            return true;
+        } 
     }
 
     send = (message:MessageObject, callback = (data) => {}, id?) => {

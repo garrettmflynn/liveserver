@@ -49,20 +49,22 @@
      unsubscribe = this.unsubEvent
  
      //add an event name, can optionally add them to any threads too from the main thread
-     addEvent(eventName,origin=undefined,functionName=undefined,id=undefined) {
+     async addEvent(eventName,id=undefined,functionName=undefined,origin=undefined) {
          this.state.setState({[eventName]:undefined});
          if(this.manager !== undefined) {
              if(origin !== undefined || functionName !== undefined) {
                  if(id !== undefined) {
-                     this.manager.post({origin:origin,foo:'addevent',input:[eventName,functionName]},id);
+                    return await this.manager.post({origin:origin,foo:'addevent',input:[eventName,functionName]},id);
                  } else if (this.manager?.workers) {
-                     this.manager.workers.forEach((w)=>{
-                         this.manager.post({origin:origin,foo:'addevent',input:[eventName,functionName]},w.id); //add it to all of them since we're assuming we're rotating threads
-                     });
+                    this.manager.workers.forEach((w)=>{
+                        this.manager.post({origin:origin,foo:'addevent',input:[eventName,functionName]},w.id); //add it to all of them since we're assuming we're rotating threads
+                    });
+                    return true;
                  } else if (this.manager?.sockets) {
-                     this.manager.sockets.forEach((s)=>{
-                         this.manager.post({origin:origin,foo:'addevent',input:[eventName,functionName]},s.id); //add it to all of them since we're assuming we're rotating threads
-                     });
+                    this.manager.sockets.forEach((s)=>{
+                        this.manager.post({origin:origin,foo:'addevent',input:[eventName,functionName]},s.id); //add it to all of them since we're assuming we're rotating threads
+                    });
+                    return true;
                  }
              }
          }
