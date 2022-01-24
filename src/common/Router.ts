@@ -94,6 +94,7 @@ export class Router {
       //   });
       // }
       // if (args[0] === true) console.log('Server routes available: ', list); //list available functions
+      console.log('TRYING')
       return {message: Router.ROUTES};
     }
   },
@@ -294,15 +295,16 @@ export class Router {
       let res = await this.send('services')
       if (res) {
           res?.forEach(o => {
+              const name = o.name.replace('Service', '')
               this.SERVICES.client.available[o.name] = o.route
   
               // Resolve Load Promises
-              if (this.SERVICES.client.connecting[o.name]){
-                  this.SERVICES.client.connecting[o.name](o)
-                  delete this.SERVICES.client.connecting[o.name]
+              if (this.SERVICES.client.connecting[name]){
+                  this.SERVICES.client.connecting[name](o)
+                  delete this.SERVICES.client.connecting[name]
               }
 
-              if (this.SERVICES.client.clients[o.name.replace('Service', 'Client')] instanceof SubscriptionService){
+              if (this.SERVICES.client.clients[name] instanceof SubscriptionService){
                   this.SERVICES.client.subscribeQueue.forEach(f => f())
               }
           })
@@ -313,8 +315,11 @@ export class Router {
 
       return new Promise(resolve => {
 
-          this.SERVICES.client.clients[service.constructor.name] = service
+        const name = service.constructor.name.replace('Client', '')
+
+          this.SERVICES.client.clients[name] = service
           const toResolve = (available) => {
+
               // Expect Certain Callbacks from the Service
               service.routes.forEach(o => {
                   this.ROUTES[`${available.route}/${o.route}`] = o
@@ -323,13 +328,13 @@ export class Router {
           }
 
           // Auto-Resolve if Already Available
-          const available = this.SERVICES.client.available[service.constructor.name]
+          const available = this.SERVICES.client.available[name]
           if (available) toResolve(available)
-          else this.SERVICES.client.connecting[service.constructor.name] = toResolve
+          else this.SERVICES.client.connecting[name] = toResolve
 
           // NOTE: This is where you listen for service.notify()
           service.subscribe(async (o:MessageObject, _:MessageType) => {
-              const available = this.SERVICES.client.available[service.constructor.name]
+              const available = this.SERVICES.client.available[name]
               // Check if Service is Available
               if (available) return await this.send(`${available}/${o.route}`, ...o.message) // send automatically with extension
           })
@@ -362,7 +367,7 @@ export class Router {
 
           // Send over Websockets if Active
           if (this.protocols.websocket){
-              response = await this.protocols.websocket.send({id: this.currentUser._id, route, message: args}, {suppress: true}) // NOTE: Will handle response in the subscription
+              response = await this.protocols.websocket.send({id: this.currentUser._id, route, message: args}, {suppress: true}) // NOTE: Will handle response in the subscription too
           } 
           
           // Default to HTTP
@@ -374,7 +379,7 @@ export class Router {
                   headers: {
                       'Content-Type': 'application/json',
                   },
-                  body: safeStringify({id: this.currentUser._id, message: args})
+                  body: safeStringify({id: this.currentUser._id, message: args, suppress: !!this.subscription})
               }).then(async (res) => {
                   const json = await res.json()
                   if (!res.ok) throw json.message
@@ -384,12 +389,11 @@ export class Router {
               })
           }
 
-          // Activate Internal Routes if Relevant
-          const responseRoute = this.ROUTES[response?.route]?.callback
-          if (
-            responseRoute instanceof Function 
-            && !response.suppress // Suppress certain command chains
-          ) responseRoute(response.message) // TODO: Monitor what is outputted to chain calls?
+          // Activate Internal Routes if Relevant (currently blocking certain command chains)
+          if (!response.block) this.ROUTES[response?.route]?.callback(response.message) // TODO: Monitor what is outputted to chain calls?
+
+          // Notify through Subscription (if not suppressed)
+          if (!response.suppress) this.subscription?.responses?.forEach(f => f(response))
           
           // Pass Back to the User
           return response.message
@@ -438,7 +442,7 @@ export class Router {
           return await this.createSubscription(options, (event) => {
               const data = (typeof event.data === 'string') ? JSON.parse(event.data) : event
               callback(data) // whole data object (including route)
-              this.ROUTES[data?.route]?.callback(data) // Run internal routes (if required)
+              if (!data.block) this.ROUTES[data?.route]?.callback(data) // Run internal routes (if required)
           })
           
       } else throw 'Remote is not specified'
@@ -511,7 +515,7 @@ export class Router {
             if (!dict.route) dict.route = route
             dict.callbackId = callbackId
 
-            if (this.ROUTES[dict.route]) dict.suppress = true // TO TEST: Suppress infinite command chains... 
+            if (this.ROUTES[dict.route]) dict.block = true // Block infinite command chains... 
 
             // Pass Out
 
@@ -632,6 +636,7 @@ export class Router {
 
           console.log('runRoute', o.route)
           let res = await this.runRoute(o.route,o.message, u?.id ?? o.id, o.callbackId);
+          res.suppress = o.suppress // only suppress when handling messages here
 
           // Handle Subscription Updates based on Internal Notifications
           if (internal){
@@ -680,10 +685,11 @@ export class Router {
       cases.forEach(route => {
             if(!route || !o.callback) return false;
             route = o.route = `${(o.service) ? `${o.service}/` : ''}` + route
-            this.removeRoute(o.route); //removes existing callback if it is there
+            this.removeRoute(route); //removes existing callback if it is there
             if (route[0] === '/') route = route.slice(1)
             o.args = getParamNames(o.callback)
-            this.ROUTES[route] = o
+            this.ROUTES[route] = Object.assign({}, o)
+            this.ROUTES[route].route = route
             if (o.reference) {
               this.STATE.setState({[route]: o.reference});
               this.STATE.subscribe(route, (message) => {

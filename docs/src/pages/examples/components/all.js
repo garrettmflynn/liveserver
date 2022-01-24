@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import styles from '../examples.module.css'
 
-export default function AllExample({server, platform}) {
+export default function AllExample({server, router}) {
   
     const buttons = useRef(null);
     const output = useRef(null);
@@ -14,9 +14,7 @@ export default function AllExample({server, platform}) {
     useEffect(async () => {
 
       // http.addRoute(customRoute)
-      platform.subscribe((o) => {
-
-        console.log('o', o)
+      router.subscribe((o) => {
 
         let data = o.message
         if (o.route === 'routes'){
@@ -45,7 +43,6 @@ export default function AllExample({server, platform}) {
           button.innerHTML = name
           button.onclick = ( ) => {
             let args = []
-            if (o.route === 'routes') buttons.current.innerHTML = ''
             if (o.route === 'unsafe/addfunc') args = ['add', (_, [a, b=1]) => a + b]
             else if (o.route === 'add') args = [vals['add']]
 
@@ -66,9 +63,11 @@ export default function AllExample({server, platform}) {
     });
 
     async function send(route, ...args){
-      return await platform.send(route, ...args).then(res => {
-        if (!res?.error && route != 'routes') output.current.innerHTML = JSON.stringify(vals[route] = res)
-        else output.current.innerHTML = res.error
+      return await router.send(route, ...args).then(res => {
+
+        if (!res?.error) {
+          output.current.innerHTML = JSON.stringify(vals[route] = res)
+        } else output.current.innerHTML = res.error
 
       }).catch(err => {
         output.current.innerHTML = err.error

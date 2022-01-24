@@ -1,7 +1,7 @@
 import StateManager from 'anotherstatemanager'
 import { MessageObject, SettingsObject, SubscriptionCallbackType } from 'src/common/general.types';
 import { DataStreaming } from '../datastream/data.streaming';
-import { Service } from '@brainsatplay/liveserver-common/Service';
+import { Service } from '@brainsatplay/liveserver-common';
 
 //Joshua Brewster, Garrett Flynn AGPL v3.0
 export class SessionsClient extends Service {

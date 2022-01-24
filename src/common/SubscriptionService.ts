@@ -35,7 +35,7 @@ export class SubscriptionService extends Service {
         this.responses.set(name, f)
     }
 
-    send = async (o:MessageObject, options: any):Promise<any> => {
+    send = async (o:MessageObject, options?: any):Promise<any> => {
         throw 'Send not implemented'
     }
 }

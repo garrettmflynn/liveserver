@@ -1,7 +1,7 @@
 import {Room} from './Room'
 import { RoomInterface } from './types/Room.types'
 import { MessageObject, UserObject } from '@brainsatplay/liveserver-common/general.types'
-import { Service } from '@brainsatplay/liveserver-common/Service'
+import { Service } from '@brainsatplay/liveserver-common';
 
 export class WebRTCService extends Service {
 

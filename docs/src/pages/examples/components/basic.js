@@ -1,16 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 
-export default function BasicExample({server, platform}) {
+export default function BasicExample({server, router}) {
   
     const ping = useRef(null);
     const output = useRef(null);
   
     useEffect(() => {
       ping.current.onclick = () => {
-
-        // platform.sendMessage('123456','test');
-        platform.ping().then(res => {
+        router.ping().then(res => {
           if (!res?.error) output.current.innerHTML = res
           else output.current.innerHTML = res.error
   

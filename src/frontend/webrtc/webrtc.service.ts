@@ -7,7 +7,7 @@ Known Bugs
 
 */
 
-import { Service } from '@brainsatplay/liveserver-common/Service';
+import { Service } from '@brainsatplay/liveserver-common';
 import { UserObject } from '@brainsatplay/liveserver-common/general.types';
 
 export class WebRTCClient extends Service {

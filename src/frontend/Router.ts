@@ -1,4 +1,4 @@
-import { Service } from '@brainsatplay/liveserver-common/Service';
+import { Service } from '@brainsatplay/liveserver-common';
 import { randomId } from '../common';
 import { MessageObject, MessageType, RouteConfig, UserObject } from '../common/general.types';
 import { safeStringify } from '../common/parse.utils';

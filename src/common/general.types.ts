@@ -30,7 +30,9 @@ export type MessageObject = {
     _id?: string;
     route: string; // what to do at the endpoint
     callbackId?: string; // unique id for the request (stored client-side)
-    message: [] | any // data passed
+    message: [] | any // data passed,
+    suppress?: boolean,
+    block?: boolean
   }
 
 export type ClientObject = {

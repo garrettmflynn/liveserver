@@ -2,19 +2,12 @@ import { DS, DataTablet } from 'brainsatplay-data'
 import { UserObject } from '../../common/general.types';
 import { WebsocketClient } from '../websocket/WebsocketClient';
 import { randomId, Router, safeStringify } from '@brainsatplay/liveserver-common';
+import { DatabaseClient } from '../database/database.service';
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 //
 // Description
 // A client-side Router class with macros
 //
-
-
-function createRoute (path:string, remote:string|URL) {
-    let baseUrl = (remote instanceof URL) ? remote : new URL(remote)
-    path = (baseUrl.pathname === '/') ? path : baseUrl.pathname + path
-    let href = (new URL(path, baseUrl.href)).href
-    return href
-}
 
 export class UserPlatform extends Router {
 
@@ -29,6 +22,10 @@ export class UserPlatform extends Router {
         super()
         this.currentUser = userinfo;
         if (this.currentUser.id) this.currentUser._id = this.currentUser.id // Add a persistent ID
+
+
+        // Auto-Connect Database Client
+        this.connect(new DatabaseClient())
         
     }
 

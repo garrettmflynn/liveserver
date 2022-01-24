@@ -3,17 +3,10 @@ import { Service } from '@brainsatplay/liveserver-common';
 import { MessageObject } from 'src/common/general.types';
 
 //OSC stream frontend calls
-export class DebugService extends Service{
+export class DatabaseClient extends Service{
 
-	name = 'debug'
-	routes = [
-		{
-			route: 'log',
-			callback: (self, args, id) => {
-				console.log(self, args, id)
-			}
-		}
-	]
+	name = 'database'
+	routes = []
 
 	constructor() {
 

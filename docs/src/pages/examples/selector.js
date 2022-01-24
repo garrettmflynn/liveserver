@@ -5,7 +5,7 @@ import BasicExample from './components/basic';
 import { useHistory } from 'react-router';
 import AllExample from './components/all';
 
-export default function ExampleSelector({server, platform}) {
+export default function ExampleSelector({server, router}) {
    const history = useHistory();
     var url = window.location;
     var name = new URLSearchParams(url.search).get('name');
@@ -17,12 +17,12 @@ export default function ExampleSelector({server, platform}) {
           case 'basic':
             return <BasicExample
             server={server}
-            platform={platform}
+            router={router}
             />
           case 'all':
             return <AllExample
             server={server}
-            platform={platform}
+            router={router}
           />
         }
       }

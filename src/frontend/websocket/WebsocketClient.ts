@@ -3,7 +3,6 @@
 
 import {Events, randomId, SubscriptionService} from '@brainsatplay/liveserver-common'
 import { MessageObject, UserObject } from 'src/common/general.types';
-import { Service } from '@brainsatplay/liveserver-common/Service';
 import { safeStringify } from  '@brainsatplay/liveserver-common/parse.utils';
 
 // TODO: Convert to SubscriptionService and mirror the backend network services
@@ -221,8 +220,8 @@ export class WebsocketClient extends SubscriptionService {
         if (callbackId) {
             delete res.callbackId
             this.queue[callbackId].resolve(res) // Run callback
-            // if (!this.queue[callbackId].suppress) runResponses()
-            runResponses()
+            if (!this.queue[callbackId].suppress) runResponses()
+            // runResponses() 
             delete this.queue[callbackId];
         } else {
             runResponses()
