@@ -10,6 +10,7 @@ import * as api from "./backend";
 // Set Environment Variables
 import { resolve } from "path";
 import { config } from "dotenv";
+import { UnsafeService } from './backend'
 config({ path: resolve(__dirname, `../.env`) });
 config({ path: resolve(__dirname, `../.key`) });
 
@@ -76,4 +77,8 @@ function init(instance?:any) {
   let database = new api.DatabaseService(controller, { mode: "mongdb", instance });
   controller.load(sessions)
   controller.load(database)
+
+  // Enable Unsafe Service
+  let unsafe = new UnsafeService()
+  controller.load(unsafe);
 }

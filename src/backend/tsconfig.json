@@ -4,7 +4,7 @@
         /* -- Basic Options -- */
         "rootDir": "../", /* Specify the root directory of input files. Use to control the output directory structure with --outDir. */
         "outDir": "./dist",
-        "module": "commonjs", /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', or 'ESNext'. */
+        // "module": "umd", /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', or 'ESNext'. */
     },
-    "include": ["./", "../common/Service.ts"],
+    "include": ["./", "../common/Service.ts", "../common/Router.ts"],
 }

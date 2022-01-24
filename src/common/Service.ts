@@ -1,6 +1,5 @@
-import { randomId } from "./"
-import { MessageObject, MessageType, ProtocolObject, RouteConfig, SubscriptionCallbackType } from "src/common/general.types"
-import { Router } from 'src/backend'
+import { randomId } from "./id.utils"
+import { MessageObject, ProtocolObject, RouteConfig, SubscriptionCallbackType } from "src/common/general.types"
 
 // Browser and Node-Compatible Service Class
 export class Service extends EventTarget {

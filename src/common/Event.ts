@@ -24,11 +24,8 @@
          this.state = new StateManager({},undefined,false); //trigger only state (no overhead)
          this.manager = manager;
  
-         if(manager != undefined) { //only in window
-             let found = manager.responses.find((foo) => {
-                 if(foo.name === 'eventmanager') return true;
-             });
-             if(!found) {
+         if(manager?.responses != undefined) { //only in window
+             if(!manager.responses.has('eventmanager')) {
                  manager.addCallback('eventmanager',this.workerCallback);
              }
          } 

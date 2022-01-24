@@ -88,20 +88,16 @@ export class WebRTCClient extends Service {
 
     get [Symbol.toStringTag]() { return 'WebRTCClient' }
 
-    constructor(source, iceServers=[]){
+    constructor(source, iceServers=[{
+        urls: ["stun:stun.l.google.com:19302"]
+    }]){
         super()
 
         this.add(source) // Add MediaStream / DataStream
 
         this.config = {
-            iceServers: []
+            iceServers
           };
-
-        if(iceServers.length === 0 ) this.config.iceServers.push(
-            {
-                urls: ["stun:stun.l.google.com:19302"]
-            }
-          )
 
           /**
            * e.g. https://developer.mozilla.org/en-US/docs/Web/API/RTCIceServer/urls

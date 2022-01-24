@@ -1,13 +1,17 @@
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 //import { streamUtils } from "./streamSession";
 
-import {Events, randomId} from '@brainsatplay/liveserver-common'
+import {Events, randomId, SubscriptionService} from '@brainsatplay/liveserver-common'
 import { MessageObject, UserObject } from 'src/common/general.types';
 import { Service } from '@brainsatplay/liveserver-common/Service';
 import { safeStringify } from  '@brainsatplay/liveserver-common/parse.utils';
-export class WebsocketClient extends Service {
+
+// TODO: Convert to SubscriptionService and mirror the backend network services
+export class WebsocketClient extends SubscriptionService {
 
     name = 'websocket'
+    service = 'WebsocketService'
+    
     protocols = {
 		websocket: true
 	}
@@ -19,7 +23,6 @@ export class WebsocketClient extends Service {
     sockets = [];
     socketRot = 0;
 
-    responses = [];
     queue = {};
 
     origin = `client${Math.floor(Math.random()*10000000000000)}`; //randomid you can use
@@ -29,13 +32,13 @@ export class WebsocketClient extends Service {
     unsubEvent = (eventName, sub) => {this.EVENTS.unsubEvent(eventName,sub)};
     addEvent = async (eventName, origin, functionName, id) => {this.EVENTS.addEvent(eventName, origin, functionName, id)};
 
-
-
     constructor(
-        subprotocols={_id:`user${Math.floor(Math.random() * 10000000000)}`},
+        subprotocols:Partial<UserObject>={},
         url?:URL|string
     ) {
         super()
+
+        if (!subprotocols._id) subprotocols._id = randomId()
         this.subprotocols = subprotocols;
         
         if(url) this.addSocket(url, subprotocols)
@@ -53,6 +56,10 @@ export class WebsocketClient extends Service {
         Object.keys(dict).forEach((str) => subprotocol.push(`brainsatplay.com/${str}/${dict[str]}?arr=` + Array.isArray(dict[str])))
         return encodeURIComponent(subprotocol.join(';'));
 
+    }
+
+    add = (user, endpoint) => {
+        return this.addSocket(endpoint, user)
     }
 
     addSocket(url:string|URL=new URL('https://localhost:80'), subprotocolObject=this.subprotocols) {
@@ -206,10 +213,7 @@ export class WebsocketClient extends Service {
         //this.streamUtils.processSocketMessage(res);
     
         let runResponses = () => {
-            this.responses.forEach((foo,i) => {
-                if(typeof foo === 'object') foo.callback(res);
-                else if (typeof foo === 'function') foo(res);
-            });
+            this.responses.forEach((foo,i) => foo(res));
         }
 
 
@@ -217,7 +221,8 @@ export class WebsocketClient extends Service {
         if (callbackId) {
             delete res.callbackId
             this.queue[callbackId].resolve(res) // Run callback
-            if (!this.queue[callbackId].suppress) runResponses()
+            // if (!this.queue[callbackId].suppress) runResponses()
+            runResponses()
             delete this.queue[callbackId];
         } else {
             runResponses()
@@ -231,22 +236,14 @@ export class WebsocketClient extends Service {
     }
 
     addCallback(name='',callback=(args)=>{}) {
-        if(name.length > 0 && !this.responses.find((o)=>{if(typeof o === 'object') {if(o.name === name) return true;}})) {
-            this.responses.push({name:name,callback:callback});
-            return this.responses.length-1;
+        if(name.length > 0 && !this.responses.has(name)) {
+            this.responses.set(name, callback);
         }
         else return false;
     }
 
-    removeCallback(nameOrIdx='') {
-        if(nameOrIdx.length > 0) {
-            let idx;
-            if(this.responses.find((o,i)=>{if(typeof o === 'object') {if(o.name === nameOrIdx) { idx = i; return true;}}})) {
-                this.responses.splice(idx,1);
-            }
-        } else if (typeof nameOrIdx === 'number') {
-            this.responses.splice(nameOrIdx,1);
-        }
+    removeCallback(name='') {
+        this.responses.delete(name);
     }
 
     defaultCallback = (res) => {

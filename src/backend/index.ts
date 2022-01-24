@@ -5,4 +5,4 @@ export * from './websocket'
 export * from './http' // Includes support for EventSource
 export * from './webrtc'
 export * from './unsafe'
-export * from './Router'
+export * from '@brainsatplay/liveserver-common/Router'

@@ -5,6 +5,12 @@ import { Service } from './Service'
 // Browser and Node-Compatible Service Class
 export class SubscriptionService extends Service {
 
+    // FE
+    service?: string;
+    reference?: any; // Networking object reference
+    responses?: Map<string, Function> = new Map()
+    remote?: string
+
     // Message Handler
     subscribers: Map<string, any> = new Map()
     updateSubscribers?: (router: Router, o: MessageObject) => any = (self, o) => {
@@ -19,5 +25,17 @@ export class SubscriptionService extends Service {
     
     constructor() {
         super()
+    }
+
+    setRemote = (remote) => {
+        this.remote = remote
+    }
+
+    addResponse = (name, f) => {
+        this.responses.set(name, f)
+    }
+
+    send = async (o:MessageObject, options: any):Promise<any> => {
+        throw 'Send not implemented'
     }
 }

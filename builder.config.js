@@ -7,7 +7,7 @@ function run([type]) {
         case 'run:nodejs':
            return builder.runNodejs({
                 entryFile: './src/main', 
-                watchDirs: ['src/backend', 'src/common'],
+                watchDirs: ['src'],
                 nodeArgs: ['development'] 
             });
 

@@ -1,5 +1,5 @@
 import { RouteConfig, SettingsObject, UserObject } from "src/common/general.types";
-import { DONOTSEND } from "../Router";
+import { DONOTSEND } from "@brainsatplay/liveserver-common/Router";
 import { Service } from "src/common/Service";
 
 //TODO: one-off data calls based on session configs
@@ -28,7 +28,7 @@ export class SessionsService extends Service {
         this.controller = Router;
         this.LOOPING = running;
 
-        if(Router) this.delay = Router.interval;
+        if(Router) this.delay = Router.INTERVAL;
 
         //FYI "this" scope references this class, "self" scope references the controller scope.
         this.routes = [

@@ -67,4 +67,8 @@ export type UserObject = {
     lastTransmit:number,
     latency:number,
     routes: Map<string, RouteConfig>
+
+    // To Determine if Useful
+    userRoles?: any[]
+    email?: string,
   }

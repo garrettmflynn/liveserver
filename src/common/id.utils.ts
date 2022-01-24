@@ -1,0 +1,1 @@
+export const randomId = (prefix?) => ((prefix) ? `${prefix}_` : '')  + Math.floor(100000*Math.random())
