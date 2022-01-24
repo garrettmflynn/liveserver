@@ -2,10 +2,8 @@
 //Users, user data, notifications, access controls
 // Joshua Brewster, Garrett Flynn, AGPL v3.0
 import { ObjectId } from "mongodb"
-import { Router } from "..";
 import { RouteConfig, UserObject } from 'src/common/general.types';
-import { randomId } from "src/common";
-import { Service } from "@brainsatplay/liveserver-common/Service";
+import { Service, randomId, Router } from "@brainsatplay/liveserver-common";
 
 export class DatabaseService extends Service{
     

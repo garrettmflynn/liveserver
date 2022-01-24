@@ -1,8 +1,9 @@
 //A host on a WebRTC channel can relay session streams, regulate file streams, etc.
 
 import { WebRTCClient } from ".";
-import { DatabaseService, Router, SessionsService, UnsafeService } from "src/backend";
+import { DatabaseService, SessionsService, UnsafeService } from "src/backend";
 import { SessionsClient, UserPlatform } from "..";
+import { Router } from '@brainsatplay/liveserver-common';
 
 //creates a WebRTC controller for running sessions and p2p databases, i.e. backend data streaming services but hosted on WebRTC
 export class WebRTCController {

@@ -7,12 +7,14 @@ Known Bugs
 
 */
 
-import { Service } from '@brainsatplay/liveserver-common';
-import { UserObject } from '@brainsatplay/liveserver-common/general.types';
+import { SubscriptionService } from '@brainsatplay/liveserver-common';
+import { UserObject, MessageObject } from '@brainsatplay/liveserver-common/general.types';
 
-export class WebRTCClient extends Service {
+export class WebRTCClient extends SubscriptionService {
 
     name = 'webrtc'
+    service = 'WebRTCService'
+
     config: RTCConfiguration
     peers: Map<string,RTCPeerConnection> = new Map()
     dataChannelQueueLength: number = 0
@@ -93,7 +95,7 @@ export class WebRTCClient extends Service {
     }]){
         super()
 
-        this.add(source) // Add MediaStream / DataStream
+        this.addSource(source) // Add MediaStream / DataStream
 
         this.config = {
             iceServers
@@ -140,6 +142,20 @@ export class WebRTCClient extends Service {
     addDataTracks = async (id:string, tracks:any[]) => {
         for (let track of tracks) {
             await this.openDataChannel({name: `DataStreamTrack${this.dataChannelQueueLength}`, peer:id, reciprocated: false}).then((o: DataChannel) => track.subscribe(o.sendMessage)) // stream over data channel
+        }
+    }
+
+    addSource = async (source?:any) => {
+        if (source){
+            this.sources.set(source.id, source)
+            source.addEventListener('track', ((ev:CustomEvent) => {
+                let kind = ev.detail.kind
+                if (!kind || (kind !== 'video' && kind !== 'audio')){
+                    for (let arr of this.peers) {
+                        this.addDataTracks(arr[0], [ev.detail])
+                    }
+                }
+            }) as EventListener)
         }
     }
 
@@ -263,20 +279,6 @@ export class WebRTCClient extends Service {
         return localConnection
     }
 
-    add = async (source?:any) => {
-        if (source){
-            this.sources.set(source.id, source)
-            source.addEventListener('track', ((ev:CustomEvent) => {
-                let kind = ev.detail.kind
-                if (!kind || (kind !== 'video' && kind !== 'audio')){
-                    for (let arr of this.peers) {
-                        this.addDataTracks(arr[0], [ev.detail])
-                    }
-                }
-            }) as EventListener)
-        }
-    }
-
     remove = (id:string) => {
         let source = this.sources.get(id)
         this.sources.delete(id)
@@ -375,4 +377,22 @@ export class WebRTCClient extends Service {
         }
         check()
     }
+
+
+    // Clientside Subscription Service Methods
+    // setRemote = (remote) => {
+    //     this.remote = remote
+    // }
+
+    // addResponse = (name, f) => {
+    //     this.responses.set(name, f)
+    // }
+
+    // send = async (o:MessageObject, options?: any):Promise<any> => {
+    //     throw 'Send not implemented'
+    // }
+
+    // add = (user:Partial<UserObject>, endpoint:string):Promise<any> => {
+    //     throw 'Add not implemented'
+    // }
 }

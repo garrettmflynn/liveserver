@@ -7,6 +7,7 @@ import { AllMessageFormats, MessageObject, MessageType, RouteConfig, UserObject 
 import { Service } from './Service';
 import { safeStringify } from './parse.utils';
 import { SubscriptionService } from './SubscriptionService';
+import errorPage from '../backend/ssr/404'
 
 export const DONOTSEND = 'DONOTSEND';
 
@@ -94,7 +95,6 @@ export class Router {
       //   });
       // }
       // if (args[0] === true) console.log('Server routes available: ', list); //list available functions
-      console.log('TRYING')
       return {message: Router.ROUTES};
     }
   },
@@ -260,7 +260,6 @@ export class Router {
 
         this.DEBUG = this.OPTIONS.debug;
 
-        // console.log(global)
         // Browser-Only
         if (global.onbeforeunload){
           global.onbeforeunload = () => {
@@ -358,12 +357,27 @@ export class Router {
           return res
       }
   }
+  
+  get = (route:string, ...args:any[]) => {
+    return this._send(route, 'GET', ...args)
+  }
+
+  delete = (route:string, ...args:any[]) => {
+    return this._send(route, 'DELETE', ...args)
+  }
+
+  post = (route:string, ...args:any[]) => {
+    return this._send(route, 'POST', ...args)
+  }
+
+  send = this.post
 
 
-  send = async (route:string, ...args:any[]) => {
+  private _send = async (route:string, method?: string, ...args:any[]) => {
 
       if (this.remote){
           let response;
+          if (!method) method = (args.length > 0) ? 'POST' : 'GET'
 
           // Send over Websockets if Active
           if (this.protocols.websocket){
@@ -372,15 +386,17 @@ export class Router {
           
           // Default to HTTP
           else {
+            const toSend: any= {
+              method: method.toUpperCase(),
+              mode: 'cors', // no-cors, *cors, same-origin
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+          }
 
-              response = await fetch(createRoute(route, this.remote), {
-                  method: 'POST',
-                  mode: 'cors', // no-cors, *cors, same-origin
-                  headers: {
-                      'Content-Type': 'application/json',
-                  },
-                  body: safeStringify({id: this.currentUser._id, message: args, suppress: !!this.subscription})
-              }).then(async (res) => {
+            if (toSend.method != 'GET') toSend.body = safeStringify({id: this.currentUser._id, message: args, suppress: !!this.subscription})
+
+              response = await fetch(createRoute(route, this.remote), toSend).then(async (res) => {
                   const json = await res.json()
                   if (!res.ok) throw json.message
                   else return json
@@ -463,8 +479,6 @@ export class Router {
 
 
     load(service:any, name:string = service.name) {
-
-      console.log('New Service', name)
       
       this.SERVICES.server.set(name, service)
 
@@ -492,10 +506,11 @@ export class Router {
     }
 
 
-    async runRoute(route="",args:any[]|{eventName?:string}=[], origin, callbackId?) {
+    async runRoute(route, method: 'get' | 'post' | 'delete', args:any[]|{eventName?:string}=[], origin, callbackId?) {
 
       try { //we should only use try-catch where necessary (e.g. auto try-catch wrapping unsafe functions) to maximize scalability
         if(!route) return; // NOTE: Now allowing users not on the server to submit requests
+        if (!method && Array.isArray(args)) method = (args.length > 0) ? 'post' : 'get'
         if(this.DEBUG) console.log('route', route);
 
         let isEvent = false;
@@ -506,7 +521,8 @@ export class Router {
           }
         }
         if(!isEvent) {
-          return await this.runCallback(route,(args as any),origin).then((dict:MessageObject|any) => {
+
+          return await this.runCallback(route, (args as any), origin, method).then((dict:MessageObject|any) => {
             
             // Convert Output to Message Object
             if (typeof dict !== 'object' || !('message' in dict)) dict = {
@@ -570,7 +586,7 @@ export class Router {
 
     this.SERVICES.server.forEach(s => {
       const route = s.name + '/addUser'
-      if (this.ROUTES[route]) this.runRoute(route, [userinfo], id) // TODO: Fix WebRTC
+      if (this.ROUTES[route]) this.runRoute(route, 'post', [userinfo], id) 
     })
 
     return newuser; //returns the generated id so you can look up
@@ -584,7 +600,7 @@ export class Router {
       
         this.SERVICES.server.forEach(s => {
           const route = s.name + '/removeUser'
-          if (this.ROUTES[route]) this.runRoute(route, [u], u.id) // TODO: Fix WebRTC
+          if (this.ROUTES[route]) this.runRoute(route, 'delete', [u], u.id) // TODO: Fix WebRTC
         })
 
         this.USERS.delete(u._id);
@@ -629,13 +645,14 @@ export class Router {
     if(typeof o === 'object' && !Array.isArray(o)) { //if we got an object process it as most likely user data
       if(o._id) o.id = o._id; //just in case
       
+
         if(o.route) {
           
           let u = this.USERS.get(o.id)
           let eventSetting = this.checkEvents(o.route, u?.id ?? o.id ,u);
 
           console.log('runRoute', o.route)
-          let res = await this.runRoute(o.route,o.message, u?.id ?? o.id, o.callbackId);
+          let res = await this.runRoute(o.route, o.method, o.message, u?.id ?? o.id, o.callbackId);
           res.suppress = o.suppress // only suppress when handling messages here
 
           // Handle Subscription Updates based on Internal Notifications
@@ -688,8 +705,10 @@ export class Router {
             this.removeRoute(route); //removes existing callback if it is there
             if (route[0] === '/') route = route.slice(1)
             o.args = getParamNames(o.callback)
+
             this.ROUTES[route] = Object.assign({}, o)
             this.ROUTES[route].route = route
+            
             if (o.reference) {
               this.STATE.setState({[route]: o.reference});
               this.STATE.subscribe(route, (message) => {
@@ -713,6 +732,7 @@ export class Router {
       route,
       input=[],
       origin?,
+      method=(input.length > 0) ? 'post' : 'get',
     ) {
 
       return new Promise(async resolve => {
@@ -725,21 +745,35 @@ export class Router {
             possibilities.push(slice + '/*', slice + '/**')
         })
 
+
+        let errorRes = {route: route, message: {content: errorPage}, headers: {
+          'Content-Type': 'text/html'
+        }}
+
         // Iterate over Possibilities
         Promise.all(possibilities.map(async route => {
 
-          if (this.ROUTES[route]) {
-            let routeInfo = this.ROUTES[route]
+          let routeInfo = this.ROUTES[route]
+          if (routeInfo) {
             try {
-              const res = await routeInfo?.callback(...[this, input, origin])
+              let res;
+              if (method === 'get') {
+                if (this.STATE.data[route]){
+                  res = {route: route, message: this.STATE.data[route]}
+                } else res = errorRes
+              } else {
+                res  = await routeInfo?.callback(...[this, input, origin])
+              }
+
               if (routeInfo.service && res?.route) res.route = `${routeInfo.service}/${res.route}` // Correct Route
               // if (routeInfo.reference) state.setState(route, res.message)
+              if (routeInfo.headers) res.headers = routeInfo.headers // e.g. text/html for SSR
               resolve(res)
             } catch(e) {
               console.log('Callback Failed: ', e)
             }
           }
-        })).then(_ => resolve(false))
+        })).then(_ => resolve(errorRes))
       })
     }
 

@@ -1,6 +1,6 @@
-import { MessageObject } from "src/common/general.types"
-import { Router } from 'src/backend'
+import { MessageObject, UserObject } from "src/common/general.types"
 import { Service } from './Service'
+import Router from './Router';
 
 // Browser and Node-Compatible Service Class
 export class SubscriptionService extends Service {
@@ -17,7 +17,7 @@ export class SubscriptionService extends Service {
         this.subscribers.forEach(u => {
             if (u.routes[o.route]) {
                 u = self.USERS.get(u.id)
-                if (u) u.send(o)
+                if (u?.send) u.send(o)
             }
         })
     }
@@ -25,6 +25,10 @@ export class SubscriptionService extends Service {
     
     constructor() {
         super()
+    }
+
+    add = (user:Partial<UserObject>, endpoint:string):Promise<any> => {
+        throw 'Add not implemented'
     }
 
     setRemote = (remote) => {

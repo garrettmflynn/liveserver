@@ -56,12 +56,26 @@ export class HTTPService extends Service {
             if (route.slice(0,toMatch.length) == toMatch){
 
                 route = route.slice(toMatch.length) // get subscription path
-                await this.services.events.add(info, request, response)
+                await this.services.events.addUser(info, request, response)
             } 
         } else {
             let res = await this.handleRoute(route, (info as MessageObject))
             if (res instanceof Error) response.status(404).send(JSON.stringify(res, Object.getOwnPropertyNames(res))) 
-            else if (res != null) response.send(JSON.stringify(res as any)) // send back  
+            else if (res != null) {
+                for (let header in res?.headers){
+                    response.setHeader(header, res.headers[header]);
+                }
+
+                let contentType = response.getHeader('Content-Type')
+
+                // Only Send HTML for SSR
+                if (contentType ===  'text/html') {
+                    response.send(res.message?.content) // send back  
+                } else {
+                    response.setHeader('Content-Type','application/json')
+                    response.send(JSON.stringify(res as any)) // send back  
+                }
+            }
         }
     }
 

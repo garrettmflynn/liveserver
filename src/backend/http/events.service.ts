@@ -35,7 +35,7 @@ export class EventsService extends SubscriptionService {
 
     }
 
-    add = async (info:any, request: Request, response: Response) => {
+    addUser = async (info:any, request: Request, response: Response) => {
         
         const tempId = info.message?.[1]
         const id = info.id ?? tempId ?? randomId('sse') // temporary id (since EventSource cannot pass a body)

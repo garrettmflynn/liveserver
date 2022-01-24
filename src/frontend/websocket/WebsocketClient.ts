@@ -10,10 +10,6 @@ export class WebsocketClient extends SubscriptionService {
 
     name = 'websocket'
     service = 'WebsocketService'
-    
-    protocols = {
-		websocket: true
-	}
 
     subprotocols?: Partial<UserObject>
     connected = false;
@@ -57,7 +53,7 @@ export class WebsocketClient extends SubscriptionService {
 
     }
 
-    add = (user, endpoint) => {
+    add = async (user, endpoint) => {
         return this.addSocket(endpoint, user)
     }
 

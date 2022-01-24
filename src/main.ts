@@ -11,6 +11,7 @@ import * as api from "./backend";
 import { resolve } from "path";
 import { config } from "dotenv";
 import { UnsafeService } from './backend'
+import { Router } from '@brainsatplay/liveserver-common'
 config({ path: resolve(__dirname, `../.env`) });
 config({ path: resolve(__dirname, `../.key`) });
 
@@ -48,7 +49,7 @@ mongoose
 function init(instance?:any) {
 
   // Instantiate the Router class to handle services
-  let controller = new api.Router({ debug: false });
+  let controller = new Router({ debug: false });
 
   // Enable HTTP Messages
   let http = new api.HTTPService();
@@ -75,8 +76,10 @@ function init(instance?:any) {
   // Enable Other Services
   let sessions = new api.SessionsService(controller);
   let database = new api.DatabaseService(controller, { mode: "mongdb", instance });
+  let ssr = new api.SSRService();
   controller.load(sessions)
   controller.load(database)
+  controller.load(ssr)
 
   // Enable Unsafe Service
   let unsafe = new UnsafeService()
