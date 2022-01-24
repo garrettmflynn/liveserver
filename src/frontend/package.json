@@ -29,7 +29,8 @@
     "@brainsatplay/liveserver-common": "*",
     "anotherstatemanager": "^1.0.4",
     "brainsatplay-data": "^0.0.9",
-    "magicworker": "^1.0.8"
+    "magicworker": "^1.0.8",
+    "brainsatplay-storage": "^0.0.2"
   },
   "bugs": {
     "url": "https://github.com/brainsatplay/liveserver"
