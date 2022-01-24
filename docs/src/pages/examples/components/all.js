@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
-import {http} from '../../../../../src/frontend';
+import styles from '../examples.module.css'
 
 export default function AllExample({server, platform}) {
   
@@ -16,18 +16,33 @@ export default function AllExample({server, platform}) {
       // http.addRoute(customRoute)
       platform.subscribe((o) => {
 
-        const data = o.message
+        console.log('o', o)
+
+        let data = o.message
         if (o.route === 'routes'){
+
+        let divs = {}
         buttons.current.innerHTML = ''
 
-        if (!Array.isArray(data)) data = [data]
-        data.forEach(o => {
+        for (let route in data){
+          const o = data[route]
 
+          let test = o.route.split('/')
+          let service = (test.length < 2) ? 'Base' : test[0]
+          let name = (test.length < 2) ? test[0] : test[1]
+
+          if (!divs[service]){
+            divs[service] = document.createElement('div')
+            divs[service].innerHTML = `<h2>${service}</h2>`
+            divs[service].style.padding = '20px'
+            buttons.current.insertAdjacentElement('beforeend', divs[service])
+          }
+
+          
           // o = {route: string, arguments: []}
           let button = document.createElement('button')
           button.className = 'button button--secondary button--lg'
-          button.innerHTML = o.route
-          buttons.current.insertAdjacentElement('beforeend', button)
+          button.innerHTML = name
           button.onclick = ( ) => {
             let args = []
             if (o.route === 'routes') buttons.current.innerHTML = ''
@@ -37,7 +52,9 @@ export default function AllExample({server, platform}) {
             // Sending Over HTTP Response
             send(o.route, ...args)
           }
-        })
+
+          divs[service].insertAdjacentElement('beforeend', button)
+        }
       } else {
         
         // Subscription Responses
@@ -63,7 +80,7 @@ export default function AllExample({server, platform}) {
       <header className={clsx('hero hero--primary')}>
         <div className="container">
           <h1 className="hero__title">All Routes</h1>
-          <p className="subtitle"><strong>Output:</strong> <span ref={output}></span></p>
+          <div className={styles.terminal}><span ref={output}></span></div>
           <div ref={buttons}>
           </div>
         </div>

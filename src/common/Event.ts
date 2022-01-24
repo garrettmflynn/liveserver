@@ -85,7 +85,7 @@
              else if (this.manager?.workers) {this.manager.workers.forEach((w)=>{this.manager.post(output,w.id,transfer);});}
              else if (this.manager?.sockets) {this.manager.sockets.forEach((s)=>{this.manager.post(output,s.id,transfer);});}
          } else if (typeof idOrObj === 'object') {
-             if(idOrObj.socket) idOrObj.socket.send(JSON.stringify(input)); //passed from Router
+             if(idOrObj.send) idOrObj.send(input); //passed from Router
          } else if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
          // run this in global scope of window or worker. since window.self = window, we're ok
              //if(port) console.log(port,output);

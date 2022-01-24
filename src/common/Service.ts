@@ -1,18 +1,26 @@
 import { randomId } from "./"
 import { MessageObject, MessageType, ProtocolObject, RouteConfig, SubscriptionCallbackType } from "src/common/general.types"
+import { Router } from 'src/backend'
 
 // Browser and Node-Compatible Service Class
-export class Service {
+export class Service extends EventTarget {
 
     id = randomId() // Unique Service ID
     name:string = 'service' // Service Name
     callbacks: Map<string, SubscriptionCallbackType >  = new Map() // Subscriber Callbacks
-    routes: RouteConfig[] = [] // Service-Specific Routes
+
+    // Service-Specific Routes
+    routes: RouteConfig[] = [
+        // {route: 'addUser', callback: (self, args, id) => {}} // Called every time a user is added via the Router
+        // {route: 'removeUser', callback: (self, args, id) => {}} // Called every time a user is removed via the Router
+    ]
+
+
     protocols: ProtocolObject = {} // Compatible Communication Protocols (unused in Node)
-    subscriptionHandler?: Function // Message Handler
-
+    services: {[x: string]: any} = {} // Object of nested services
+    
     constructor() {
-
+        super()
     }
 
 

@@ -123,14 +123,14 @@ export class WebsocketClient extends Service {
             if(typeof fstring === 'function') fstring = fstring.toString();
             let dict = {route:'addfunc',message:[functionName,fstring], id:origin}; //post to the specific worker
             if(!id) {
-                this.sockets.forEach((s) => {this.send(dict,s.id);});
+                this.sockets.forEach((s) => {this.send(dict,{id: s.id});});
                 return true;
             } //post to all of the workers
-            else return await this.send(dict,callback,id);
+            else return await this.send(dict,{callback,id});
         }
       }
 
-    async run(functionName:string,args:[]|object=[],id:String,origin:string,callback=(result)=>{}) {
+    async run(functionName:string,args:[]|object=[],id:string,origin:string,callback=(result)=>{}) {
         if(functionName) {
             if(functionName === 'transferClassObject') {
               if(typeof args === 'object' && !Array.isArray(args)) {
@@ -140,7 +140,7 @@ export class WebsocketClient extends Service {
               }
             }
             let dict = {route:functionName, message:args, id:origin};
-            return await this.send(dict,callback,id);
+            return await this.send(dict,{callback, id});
         }
     }
 

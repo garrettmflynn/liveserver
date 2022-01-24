@@ -109,8 +109,6 @@ export class OSCService extends Service {
             port.on("error", (error) => {
                 resolve({route: 'oscError', message:  error.message})
                 this.notify({route: 'oscError', message: error.message}, true)
-                // if (error.code === 'EADDRINUSE') {this.socket.send(JSON.stringify({message:'oscInfo', oscInfo: this.info()}))}
-                // else this.socket.send(JSON.stringify({message:'oscError', oscError: error.message}))
             });
 
             port.on("message", (o) => {

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { ClientObject } from "@brainsatplay/liveserver-common/general.types";
-import { Service } from "@brainsatplay/liveserver-common/Service";
+import { SubscriptionService } from "@brainsatplay/liveserver-common/SubscriptionService";
 import { randomId } from "src/common";
 
 // var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
@@ -13,17 +13,10 @@ import { randomId } from "src/common";
 //   return result;
 // }
 
-export class EventsService extends Service {
+export class EventsService extends SubscriptionService {
 
     name = 'events'
     id: string = randomId('events')
-    sources: Map<string, any> = new Map()
-
-    subscriptionHandler = (o) => {
-        this.sources.forEach(u => {
-            if (u.routes[o.route]) u.callback(o)
-        })
-    }
 
     // TODO: Add method to parse events to listen to from the Router...
 
@@ -45,14 +38,15 @@ export class EventsService extends Service {
     add = async (info:any, request: Request, response: Response) => {
         
         const tempId = info.message?.[1]
-        const id = tempId ?? info.id ?? randomId('sse') // temporary id (since EventSource cannot pass a body)
+        const id = info.id ?? tempId ?? randomId('sse') // temporary id (since EventSource cannot pass a body)
         const routes = info.message?.[0]
-        let u = this.sources.get(id)
+        let u = this.subscribers.get(tempId ?? id)
 
         if (tempId && u) {
-            this.sources.delete(tempId)
+            this.subscribers.delete(tempId)
             u.id = id
-            this.sources.set(id, u)
+            this.subscribers.set(id, u)
+            await this.notify({route: 'addUser', message: [{id, send: u.callback}]});
         }
 
         if (!u){
@@ -73,13 +67,13 @@ export class EventsService extends Service {
               }
 
             u.callback({route:'events/subscribe', message: id}) // send initial value
-
+            
             // Cancel Subscriptions
             request.on('close', () => {
-                this.sources.delete(u.id)
+                this.subscribers.delete(u.id)
             });
 
-            this.sources.set(id, u)
+            this.subscribers.set(id, u)
 
         } else {
             routes.forEach(async route => {

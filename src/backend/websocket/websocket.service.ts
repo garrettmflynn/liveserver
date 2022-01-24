@@ -1,22 +1,23 @@
 // Joshua Brewster, Garrett Flynn, AGPL v3.0
 import { WebSocketServer } from 'ws'
-import { Service } from '@brainsatplay/liveserver-common/Service';
+import { SubscriptionService } from '@brainsatplay/liveserver-common/SubscriptionService';
 import { MessageObject } from '@brainsatplay/liveserver-common/general.types';
 
 // Create WS Server Instance
-export class WebsocketService extends Service{
+export class WebsocketService extends SubscriptionService {
 
   name = 'websocket'
   server: any
   wss = new WebSocketServer({ clientTracking: false, noServer: true });
-  sources: Map<string, any> = new Map()
 
-
-  subscriptionHandler = (o) => {
-    this.sources.forEach(u => {
-        if (u.routes[o.route]) u.callback(o)
-    })
-}
+  // routes = [
+  //   {
+  //     route: 'removeUser', 
+  //     callback = (self, args, id) => {
+  //       const u = self.USERS[id]
+  //     }
+  //   }
+  // ]
 
     constructor(httpServer){
       super()
@@ -70,7 +71,10 @@ export class WebsocketService extends Service{
                 username:'agentsmith' //ideally a unique username
               }
             */
-            const msg = await this.notify({route: 'addUser', message: [Object.assign(subprotocols, {socket: ws})]}); // TODO: Ensure users actually added to the session
+
+            const msg = await this.notify({route: 'addUser', message: [Object.assign(subprotocols, {send: (data) => {
+              if(ws.readyState === 1) ws.send(JSON.stringify(data))
+            }})]}); // TODO: Ensure users actually added to the session with a send() callback
 
             ws.on('message', (json="") => {
               
@@ -87,9 +91,9 @@ export class WebsocketService extends Service{
           });
 
           ws.on('close', (s) => {
-              // console.log('session closed: ', id);
+              console.log('WS closed');
               // this.removeUser(id);
-              this.notify({route: 'removeUser', message: [msg.id]}); // TODO: Ensure users actually leave the session
+              // this.notify({route: 'removeUser', message: [msg.id]}); // TODO: Ensure users actually leave the session (but don't force leave if WS fails)
           });
 
             // console.log('user session started: ', message);
@@ -139,10 +143,10 @@ export class WebsocketService extends Service{
     addSubscription = async (info: MessageObject, ws) => {
 
       const id = info.id
+      console.log(id)
       const routes = info.message?.[0]
-      let u = this.sources.get(id)
+      let u = this.subscribers.get(id)
 
-      console.log(info, routes)
       if (!u){
           u = {id, routes: {}}
                       
@@ -154,16 +158,16 @@ export class WebsocketService extends Service{
 
           // Cancel Subscriptions
           ws.on('close', () => {
-            this.sources.delete(id)
+            this.subscribers.delete(id)
         });
 
-          this.sources.set(id, u)
+          // u.id = id
+          this.subscribers.set(id, u)
 
       } 
 
         routes.forEach(async route => {
             let res = await this.notify({route, message: []}, true) // Getting current routes to pass along
-            console.log('Pasing', res)
             u.callback(res)
             u.routes[route] = true
         })

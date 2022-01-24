@@ -286,7 +286,7 @@ export class SessionsService extends Service {
                     }
                 }
                 if(user.id !== userId) { //make sure the new user receives the data
-                    newUser.socket.send(JSON.stringify({route:'sessionData',message:result}));
+                    newUser.send({route:'sessionData',message:result});
                     newUser.sessions.push(session.id);
                 } else if(user.sessions) user.sessions.push(session.id);
                 
@@ -356,8 +356,6 @@ export class SessionsService extends Service {
                 }
 
                 u.sessions.push(obj.id);
-                //console.log('subscribed to user');
-                //u.socket.send(JSON.stringify({message:'subscribed', sub:obj.id}))
                 return result;
             }
             else {
@@ -709,7 +707,7 @@ export class SessionsService extends Service {
                 session.users.forEach((user) => {
                     let u = this.controller.USERS.get(user);
                     if(!u) toKick.push(user);
-                    else if (user !== session.host) u.socket.send(JSON.stringify({route:'sessionData',message:updateObj}));
+                    else if (user !== session.host && u.send) u.send({route:'sessionData',message:updateObj})   
                     updatedUsers[user] = true;
                 });
                 toKick.forEach((id) => {
@@ -743,8 +741,8 @@ export class SessionsService extends Service {
         //now send the data out
         if(session.type === 'hostroom') {
             let host = this.controller.USERS.get(session.host);
-            if(host) {   
-                host.socket.send(JSON.stringify({route:'sessionData',message:updateObj}));
+            if(host) {
+                if (host.send) host.send({route:'sessionData',message:updateObj})   
                 updatedUsers[session.host] = true;
             }
             session.lastTransmit = Date.now();
@@ -753,7 +751,7 @@ export class SessionsService extends Service {
             session.users.forEach((user) => {
                 let u = this.controller.USERS.get(user);
                 if(u) {
-                    u.socket.send(JSON.stringify({route:'sessionData',message:updateObj}));
+                    if (u.send) u.send({route:'sessionData',message:updateObj})   
                     updatedUsers[user] = true;
                 }
             });
@@ -792,7 +790,7 @@ export class SessionsService extends Service {
         if(Object.keys(updateObj.userData).length > 0) {
             const u = this.controller.USERS.get(session.listenerId)
             if (u) {
-                u.socket.send(JSON.stringify({route:'sessionData',message:updateObj}));
+                if (u.send) u.send({route:'sessionData',message:updateObj})   
                 updatedUsers[u.id] = true;
                 session.lastTransmit = Date.now();
             }

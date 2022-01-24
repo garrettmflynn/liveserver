@@ -1,13 +1,12 @@
 import StateManager from 'anotherstatemanager'
 import { MessageObject, SettingsObject, SubscriptionCallbackType } from 'src/common/general.types';
 import { DataStreaming } from '../datastream/data.streaming';
-import { Service } from '../../common/Service';
+import { Service } from '@brainsatplay/liveserver-common/Service';
 
 //Joshua Brewster, Garrett Flynn AGPL v3.0
 export class SessionsClient extends Service {
 	
 	user: any
-	datastream: DataStreaming
 	state = new StateManager();
 	apps = new Map();
 	subscriptions = new Map();
@@ -21,10 +20,10 @@ export class SessionsClient extends Service {
 		
 		this.user = userinfo;
 		
-		this.datastream = new DataStreaming(userinfo);
+		this.services.datastream = new DataStreaming(userinfo);
 
 		//  Pass Datastream Values to the UserPlatform
-		this.datastream.subscribe((o) => {
+		this.services.datastream.subscribe((o) => {
 			this.notify(o)
 		})
 		
@@ -85,7 +84,7 @@ export class SessionsClient extends Service {
 		if(!options.settings.keys) options.settings.keys = Array.from(Object.keys(options.object));
 
 		//set up the data stream
-		this.datastream.setStream(
+		this.services.datastream.setStream(
 			options.object,
 			options.settings,
 			options.appname 
@@ -173,7 +172,7 @@ export class SessionsClient extends Service {
 				}
 
 				//set up the data stream
-				this.datastream.setStream(
+				this.services.datastream.setStream(
 					object,
 					{
 						keys:info.message.propnames
@@ -181,7 +180,7 @@ export class SessionsClient extends Service {
 					info.message.appname 
 				);
 
-				//do this.datastream.updateStreamData(info.message.appname, {propname:'newdata'})
+				//do this.services.datastream.updateStreamData(info.message.appname, {propname:'newdata'})
 			}
 
 			this.state.setState(info.message.id,info.message);

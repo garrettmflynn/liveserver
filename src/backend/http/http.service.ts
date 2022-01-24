@@ -19,13 +19,17 @@ export class HTTPService extends Service {
 
     name = 'http'
     id: string = randomId('http')
-    eventService = new EventsService()
-    subscriptionHandler = this.eventService.subscriptionHandler
+    services = {
+        events: new EventsService()
+    }
+
+    subscribers = this.services.events.subscribers
+    updateSubscribers = this.services.events.updateSubscribers
 
     constructor() {
         super()
 
-        this.eventService.subscribe(this.notify) // Pass out to the Router
+        this.services.events.subscribe(this.notify) // Pass out to the Router
 
         // this.addRoute(transform(k, {
         //     route: `/${(name) ? `${name}/` : ''}` + k,
@@ -52,7 +56,7 @@ export class HTTPService extends Service {
             if (route.slice(0,toMatch.length) == toMatch){
 
                 route = route.slice(toMatch.length) // get subscription path
-                await this.eventService.add(info, request, response)
+                await this.services.events.add(info, request, response)
             } 
         } else {
             let res = await this.handleRoute(route, (info as MessageObject))

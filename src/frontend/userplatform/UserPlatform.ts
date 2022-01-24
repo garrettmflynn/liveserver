@@ -1219,12 +1219,14 @@ export class UserPlatform {
                         let subscriptionEndpoint = `${this.services.available['WebsocketService']}/subscribe`
                         if (!this.subscription){
                             this.subscription = this.protocols.websocket = new WebsocketClient(this.currentUser, this.remote) // TODO: Enable multiple socket connections to different servers
-                            this.subscription.addCallback('sub', onmessage)
+                            this.protocols.websocket.addCallback('sub', onmessage)
                         }
-                        this.subscription.send({
+
+                        this.protocols.websocket.send({
                             route: subscriptionEndpoint,
                             message: [options.routes]
                         })
+
                         resolve(this.subscription)
 
                     } else if ((options.protocol == null || options.protocol === 'http') && this.services.available['HTTPService']) { // TODO: Break out the HTTP Client
@@ -1232,16 +1234,16 @@ export class UserPlatform {
                         // EventSource ClientService (inline)
                         let subscriptionEndpoint = `${this.services.available['HTTPService']}/subscribe`
                         if (!this.subscription){
-                            this.subscription = new EventSource(createRoute(subscriptionEndpoint, this.remote))
-                            this.subscription.onopen = () => {
-                            this.subscription.onmessage = (event) => {
+                            const source = new EventSource(createRoute(subscriptionEndpoint, this.remote))
+                            source.onopen = () => {
+                            source.onmessage = (event) => {
                                 let data = JSON.parse(event.data)
 
                                 // Ensure IDs are Linked
                                 if (data.route === 'events/subscribe'){
                                     this.send(subscriptionEndpoint, options.routes, data.message) // Register and subscribed route
-                                    this.subscription.onmessage = onmessage
-                                    this.protocols.http = this.subscription
+                                    source.onmessage = onmessage
+                                    this.subscription = this.protocols.http = source
                                     resolve(this.subscription)
                                 }
                             }
@@ -1280,10 +1282,10 @@ export class UserPlatform {
     unsubscribe = (id, route?) => {
         if (id){
             throw 'Unsubscribe not implemented'
-            // if (route) this.routeSubscriptions[route]?.delete(id)
+            // if (route) this.subscribers[route]?.delete(id)
             // else {
-            //     for (let k in this.routeSubscriptions) {
-            //         if (this.routeSubscriptions[k].has(id)) return this.routeSubscriptions[k].delete(id)
+            //     for (let k in this.subscribers) {
+            //         if (this.subscribers[k].has(id)) return this.subscribers[k].delete(id)
             //     }
             // }
         }

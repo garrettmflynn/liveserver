@@ -12,12 +12,12 @@ export class UnsafeService extends Service {
   
             let newCallback = { route: args[0], callback: newFunc };
   
-            self.routes.set(newCallback.route, newCallback) // TODO: Update EventSources subscribed to this event...
+            self.routes[newCallback.route] = newCallback // TODO: Update EventSources subscribed to this event...
             
             // Trigger Subscriptions to Receive Update from Routes
-            console.log('SUPER ARTIFICIAL WAY TO NOTIFY SUBSCRIBERS')
-            const message = await self.runCallback('routes')
-            self.triggerSubscriptions({route: 'routes', message})
+            // console.log('SUPER ARTIFICIAL WAY TO NOTIFY SUBSCRIBERS')
+            // const message = await self.runCallback('routes')
+            // self.triggerSubscriptions({route: 'routes', message})
             return true;
           }
         },

@@ -29,10 +29,14 @@ class Router {
   SUBSCRIPTIONS: Function[] = [] // an array of handlers (from services)
   DEBUG: boolean;
   SERVICES: Map<string, any> = new Map() // TODO: Detect changes and subscribe to them
-  routes: Map<string, RouteConfig> = new Map() // TODO: Detect changes and subscribe to them
+  routes: {[x: string] : RouteConfig} = {} // TODO: Detect changes and subscribe to them
   defaultRoutes: any[] = []
 
-  state = new StateManager() // TODO: Use this to notify subscribers to arbitrary routes
+  state = new StateManager(
+    {}, 
+    1, 
+    // false
+  ) // TODO: Use this to notify subscribers to arbitrary routes
 
   // -------------------- User-Specified Options --------------------
   options: {
@@ -69,16 +73,20 @@ class Router {
           }
         },
         { //return a list of function calls available on the server
-          route: 'routes', callback: (self, args, origin) => {
-            let list = [];
-            this.routes.forEach((o) => {
-              list.push({
-                route: o.route,
-                args: getParamNames(o.callback)
-              });
-            });
-            if (args[0] === true) console.log('Server routes available: ', list); //list available functions
-            return list;
+          route: 'routes', 
+          reference: this.routes,
+          callback: (self, args, origin) => {
+            // let list = [];
+            // for (let route in this.routes){
+            // const o = this.routes[route]
+            // // this.routes.forEach((o) => {
+            //   if (!o.private) list.push({
+            //     route: o.route,
+            //     args: getParamNames(o.callback)
+            //   });
+            // }
+            // if (args[0] === true) console.log('Server routes available: ', list); //list available functions
+            return {message: this.routes};
           }
         },
         { //generic send message between two users (userId, message, other data)
@@ -185,8 +193,8 @@ class Router {
           route:'login',
           aliases:['addUser', 'startSession'],
           callback: async (self, args, origin) => {
-            let id = await self.addUser(...args)
-            return { message: `User added: ${id}`, id }
+            let u = await self.addUser(...args)
+            return { message: u, id: u.id }
           }
         },
         {
@@ -212,18 +220,18 @@ class Router {
     load(service:any, name:string = service.name) {
 
       console.log('New Service', name)
+      
       this.SERVICES.set(name, service)
 
         service.routes?.forEach(o => {
-          const cases = [o.route, ...(o.aliases) ? o.aliases : []]
-            cases.forEach(k => {
-              const route = `${(name) ? `${name}/` : ''}` + k
-              this.routes.set(route, {
+          // const cases = [o.route, ...(o.aliases) ? o.aliases : []]
+          //   cases.forEach(k => {
+              const route = `${(name) ? `${name}/` : ''}` + o.route
+              this.addRoute(Object.assign({
                 route,
                 service: name,
-                callback: o.callback
-            })
-        })
+            }, o))
+        // })
       })
 
       if (service.subscribe) {
@@ -232,8 +240,8 @@ class Router {
         })
       }
 
-      if (service.subscriptionHandler) {
-          this.SUBSCRIPTIONS.push(service.subscriptionHandler)
+      if (service.updateSubscribers) {
+          this.SUBSCRIPTIONS.push(service.updateSubscribers)
       }
 
     }
@@ -253,7 +261,6 @@ class Router {
 
         }
         else {
-
           return await this.runCallback(route,args,origin).then((dict:MessageObject|any) => {
             
             // Convert Output to Message Object
@@ -263,10 +270,8 @@ class Router {
             if (!dict.route) dict.route = route
             dict.callbackId = callbackId
 
-            // Pass to Subscriptions
-            this.triggerSubscriptions(dict)
-
             // Pass Out
+
             if(dict.message === DONOTSEND) return dict;
             return dict;
           }).catch(console.error)
@@ -319,10 +324,10 @@ class Router {
 
     this.SERVICES.forEach(s => {
       const route = s.name + '/addUser'
-      if (this.routes.has(route)) this.runRoute(route, [userinfo], id) // TODO: Fix WebRTC
+      if (this.routes[route]) this.runRoute(route, [userinfo], id) // TODO: Fix WebRTC
     })
 
-    return id; //returns the generated id so you can look up
+    return newuser; //returns the generated id so you can look up
   }
 
   removeUser(user:string|UserObject) {
@@ -330,14 +335,12 @@ class Router {
     
     if(u) {
 
+      
         this.SERVICES.forEach(s => {
           const route = s.name + '/removeUser'
-          if (this.routes.has(route)) this.runRoute(route, [u], u.id) // TODO: Fix WebRTC
+          if (this.routes[route]) this.runRoute(route, [u], u.id) // TODO: Fix WebRTC
         })
 
-        if(u.socket) {
-            if(u.socket.readyState === 1) u.socket.close();
-        }
         this.USERS.delete(u._id);
         return true;
     } 
@@ -356,7 +359,7 @@ class Router {
   }
 
   triggerSubscriptions = (msg:MessageObject) => {
-    return this.SUBSCRIPTIONS.forEach(o => o(msg))
+    return this.SUBSCRIPTIONS.forEach(o => o(this, msg))
   }
      
   handleMessage = async (msg:AllMessageFormats, internal?:MessageType) => {
@@ -402,6 +405,7 @@ class Router {
           //   else u.socket.send(JSON.stringify(res));
           //   u.lastTransmit = Date.now();
           // }
+          
           return res
         }
       }
@@ -416,15 +420,11 @@ class Router {
 
       if(typeof user === 'string') {
           let u = this.USERS.get(user)
-          console.log(this.USERS, u)
           if(u) {
-              if(u.socket.readyState === 1) {
-                u.socket.send(JSON.stringify(toSend));
-                return true;
-              } else return false;
+            u.send(toSend)
           }
       } else if (typeof user === 'object') {
-        user.socket.send(JSON.stringify(toSend));
+        user.send(toSend);
         return true;
       }
       return false;
@@ -442,17 +442,35 @@ class Router {
       this.load(unsafe);
     }
 
-    addCallback(route,callback=(self,args,origin)=>{}) {
-        if(!route || !callback) return false;
-        this.removeCallback(route); //removes existing callback if it is there
+    addRoute(o: RouteConfig) {
+      o = Object.assign({}, o)
 
-        if (route[0] === '/') route = route.slice(1)
-        this.routes.set(route, {route,callback:callback});
+      const cases = [o.route, ...(o.aliases) ? o.aliases : []]
+      delete o.aliases
+      cases.forEach(route => {
+            if(!route || !o.callback) return false;
+            route = o.route = `${(o.service) ? `${o.service}/` : ''}` + route
+            this.removeRoute(o.route); //removes existing callback if it is there
+            if (route[0] === '/') route = route.slice(1)
+            o.args = getParamNames(o.callback)
+            this.routes[route] = o
+            if (o.reference) {
+              this.state.setState({[route]: o.reference});
+              this.state.subscribe(route, (message) => {
+                this.SUBSCRIPTIONS.forEach(o => o(this, {
+                  route, 
+                  message
+                }))
+              })
+
+              delete this.routes[route].reference // scrub reference
+            }
+        })
         return true;
     }
 
-    removeCallback(functionName) {
-        return this.routes.delete(functionName);
+    removeRoute(functionName) {
+        return delete this.routes[functionName]
     }
 
     runCallback(
@@ -473,11 +491,17 @@ class Router {
 
         // Iterate over Possibilities
         Promise.all(possibilities.map(async route => {
-          if (this.routes.has(route)) {
-            let routeInfo = this.routes.get(route)
-            const res = await routeInfo?.callback(...[this, input, origin])
-            if (routeInfo.service && res?.route) res.route = `${routeInfo.service}/${res.route}`
-            resolve(res)
+
+          if (this.routes[route]) {
+            let routeInfo = this.routes[route]
+            try {
+              const res = await routeInfo?.callback(...[this, input, origin])
+              if (routeInfo.service && res?.route) res.route = `${routeInfo.service}/${res.route}` // Correct Route
+              // if (routeInfo.reference) state.setState(route, res.message)
+              resolve(res)
+            } catch(e) {
+              console.log('Callback Failed: ', e)
+            }
           }
         })).then(_ => resolve(false))
       })
@@ -507,8 +531,8 @@ class Router {
 
     async checkRoutes(event) {
         if(!event.data) return;
-        let route = this.routes.get(event.data.foo) ?? this.routes.get(event.data.route) ?? this.routes.get(event.data.functionName)
-        if (!route) route = this.routes.get(event.data.foo)
+        let route = this.routes[event.data.foo] ?? this.routes[event.data.route] ?? this.routes[event.data.functionName]
+        if (!route) route = this.routes[event.data.foo]
         if (route){
               if (event.data.message) return await route.callback(this, event.data.message, event.data.origin);
               else return

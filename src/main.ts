@@ -67,6 +67,10 @@ function init(instance?:any) {
   let osc = new api.OSCService();
   controller.load(osc)
 
+  // Enable OSC Messages
+  let webrtc = new api.WebRTCService();
+  controller.load(webrtc)
+
   // Enable Other Services
   let sessions = new api.SessionsService(controller);
   let database = new api.DatabaseService(controller, { mode: "mongdb", instance });
