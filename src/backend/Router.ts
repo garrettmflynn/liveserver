@@ -23,20 +23,15 @@ export const DONOTSEND = 'DONOTSEND';
 
 class Router {
   USERS: Map<string, UserObject> = new Map(); //live sockets and basic user info
-  COLLECTIONS = new Map();
   EVENTS = new Events();
   EVENTSETTINGS = [];
   SUBSCRIPTIONS: Function[] = [] // an array of handlers (from services)
   DEBUG: boolean;
   SERVICES: Map<string, any> = new Map() // TODO: Detect changes and subscribe to them
   routes: {[x: string] : RouteConfig} = {} // TODO: Detect changes and subscribe to them
-  defaultRoutes: any[] = []
-
-  state = new StateManager(
-    {}, 
-    1, 
-    // false
-  ) // TODO: Use this to notify subscribers to arbitrary routes
+  defaultRoutes: any[] = [];
+  interval=10;
+  state:StateManager;
 
   // -------------------- User-Specified Options --------------------
   options: {
@@ -49,6 +44,16 @@ class Router {
     constructor(options) {
 		
         Object.assign(this.options, options)
+
+        if(options.interval) {
+          this.interval = options.interval;
+        }
+
+        this.state = new StateManager(
+          {},
+          this.interval,
+          undefined //false
+        );
 
         this.DEBUG = options.debug;
 
@@ -249,19 +254,19 @@ class Router {
 
     async runRoute(route="",args:any[]|{eventName?:string}=[], origin, callbackId?) {
 
-      try {
+      try { //we should only use try-catch where necessary (e.g. auto try-catch wrapping unsafe functions) to maximize scalability
         if(!route) return; // NOTE: Now allowing users not on the server to submit requests
         if(this.DEBUG) console.log('route', route);
 
-        if(typeof args === 'object' && !Array.isArray(args)) {
-
-          if(args.eventName) { //pipe events to the event manager system
+        let isEvent = false;
+        if(typeof args === 'object') { //pipe events to the event manager system
+          if((args as any).eventName) {
             this.EVENTS.callback(args);
+            isEvent = true;
           }
-
         }
-        else {
-          return await this.runCallback(route,args,origin).then((dict:MessageObject|any) => {
+        if(!isEvent) {
+          return await this.runCallback(route,(args as any),origin).then((dict:MessageObject|any) => {
             
             // Convert Output to Message Object
             if (typeof dict !== 'object' || !('message' in dict)) dict = {
@@ -275,7 +280,6 @@ class Router {
             if(dict.message === DONOTSEND) return dict;
             return dict;
           }).catch(console.error)
-
         }
       } catch (e) {
         return new Error(`Route failed...`)

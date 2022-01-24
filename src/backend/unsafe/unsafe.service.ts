@@ -1,7 +1,7 @@
 import { parseFunctionFromText } from "src/common";
 import { Service } from "../../common/Service";
 
-// Garrett Flynn, AGPL v3.0
+// Garrett Flynn and Joshua Brewster, AGPL v3.0
 export class UnsafeService extends Service {
     name = 'unsafe'
     routes = [

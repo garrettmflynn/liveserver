@@ -88,18 +88,36 @@ export class WebRTCClient extends Service {
 
     get [Symbol.toStringTag]() { return 'WebRTCClient' }
 
-    constructor(source){
+    constructor(source, iceServers=[]){
         super()
 
         this.add(source) // Add MediaStream / DataStream
 
         this.config = {
-            iceServers: [
-              {
-                urls: ["stun:stun.l.google.com:19302"]
-              }
-            ]
+            iceServers: []
           };
+
+        if(iceServers.length === 0 ) this.config.iceServers.push(
+            {
+                urls: ["stun:stun.l.google.com:19302"]
+            }
+          )
+
+          /**
+           * e.g. https://developer.mozilla.org/en-US/docs/Web/API/RTCIceServer/urls
+            let myPeerConnection = new RTCPeerConnection({
+                iceServers: [
+                    {
+                    urls: ["turns:turnserver.example.org", "turn:turnserver.example.org"],
+                    username: "webrtc",
+                    credential: "turnpassword"
+                    },
+                    {
+                    urls: "stun: stunserver.example.org"
+                    }
+                ]
+            });
+           */
 
         // ---------------------------- Event Listeners ----------------------------
 

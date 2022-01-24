@@ -57,7 +57,7 @@ function init(instance?:any) {
   // http.subscribe(o => {
   //   console.log('Route', o)
   // })
-  controller.load(http)
+  controller.load(http);
 
   // Enable WebSocket Messages
   let websocket = new api.WebsocketService(server);
@@ -67,7 +67,7 @@ function init(instance?:any) {
   let osc = new api.OSCService();
   controller.load(osc)
 
-  // Enable OSC Messages
+  // Enable WebRTC Messages
   let webrtc = new api.WebRTCService();
   controller.load(webrtc)
 

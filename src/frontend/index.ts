@@ -1,4 +1,4 @@
-export * from './protocols/WebsocketClient'
+export * from './websocket/WebsocketClient'
 export * from './userplatform/UserPlatform'
 export * from './datastream/data.streaming'
 export * from './sessions/session.streaming'

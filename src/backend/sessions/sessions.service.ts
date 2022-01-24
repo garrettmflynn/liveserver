@@ -28,6 +28,8 @@ export class SessionsService extends Service {
         this.controller = Router;
         this.LOOPING = running;
 
+        if(Router) this.delay = Router.interval;
+
         //FYI "this" scope references this class, "self" scope references the controller scope.
         this.routes = [
             {
