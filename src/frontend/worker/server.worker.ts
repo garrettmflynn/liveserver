@@ -1,7 +1,8 @@
 //The worker thread. 
 //This can run all of the web interfaces as well as serial interfaces. 
 //The web interfaces need their own env setup e.g. mongoose or express instances
-//if on frontend, the workers can't 
+//if on frontend, the workers can't run backend env-required APIs like mongodb or http/socket/event routers
+//if on backend, the workers can't run DOM-related or rendering APIs like canvas or threejs
 
 import { SessionsService } from "src/backend";
 import { UnsafeService   } from "src/backend";
@@ -37,6 +38,24 @@ export class ServerWorker extends Service {
                 let port = args[1]; //messageport 
                 this[`${origin}`] = port; //message ports will have the origin marked as the worker id 
                 port.onmessage = onmessage; //port messages get processed generically, an argument will denote they are from a worker 
+            }
+        },
+        {
+            route:'postPort', //send a message to a port
+            callback:(self,args,origin) => {
+                if(!args[1]){
+                    if(this[`${origin}`]) 
+                        this[`${origin}`].postMessage(JSON.stringify(args[0]),undefined,args[2]); //0 is whatever, 2 is transfer array
+                } else {
+                    if(this[`${args[1]}`])
+                        this[`${args[1]}`].postMessage(JSON.stringify(args[0]),undefined,args[2]);
+                }
+            }
+        },
+        {
+            route:'postMessage', //post back to main thread
+            callback:(self,args,origin)=>{
+                postMessage(args[0],undefined,args[1]); //0 is args, 1 is transfer array
             }
         },
         {
