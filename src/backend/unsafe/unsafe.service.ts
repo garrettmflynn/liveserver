@@ -13,12 +13,7 @@ export class UnsafeService extends Service {
             let newCallback = { route: args[0], callback: newFunc };
   
             self.addRoute(newCallback)
-            // self.routes[newCallback.route] = newCallback // TODO: Update EventSources subscribed to this event...
-            
-            // Trigger Subscriptions to Receive Update from Routes
-            // console.log('SUPER ARTIFICIAL WAY TO NOTIFY SUBSCRIBERS')
-            // const message = await self.runCallback('routes')
-            // self.triggerSubscriptions({route: 'routes', message})
+
             return true;
           }
         },
@@ -84,37 +79,7 @@ export class UnsafeService extends Service {
               return true;
             } else return false;
           }
-        },
-        { //add an event to the event manager, this helps building automated pipelines between threads
-            route: 'addevent', callback: (self, args, origin) => { //args[0] = eventName, args[1] = case, only fires event if from specific same origin
-              self.EVENTSETTINGS.push({ eventName: args[0], route: args[1], port:args[2], origin: origin });
-              //console.log(args);
-              if(args[2]){ 
-                let port = args[2];
-                port.onmessage = onmessage; //attach the port onmessage event
-                this[args[0]+'port'] = port;
-                return true;
-              }
-              return false;
-            }
-          },
-          { //internal event subscription, look at Event for usage, its essentially a function trigger manager for creating algorithms
-            route: 'subevent', callback: (self, args, origin) => { //args[0] = eventName, args[1] = response function(self,args,origin) -> lets you reference self for setting variables
-              if(typeof args[0] !== 'string') return false;
-              
-              let response = (typeof args[1] === 'string') ? parseFunctionFromText(args[1]) : args[1]
-              let eventSetting = self.checkEvents(args[0]); //this will contain the port setting if there is any
-              //console.log(args, eventSetting)
-              return self.EVENTS.subEvent(args[0], (output) => {
-                response(self,output,origin,eventSetting?.port,eventSetting?.eventName); //function wrapper so you can access self from the event subscription
-              });
-            }
-          },
-          { //internal event unsubscribe
-            route: 'unsubevent', callback: (self, args) => { //args[0] = eventName, args[1] = case, only fires event if from specific same origin
-              return self.EVENTS.unsubEvent(args[0], args[1]);
-            }
-          }
+        }
         ]
 
     constructor(){

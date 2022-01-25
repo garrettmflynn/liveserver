@@ -22,11 +22,6 @@ export class WebsocketClient extends SubscriptionService {
 
     origin = `client${Math.floor(Math.random()*10000000000000)}`; //randomid you can use
 
-    EVENTS = new Events(this);
-    subEvent = (eventName, response=(result)=>{})=>{this.EVENTS.subEvent(eventName,response);}
-    unsubEvent = (eventName, sub) => {this.EVENTS.unsubEvent(eventName,sub)};
-    addEvent = async (eventName, origin, functionName, id) => {this.EVENTS.addEvent(eventName, origin, functionName, id)};
-
     constructor(
         subprotocols:Partial<UserObject>={},
         url?:URL|string

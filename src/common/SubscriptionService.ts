@@ -1,6 +1,7 @@
 import { MessageObject, UserObject } from "src/common/general.types"
 import { Service } from './Service'
 import Router from './Router';
+import { getRouteMatches } from "./general.utils";
 
 // Browser and Node-Compatible Service Class
 export class SubscriptionService extends Service {
@@ -15,10 +16,13 @@ export class SubscriptionService extends Service {
     subscribers: Map<string, any> = new Map()
     updateSubscribers?: (router: Router, o: MessageObject) => any = (self, o) => {
         this.subscribers.forEach(u => {
-            if (u.routes[o.route]) {
-                u = self.USERS.get(u.id)
-                if (u?.send) u.send(o)
-            }
+            let possibilities = getRouteMatches(o.route)
+            possibilities.forEach(route => {
+                if (u.routes[route]) {
+                    u = self.USERS.get(u.id)
+                    if (u?.send) u.send(o)
+                }
+            })
         })
     }
     

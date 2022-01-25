@@ -1,5 +1,5 @@
 import StateManager from 'anotherstatemanager'
-import { createRoute } from './general.utils'
+import { createRoute, getRouteMatches } from './general.utils'
 import { getParamNames } from './parse.utils'
 import { randomId,  } from './id.utils'
 import { Events } from './Event'
@@ -45,7 +45,7 @@ export class Router {
       subscribeQueue: Function[],
       subscriptions: string[]
   }, // TODO: Detect changes and subscribe to them
-    server: Map<string, any>
+    server: {[x:string] : any}
   } = {
     client: {
       available: {},
@@ -54,7 +54,7 @@ export class Router {
       subscribeQueue: [],
       subscriptions: []
     }, 
-    server: new Map()
+    server: {}
   }
 
   ROUTES: {[x: string] : RouteConfig} = {} // Internal Routes Object
@@ -69,33 +69,46 @@ export class Router {
       }
   },
   { //return a list of services available on the server
-    route: 'services', callback: (Router, args, origin) => {
-      let list = [];
-      Router.SERVICES.server.forEach((o,k) => {
-        if (k) list.push({
-            route: k,
-            name: o.constructor.name
-        });
-      });
-      if (args[0] === true) console.log('Services available: ', list); //list available functions
-      return list;
-    }
+    route: 'services', 
+    reference: {
+      object: this.SERVICES.server,
+      transform: (reference) => {
+        let dict = {};
+        for (let k in reference){
+          const o = reference[k]
+          dict[k] = o.constructor.name;
+        }
+        return dict;
+      }
+    },
+    // callback: (Router, args, origin) => {
+    //   let list = [];
+    //   for (let k in Router.SERVICES.server){
+    //     const o = Router.SERVICES.server[k]
+    //     if (k) list.push({
+    //       route: k,
+    //       name: o.constructor.name
+    //     });
+    //   }
+    //   if (args[0] === true) console.log('Services available: ', list); //list available functions
+    //   return list;
+    // }
   },
   { //return a list of function calls available on the server
-    route: 'routes', 
-    reference: this.ROUTES,
-    callback: (Router, args, origin) => {
-      // let list = [];
-      // for (let route in this.ROUTES){
-      // const o = this.ROUTES[route]
-      // // this.ROUTES.forEach((o) => {
-      //   if (!o.private) list.push({
-      //     route: o.route,
-      //     args: getParamNames(o.callback)
-      //   });
-      // }
-      // if (args[0] === true) console.log('Server routes available: ', list); //list available functions
-      return {message: Router.ROUTES};
+    route: '/',
+    aliases: ['routes'] ,
+    reference: {
+      object: this.ROUTES,
+      transform: (reference, args) => {
+        let o = {}
+        for (let key in reference){
+          if (key && !key.includes('*')) o[key] = {
+            route: reference[key].route,
+            args: reference[key].args,
+          } // Shallow copy
+        }
+        return o
+      }
     }
   },
   { //generic send message between two users (userId, message, other data)
@@ -161,6 +174,29 @@ export class Router {
       let user = Router.USERS.get(origin)
       if (!user) return false
       return this.blockUser(user,args[0]);
+    }
+  },
+  { //get basic details of a user or of yourRouter
+    route: 'users',
+    reference: {
+      object: this.USERS,
+      transform: (o) => {
+
+        let dict = {}
+        o.forEach((u,k) => {
+          dict[k] = {
+            _id:u._id,
+            username:u.username,
+            origin:u.origin,
+            props:u.props,
+            updatedPropNames:u.updatedPropNames,
+            lastUpdate:u.lastUpdate,
+            lastTransmit:u.lastTransmit,
+            latency:u.latency
+          }
+        })
+        return dict
+      }
     }
   },
   { //get basic details of a user or of yourRouter
@@ -293,20 +329,21 @@ export class Router {
   getServices = async () => {
       let res = await this.send('services')
       if (res) {
-          res?.forEach(o => {
-              const name = o.name.replace('Service', '')
-              this.SERVICES.client.available[o.name] = o.route
+          for (let route in res){
+              const className = res[route]
+              const name = className.replace('Service', '')
+              this.SERVICES.client.available[className] = route
   
               // Resolve Load Promises
               if (this.SERVICES.client.connecting[name]){
-                  this.SERVICES.client.connecting[name](o)
+                  this.SERVICES.client.connecting[name](route)
                   delete this.SERVICES.client.connecting[name]
               }
 
               if (this.SERVICES.client.clients[name] instanceof SubscriptionService){
                   this.SERVICES.client.subscribeQueue.forEach(f => f())
               }
-          })
+          }
       }
   }
 
@@ -317,11 +354,11 @@ export class Router {
         const name = service.constructor.name.replace('Client', '')
 
           this.SERVICES.client.clients[name] = service
-          const toResolve = (available) => {
+          const toResolve = (route) => {
 
               // Expect Certain Callbacks from the Service
               service.routes.forEach(o => {
-                  this.ROUTES[`${available.route}/${o.route}`] = o
+                  this.ROUTES[`${route}/${o.route}`] = o
               })
               resolve(service)
           }
@@ -480,7 +517,7 @@ export class Router {
 
     load(service:any, name:string = service.name) {
       
-      this.SERVICES.server.set(name, service)
+      this.SERVICES.server[name] = service
 
         service.routes?.forEach(o => {
           // const cases = [o.route, ...(o.aliases) ? o.aliases : []]
@@ -494,8 +531,8 @@ export class Router {
       })
 
       if (service.subscribe) {
-        service.subscribe((o:MessageObject, type?:MessageType) => {
-          return this.handleMessage(o, type)
+        service.subscribe((o:MessageObject, updateSubscribers?:MessageType) => {
+          return this.handleMessage(o, updateSubscribers)
         })
       }
 
@@ -509,18 +546,10 @@ export class Router {
     async runRoute(route, method: 'get' | 'post' | 'delete', args:any[]|{eventName?:string}=[], origin, callbackId?) {
 
       try { //we should only use try-catch where necessary (e.g. auto try-catch wrapping unsafe functions) to maximize scalability
-        if(!route) return; // NOTE: Now allowing users not on the server to submit requests
+        if(route == null) return; // NOTE: Now allowing users not on the server to submit requests
         if (!method && Array.isArray(args)) method = (args.length > 0) ? 'post' : 'get'
         if(this.DEBUG) console.log('route', route);
 
-        let isEvent = false;
-        if(typeof args === 'object') { //pipe events to the event manager system
-          if((args as any).eventName) {
-            this.EVENTS.callback(args);
-            isEvent = true;
-          }
-        }
-        if(!isEvent) {
 
           return await this.runCallback(route, (args as any), origin, method).then((dict:MessageObject|any) => {
             
@@ -538,7 +567,6 @@ export class Router {
             if(dict.message === DONOTSEND) return dict;
             return dict;
           }).catch(console.error)
-        }
       } catch (e) {
         return new Error(`Route failed...`)
       }
@@ -584,10 +612,11 @@ export class Router {
 
     //add any additional properties sent. remote.service has more functions for using these
 
-    this.SERVICES.server.forEach(s => {
-      const route = s.name + '/addUser'
-      if (this.ROUTES[route]) this.runRoute(route, 'post', [userinfo], id) 
-    })
+    for (let key in this.SERVICES.server){
+        const s = this.SERVICES.server[key]
+        const route = s.name + '/addUser'
+        if (this.ROUTES[route]) this.runRoute(route, 'post', [userinfo], id) 
+    }
 
     return newuser; //returns the generated id so you can look up
   }
@@ -624,7 +653,7 @@ export class Router {
     return this.SUBSCRIPTIONS.forEach(o => o(this, msg))
   }
      
-  handleMessage = async (msg:AllMessageFormats, internal?:MessageType) => {
+  handleMessage = async (msg:AllMessageFormats, updateSubscribers?:MessageType) => {
 
     let o:Partial<MessageObject> = {}
     if (Array.isArray(msg)) { //handle commands sent as arrays [username,cmd,arg1,arg2]
@@ -643,32 +672,22 @@ export class Router {
 
     // Deal With Object-Formatted Request
     if(typeof o === 'object' && !Array.isArray(o)) { //if we got an object process it as most likely user data
+      
       if(o._id) o.id = o._id; //just in case
       
 
-        if(o.route) {
+        if(o.route != null) {
           
           let u = this.USERS.get(o.id)
-          let eventSetting = this.checkEvents(o.route, u?.id ?? o.id ,u);
 
           console.log('runRoute', o.route)
+          // Handle Subscription Updates based on updateSubscribers Notifications
+          if (updateSubscribers) this.triggerSubscriptions(o as MessageObject)
+
           let res = await this.runRoute(o.route, o.method, o.message, u?.id ?? o.id, o.callbackId);
-          res.suppress = o.suppress // only suppress when handling messages here
+          if (o.suppress) res.suppress = o.suppress // only suppress when handling messages here
 
           // Handle Subscription Updates based on Internal Notifications
-          if (internal){
-            this.triggerSubscriptions(res)
-          } 
-          
-          // Else Update Events and Return
-          else {
-            if(eventSetting) this.EVENTS.emit(eventSetting.eventName,res,u);
-          }
-          // if (u) {
-          //   if(eventSetting) this.EVENTS.emit(eventSetting.eventName,res,u);
-          //   else u.socket.send(JSON.stringify(res));
-          //   u.lastTransmit = Date.now();
-          // }
           
           return res
         }
@@ -700,7 +719,7 @@ export class Router {
       const cases = [o.route, ...(o.aliases) ? o.aliases : []]
       delete o.aliases
       cases.forEach(route => {
-            if(!route || !o.callback) return false;
+            if(!route || (!o.callback && !o.reference)) return false;
             route = o.route = `${(o.service) ? `${o.service}/` : ''}` + route
             this.removeRoute(route); //removes existing callback if it is there
             if (route[0] === '/') route = route.slice(1)
@@ -710,15 +729,17 @@ export class Router {
             this.ROUTES[route].route = route
             
             if (o.reference) {
-              this.STATE.setState({[route]: o.reference});
-              this.STATE.subscribe(route, (message) => {
+              route = route.split('/').filter(a => a != '*' && a != '**').join('/')
+              this.STATE.setState({[route]: o.reference?.object ?? o.reference});
+
+              // TODO: Drill subscriptions automatically...
+              this.STATE.subscribe(route, (data) => {
+                const message = (o.reference?.transform) ? o.reference.transform(data) : data
                 this.SUBSCRIPTIONS.forEach(o => o(this, {
                   route, 
                   message
                 }))
               })
-
-              delete this.ROUTES[route].reference // scrub reference
             }
         })
         return true;
@@ -737,33 +758,36 @@ export class Router {
 
       return new Promise(async resolve => {
         // Get Wildcard Possibilities
-        let possibilities = [route]
-        let split = route.split('/')
-        split = split.slice(0,split.length-1)
-        split.forEach((_,i) => {
-            let slice = split.slice(0,i+1).join('/')
-            possibilities.push(slice + '/*', slice + '/**')
-        })
-
+        let possibilities = getRouteMatches(route)
 
         let errorRes = {route: route, message: {content: errorPage}, headers: {
           'Content-Type': 'text/html'
         }}
 
         // Iterate over Possibilities
-        Promise.all(possibilities.map(async route => {
+        Promise.all(possibilities.map(async possibleRoute => {
 
-          let routeInfo = this.ROUTES[route]
+          let routeInfo = this.ROUTES[possibleRoute]
           if (routeInfo) {
             try {
               let res;
-              if (method === 'get') {
-                if (this.STATE.data[route]){
-                  res = {route: route, message: this.STATE.data[route]}
+              if (method === 'get' || !routeInfo?.callback) {
+                const split = route.split('/').filter(a => a != '*' && a != '**') // Remove wildcards
+                const value = this.STATE.data[split[0]]
+                if (value){
+                  const args = split.slice(1)
+                  let message = (routeInfo.reference?.transform) ? routeInfo.reference.transform(value) : value
+
+                  // Auto-Drill on References
+                  args.forEach((v,i) => {
+                    message = message[v]
+                  })
+
+                  res = {route: route, message}
                 } else res = errorRes
-              } else {
+              } else if (routeInfo?.callback) {
                 res  = await routeInfo?.callback(...[this, input, origin])
-              }
+              } else res = errorRes
 
               if (routeInfo.service && res?.route) res.route = `${routeInfo.service}/${res.route}` // Correct Route
               // if (routeInfo.reference) state.setState(route, res.message)
@@ -775,28 +799,6 @@ export class Router {
           }
         })).then(_ => resolve(errorRes))
       })
-    }
-
-    checkEvents(functionName, origin?, idObj?) {
-        let found = this.EVENTSETTINGS.find((o) => {
-            if ((o.origin && origin && o.route && functionName && o._id && idObj?._id)) {
-                if (o.origin === origin && o.route === functionName && o._id === idObj._id) return true;
-                else return false;
-            } 
-            else if ((o.origin && origin && o.route && functionName)) {
-                if (o.origin === origin && o.route === functionName) return true;
-                else return false;
-            } else if (o.route && functionName) {
-                if (o.route === functionName) return true;
-                else return false;
-            } else if (o.origin && origin) {
-                if(o.origin === origin) return true;
-                else return false;
-            }
-            else return false;
-        });
-        //console.log(foo,origin,found)
-        return found;
     }
 
     async checkRoutes(event) {

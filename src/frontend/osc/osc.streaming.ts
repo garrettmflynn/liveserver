@@ -1,6 +1,5 @@
 import StateManager from 'anotherstatemanager'
 import { Service } from '@brainsatplay/liveserver-common';
-import { MessageObject } from 'src/common/general.types';
 
 //OSC stream frontend calls
 export class OSCClient extends Service{
@@ -44,9 +43,9 @@ export class OSCClient extends Service{
 
 	async startOSC(
 		localAddress = "127.0.0.1",
-		localPort = 57121,
-		remoteAddress = undefined,
-		remotePort = undefined,
+		localPort = 57120,
+		remoteAddress = "127.0.0.1",
+		remotePort = 57121,
 		callback=(result)=>{},
 		onupdate=undefined,
 		onframe=undefined
@@ -65,9 +64,9 @@ export class OSCClient extends Service{
 	async sendOSC(
 		message='test',
 		localAddress = "127.0.0.1",
-		localPort = 57121,
-		remoteAddress = undefined,
-		remotePort = undefined
+		localPort = 57120,
+		remoteAddress = "127.0.0.1",
+		remotePort = 57121,
 	) {
 
 		if(!remoteAddress) remoteAddress = localAddress;
@@ -76,21 +75,8 @@ export class OSCClient extends Service{
 		return await this.notify({route: 'sendOSC', message: [message, localAddress, localPort, remoteAddress, remotePort]})
 	}
 
-	async stopOSC(
-		localAddress = "127.0.0.1",
-		localPort = 57121,
-		remoteAddress = undefined,
-		remotePort = undefined
-	) {
-
-		if(!remoteAddress) remoteAddress = localAddress;
-		if(!remotePort) remotePort = localPort;
-		
-		let info = await this.notify({route: 'stopOSC', message: [localAddress, localPort, remoteAddress, remotePort]})
-		
-		if(info.message) {
-			this.state.unsubscribeAll(remoteAddress+'_'+remotePort);
-		}
+	async stopOSC(port) {
+		port.close()
 	}
 
 	subscribeToUpdates(

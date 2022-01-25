@@ -62,7 +62,7 @@ export default function AllExample({server, router}) {
         else output.current.innerHTML = data.error
 
       }
-      }, {protocol: 'http', routes: ['routes']})
+      }, {protocol: 'http', routes: ['routes', 'osc']})
     });
 
     send('routes', 'get')
