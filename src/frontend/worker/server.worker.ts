@@ -1,7 +1,8 @@
 //The worker thread. 
 //This can run all of the web interfaces as well as serial interfaces. 
 //The web interfaces need their own env setup e.g. mongoose or express instances
-//if on frontend, the workers can't 
+//if on frontend, the workers can't run backend env-required APIs like mongodb or http/socket/event routers
+//if on backend, the workers can't run DOM-related or rendering APIs like canvas or threejs
 
 import { SessionsService } from "src/backend";
 import { UnsafeService   } from "src/backend";
