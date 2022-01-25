@@ -10,7 +10,7 @@
     "node": ">=16"
   },
   "scripts": {
-    "start": "concurrently \"yarn backend\" \"cd docs && yarn && yarn run start\" -k --kill-others-on-fail -p \"{name}|\" -n \"BE,FE\" -c \"green,blue\"",
+    "start": "concurrently \"yarn node builder.config run:nodejs\" \"yarn node builder.config run:nodejs2\" \"cd docs && yarn && yarn run start\" -k --kill-others-on-fail -p \"{name}|\" -n \"BE1, BE2, FE\" -c \"green,yellow,blue\"",
     "frontend": "cd docs && yarn && yarn run start",
     "backend": "node builder.config run",
     "test": "echo \"Error: no test specified\" && exit 1",

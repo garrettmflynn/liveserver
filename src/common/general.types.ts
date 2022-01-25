@@ -17,6 +17,12 @@ export type RouteConfig = {
     callback: (...args:any[]) => any
 }
 
+export type EndpointType = {
+    remote: URL,
+    subscription?: any
+    type?: string
+  }
+
 export type RouteSpec = string | {
     route: string,
     remote?: string | URL,
@@ -37,7 +43,7 @@ export type MessageObject = {
     id?: string;
     _id?: string;
     route: string; // what to do at the endpoint
-    method?: 'get' | 'post' | 'delete', // Method constraints
+    method?: FetchMethods, // Method constraints
     callbackId?: string; // unique id for the request (stored client-side)
     message: [] | any // data passed,
     suppress?: boolean,
@@ -62,6 +68,8 @@ export type SettingsObject = {
 }
 
 export type MessageType = undefined | boolean
+
+export type FetchMethods = 'GET' | 'POST' | 'DELETE'
 
 export type UserObject = {
     id:string, 

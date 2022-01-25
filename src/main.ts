@@ -15,9 +15,8 @@ import { Router } from '@brainsatplay/liveserver-common'
 config({ path: resolve(__dirname, `../.env`) });
 config({ path: resolve(__dirname, `../.key`) });
 
-const main = (port="80") => {
+const main = (port="80", services:{[x:string] : boolean}={}) => {
 
-  console.log('port', port)
 const app = express();
 
 // Parse Body
@@ -55,38 +54,49 @@ mongoose
     let controller = new Router({ debug: false });
 
     // Enable HTTP Messages
-    let http = new api.HTTPService();
+    if (services.http){
+      let http = new api.HTTPService();
 
-    app.get("**", http.controller);
-    app.post("**", http.controller);
-    // http.subscribe(o => {
-    //   console.log('Route', o)
-    // })
-    controller.load(http);
+      app.get("**", http.controller);
+      app.post("**", http.controller);
+      controller.load(http);
+  }
 
     // Enable WebSocket Messages
-    let websocket = new api.WebsocketService(server);
-    controller.load(websocket)
+    if (services.websocket){
+      let websocket = new api.WebsocketService(server);
+      controller.load(websocket)
+    }
 
-    // Enable OSC Messages
-    let osc = new api.OSCService();
-    controller.load(osc)
+    if (services.osc){
+      let osc = new api.OSCService();
+      controller.load(osc)
+    }
 
-    // Enable WebRTC Messages
-    let webrtc = new api.WebRTCService();
-    controller.load(webrtc)
+    if (services.webrtc){
+      let webrtc = new api.WebRTCService();
+      controller.load(webrtc)
+    }
 
-    // Enable Other Services
-    let sessions = new api.SessionsService(controller);
-    let database = new api.DatabaseService(controller, { mode: "mongdb", instance });
-    let ssr = new api.SSRService();
-    controller.load(sessions)
-    controller.load(database)
-    controller.load(ssr)
+    if (services.sessions){
+      let sessions = new api.SessionsService(controller);
+      controller.load(sessions)
+    }
 
-    // Enable Unsafe Service
-    let unsafe = new UnsafeService()
-    controller.load(unsafe);
+    if (services.database){
+      let database = new api.DatabaseService(controller, { mode: "mongdb", instance });
+      controller.load(database)
+    }
+
+    if (services.ssr){
+      let ssr = new api.SSRService();
+      controller.load(ssr)
+    }
+
+    if (services.unsafe){
+      let unsafe = new UnsafeService()
+      controller.load(unsafe)
+    }
   }
 }
 

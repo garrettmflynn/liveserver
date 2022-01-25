@@ -1,2 +1,4 @@
 import main from './main'
-main('81')
+main('81', {
+  websocket: true
+})

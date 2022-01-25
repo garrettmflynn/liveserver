@@ -5,7 +5,7 @@ import MultipleExample from './components/multiple';
 import { useHistory } from 'react-router';
 import AllExample from './components/all';
 
-export default function ExampleSelector({server, router}) {
+export default function ExampleSelector({server, endpointIds, router}) {
    const history = useHistory();
     var url = window.location;
     var name = new URLSearchParams(url.search).get('name');
@@ -24,6 +24,7 @@ export default function ExampleSelector({server, router}) {
             return <MultipleExample
             server={server}
             router={router}
+            endpointIds={endpointIds}
             />
         }
       }

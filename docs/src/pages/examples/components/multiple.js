@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import styles from '../examples.module.css'
 
-export default function MultipleExample({server, router}) {
+export default function MultipleExample({server, endpointIds, router}) {
   
     const ping1 = useRef(null);
     const ping2 = useRef(null);
@@ -11,10 +11,9 @@ export default function MultipleExample({server, router}) {
     useEffect(() => {
       ping1.current.onclick = () => {
         router.get({
-          route: 'users',
-          remote: server
+          route: 'services',
+          id: endpointIds[0]
         }).then(res => {
-          console.log(res)
           if (!res?.error) output.current.innerHTML = JSON.stringify(res)
           else output.current.innerHTML = res.error
   
@@ -25,10 +24,9 @@ export default function MultipleExample({server, router}) {
 
       ping2.current.onclick = () => {
         router.get({
-          route: 'users',
-          remote: 'http://localhost:81'
+          route: 'services',
+          id: endpointIds[1]
         }).then(res => {
-          console.log(res)
           if (!res?.error) output.current.innerHTML = JSON.stringify(res)
           else output.current.innerHTML = res.error
   

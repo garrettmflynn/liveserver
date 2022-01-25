@@ -15,8 +15,7 @@ export class WebsocketClient extends SubscriptionService {
     connected = false;
     sendQueue = [];
     streamUtils
-    sockets = [];
-    socketRot = 0;
+    sockets: Map<string,any> = new Map()
 
     queue = {};
 
@@ -56,16 +55,17 @@ export class WebsocketClient extends SubscriptionService {
         let socket;
 
         if (!(url instanceof URL)) url = new URL(url)
+        
         try {
             if (url.protocol === 'http:') {
             
                 socket = new WebSocket(
-                    'ws://' + url.hostname, // We're always using :80
+                    'ws://' + url.host, // We're always using :80
                     this.encodeForSubprotocol(subprotocolObject));
                 //this.streamUtils = new streamUtils(auth,socket);
             } else if (url.protocol === 'https:') {
                 socket = new WebSocket(
-                    'wss://' + url.hostname, // We're always using :80
+                    'wss://' + url.host, // We're always using :80
                     this.encodeForSubprotocol(subprotocolObject));
 
                 //this.streamUtils = new streamUtils(auth,socket);
@@ -97,67 +97,68 @@ export class WebsocketClient extends SubscriptionService {
             console.log('websocket closed');
         }
 
-        let id = randomId('socket')
+        // let id = randomId('socket')
 
-        this.sockets.push({socket:socket,id:id});
+        const remote = url.href
+        this.sockets.set(remote, socket);
 
-        return id;
-
-    }
-
-    getSocket(id:string) {
-        if(!id) return this.sockets[0].socket;
-
-        return this.sockets.find((o,i) => {
-            if(o.id === id) return true;
-        })?.socket;
+        return remote
 
     }
 
-    //add a callback to a worker
-    async addFunction(functionName,fstring,origin,id,callback=(result)=>{}) {
-        if(functionName && fstring) {
-            if(typeof fstring === 'function') fstring = fstring.toString();
-            let dict = {route:'addfunc',message:[functionName,fstring], id:origin}; //post to the specific worker
-            if(!id) {
-                this.sockets.forEach((s) => {this.send(dict,{id: s.id});});
-                return true;
-            } //post to all of the workers
-            else return await this.send(dict,{callback,id});
-        }
-      }
+    getSocket(remote?:string|URL) {
+        if (remote instanceof URL) remote = remote.href
+        if(!remote) return this.sockets.values().next();
 
-    async run(functionName:string,args:[]|object=[],id:string,origin:string,callback=(result)=>{}) {
-        if(functionName) {
-            if(functionName === 'transferClassObject') {
-              if(typeof args === 'object' && !Array.isArray(args)) {
-                for(const prop in args) {
-                  if(typeof args[prop] === 'object' && !Array.isArray(args[prop])) args[prop] = args[prop].toString();
-                }
-              }
-            }
-            let dict = {route:functionName, message:args, id:origin};
-            return await this.send(dict,{callback, id});
-        }
+        console.log(this.sockets, remote)
+        return this.sockets.get(remote);
+
     }
 
-    runFunction = this.run;
+    // //add a callback to a worker
+    // async addFunction(functionName,fstring,origin,id,callback=(result)=>{}) {
+    //     if(functionName && fstring) {
+    //         if(typeof fstring === 'function') fstring = fstring.toString();
+    //         let dict = {route:'addfunc',message:[functionName,fstring], id:origin}; //post to the specific worker
+    //         if(!id) {
+    //             this.sockets.forEach((s) => {this.send(dict,{id: s.id});});
+    //             return true;
+    //         } //post to all of the workers
+    //         else return await this.send(dict,{callback,id});
+    //     }
+    //   }
+
+    // async run(functionName:string,args:[]|object=[],id:string,origin:string,callback=(result)=>{}) {
+    //     if(functionName) {
+    //         if(functionName === 'transferClassObject') {
+    //           if(typeof args === 'object' && !Array.isArray(args)) {
+    //             for(const prop in args) {
+    //               if(typeof args[prop] === 'object' && !Array.isArray(args[prop])) args[prop] = args[prop].toString();
+    //             }
+    //           }
+    //         }
+    //         let dict = {route:functionName, message:args, id:origin};
+    //         return await this.send(dict,{callback, id});
+    //     }
+    // }
+
+    // runFunction = this.run;
     
-    //a way to set variables on a thread
-    async setValues(values={}, id, origin) {
-        if(id)
-            return await this.run('setValues',values,id,origin);
-        else {
-            this.sockets.forEach((s) => {
-            this.run('setValues',values,s.id,origin);
-            });
-            return true;
-        } 
-    }
+    // //a way to set variables on a thread
+    // async setValues(values={}, id, origin) {
+    //     if(id)
+    //         return await this.run('setValues',values,id,origin);
+    //     else {
+    //         this.sockets.forEach((s) => {
+    //         this.run('setValues',values,s.id,origin);
+    //         });
+    //         return true;
+    //     } 
+    // }
 
     send = (message:MessageObject, options: {
         callback?:Function
-        id?: string
+        remote?: string
         suppress?: boolean
     } = {}) => {
         return new Promise((resolve)=>{//console.log(message);
@@ -168,7 +169,6 @@ export class WebsocketClient extends SubscriptionService {
             }
 
             const callbackId = ''+Math.random();//randomId()
-            console.log(message)
             if (typeof message === 'object'){
                 if (Array.isArray(message)) message.splice(1, 0, callbackId); // add callbackId before arguments
                 else message.callbackId = callbackId; // add callbackId key
@@ -177,12 +177,7 @@ export class WebsocketClient extends SubscriptionService {
             this.queue[callbackId] = {resolve, suppress: options}
 
             let socket;
-            if(!options.id) {
-                socket = this.sockets[this.socketRot].socket;
-                this.socketRot++; //can rotate through multiple sockets cuz why not
-                if(this.socketRot === this.sockets.length) this.socketRot = 0;
-            }
-            else { socket = this.getSocket(options.id); }
+            socket = this.getSocket(options.remote)
             // message = JSON.stringifyWithCircularRefs(message)
 
             if(!socket) return;
@@ -241,19 +236,14 @@ export class WebsocketClient extends SubscriptionService {
     }
 
 
-    isOpen = (id) => {
-        if(!id) return this.sockets[0]?.readyState === 1;
-        let socket = this.getSocket(id);
+    isOpen = (remote) => {
+        let socket = this.getSocket(remote)
         if(socket) return socket.readyState === 1; 
         else return false;
     }
 
-    close = (id) => {
-        if(!id) {
-            if(this.sockets[0]) this.sockets[0].close();
-            return true;
-        }
-        let socket = this.getSocket(id);
+    close = (remote) => {
+        let socket =  this.getSocket(remote)
         if(socket) return socket.close(); 
         else return false;
     }

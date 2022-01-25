@@ -166,7 +166,7 @@ export class WebsocketService extends SubscriptionService {
 
       } 
 
-        routes.forEach(async route => {
+        routes?.forEach(async route => {
             let res = await this.notify({route, message: []}, true) // Getting current routes to pass along
             u.callback(res)
             u.routes[route] = true

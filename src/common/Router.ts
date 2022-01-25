@@ -3,7 +3,7 @@ import { createRoute, getRouteMatches } from './general.utils'
 import { getParamNames } from './parse.utils'
 import { randomId,  } from './id.utils'
 import { Events } from './Event'
-import { AllMessageFormats, MessageObject, MessageType, RouteConfig, RouteSpec, UserObject } from 'src/common/general.types';
+import { AllMessageFormats, EndpointType, FetchMethods, MessageObject, MessageType, RouteConfig, RouteSpec, UserObject } from 'src/common/general.types';
 import { Service } from './Service';
 import { safeStringify } from './parse.utils';
 import { SubscriptionService } from './SubscriptionService';
@@ -36,7 +36,7 @@ export class Router {
   EVENTSETTINGS = [];
   SUBSCRIPTIONS: Function[] = [] // an array of handlers (from services)
   DEBUG: boolean;
-  ENDPOINTS: {[x:string] : URL} = {}
+  ENDPOINTS: {[x:string] : EndpointType} = {}
 
   // TODO: Detect changes and subscribe to them
   SERVICES: {
@@ -300,7 +300,7 @@ export class Router {
         // Browser-Only
         if (global.onbeforeunload){
           global.onbeforeunload = () => {
-              this.logout()
+              Object.values(this.ENDPOINTS).forEach(e => this.logout(e))
           }
         }
 
@@ -317,30 +317,49 @@ export class Router {
     // Frontend Methods (OG)
     // 
     // -----------------------------------------------
-    addRemote = async (base:string, path:string) => {
+    addRemote = (base:string, path:string) => {
       const id = randomId('endpoint')
       const url = (path) ? new URL(path, base) : new URL(base)
 
       // Register User on the Server
       if (url) {
-          this.ENDPOINTS[id] = url
-          await this.getServices(url)
-          this.login() // Login user to connect to new remote
+          this.ENDPOINTS[id] = {
+            remote: url,
+          }
+          this.getServices(id)
+          this.login(url) // Login user to connect to new remote
       }
       return id
   }
 
-  getServices = async (remote?) => {
+  removeRemote = async (id) => {
+    this.logout(this.ENDPOINTS[id])
+    delete this.ENDPOINTS[id]
+  }
+
+  getServices = async (id?) => {
       let res = await this.send({
         route: 'services',
-        remote
+        id
+      }).catch(async (e) => {
+
+        // Fallback to WS
+        console.log('Falling back to Websocket protocol', e, e === 'Failed to fetch')
+        await this.subscribe(() => {
+          console.log('unused callback')
+        }, {protocol: 'websocket', id, force: true})
+        return await this.send({route: 'services', id})
+
       })
 
       if (res) {
+
+          let serviceClassNames = []
           for (let route in res){
               const className = res[route]
               const name = className.replace('Service', '')
               this.SERVICES.client.available[className] = route
+              serviceClassNames.push(className)
   
               // Resolve Load Promises
               if (this.SERVICES.client.connecting[name]){
@@ -387,17 +406,23 @@ export class Router {
 
   }
 
-    async login(callback=(result)=>{}) {
+    async login(remote?, callback=(result)=>{}) {
       if(this.currentUser) {
-          let res = await this.send('login', this.currentUser)
+          let res = await this.send({
+            route: 'login',
+            remote
+          }, this.currentUser)
           callback(res)
           return res
       }
   }
 
-  async logout(callback=(result)=>{}) {
+  async logout(remote?, callback=(result)=>{}) {
       if(this.currentUser) {
-          let res = await this.send('logout')
+          let res = await this.send({
+            route: 'logout',
+            remote
+          })
           callback(res)
           return res
       }
@@ -418,19 +443,21 @@ export class Router {
   send = this.post
 
 
-  private _send = async (routeSpec:RouteSpec, method?: string, ...args:any[]) => {
+  private _send = async (routeSpec:RouteSpec, method?: FetchMethods, ...args:any[]) => {
+    console.log(routeSpec)
 
       const route = (typeof routeSpec === 'string') ? routeSpec : routeSpec.route // Support object-based specs
-      const remote = (typeof routeSpec === 'string') ? Object.values(this.ENDPOINTS)[0] : (routeSpec?.remote) ? routeSpec?.remote : (this.ENDPOINTS[routeSpec?.id] ?? Object.values(this.ENDPOINTS)[0])
+      const endpoint = ((typeof routeSpec === 'string') ? Object.values(this.ENDPOINTS)[0] : (routeSpec?.remote) ? {remote: routeSpec?.remote} : (this.ENDPOINTS[routeSpec?.id] ?? Object.values(this.ENDPOINTS)[0])) as EndpointType
+      const remote = endpoint.remote
+
       // TODO: Allow remote switching for websocket
-      
       if (remote && route){
           let response;
           if (!method) method = (args.length > 0) ? 'POST' : 'GET'
 
           // Send over Websockets if Active
-          if (this.protocols.websocket){
-              response = await this.protocols.websocket.send({id: this.currentUser._id, route, message: args}, {suppress: true}) // NOTE: Will handle response in the subscription too
+          if (endpoint.type === 'websocket'){
+              response = await endpoint.subscription.send({id: this.currentUser._id, route, message: args, method}, {suppress: true, remote}) // NOTE: Will handle response in the subscription too
           } 
           
           // Default to HTTP
@@ -443,7 +470,7 @@ export class Router {
               },
           }
 
-            if (toSend.method != 'GET') toSend.body = safeStringify({id: this.currentUser._id, message: args, suppress: !!this.subscription})
+            if (toSend.method != 'GET') toSend.body = safeStringify({id: this.currentUser._id, message: args, suppress: !!endpoint.subscription})
 
               response = await fetch(createRoute(route, remote), toSend).then(async (res) => {
                   const json = await res.json()
@@ -458,7 +485,7 @@ export class Router {
           if (!response.block) this.ROUTES[response?.route]?.callback(response.message) // TODO: Monitor what is outputted to chain calls?
 
           // Notify through Subscription (if not suppressed)
-          if (!response.suppress) this.subscription?.responses?.forEach(f => f(response))
+          if (!response.suppress && endpoint.subscription) endpoint.subscription?.responses?.forEach(f => f(response))
           
           // Pass Back to the User
           return response.message
@@ -472,19 +499,24 @@ export class Router {
 
                   for (let name in this.SERVICES.client.clients) {
                     const client = this.SERVICES.client.clients[name]
-                    if ((options.protocol == null || options.protocol === client.name) && this.SERVICES.client.available[client.service]) {
-                      let subscriptionEndpoint = `${this.SERVICES.client.available[client.service]}/subscribe`
+                    if ((options.protocol == null || options.protocol === client.name) && (options.force || this.SERVICES.client.available[client.service])) {
+                      let subscriptionEndpoint = `${this.SERVICES.client?.available[client.service] ?? name.toLowerCase()}/subscribe`
                       let msg;
-                      if (!this.subscription){
-                          client.setRemote(options.id ? this.ENDPOINTS[options.id] : (options.remote ?? Object.values(this.ENDPOINTS)[0]))
-                          msg = await client.add(this.currentUser, subscriptionEndpoint)
-                          this.subscription = this.protocols[client.name] = client
-                          this.subscription.addResponse('sub', onmessage)
+                      const endpoint = (options.id ? this.ENDPOINTS[options.id] : ({remote: options.remote}?? Object.values(this.ENDPOINTS)[0])) as EndpointType
+                      
+                      if (!endpoint.subscription){
+                          client.setRemote(endpoint.remote)
+                          msg = await client.add(this.currentUser, endpoint.remote)
+                          endpoint.subscription = client
+                          endpoint.subscription.addResponse('sub', onmessage)
+                          endpoint.type = client.name
                       } 
 
-                      this.send(subscriptionEndpoint, options.routes, msg) // Second argument specified by add callback
+                      this.send(Object.assign(options, {
+                        route: subscriptionEndpoint
+                      }), options.routes, msg) // Second argument specified by add callback
 
-                      resolve(this.subscription)
+                      resolve(endpoint.subscription)
                       return
                     }
                   }
@@ -502,15 +534,16 @@ export class Router {
       protocol?:string
       routes?: string[]
       id?: string,
-      remote?: string | URL
+      remote?: string | URL,
+      force?:boolean
   } = {}) => {
-
-      if (Object.assign(this.ENDPOINTS).length > 0 || options?.remote) {
+      if (Object.keys(this.ENDPOINTS).length > 0 || options?.remote) {
 
           return await this.createSubscription(options, (event) => {
               const data = (typeof event.data === 'string') ? JSON.parse(event.data) : event
               callback(data) // whole data object (including route)
-              if (!data.block) this.ROUTES[data?.route]?.callback(data) // Run internal routes (if required)
+              const routeCallback = this.ROUTES[data?.route]?.callback
+              if (!data.block && routeCallback instanceof Function) routeCallback(data) // Run internal routes (if required)
           })
           
       } else throw 'Remote is not specified'
@@ -558,11 +591,11 @@ export class Router {
     }
 
 
-    async runRoute(route, method: 'get' | 'post' | 'delete', args:any[]|{eventName?:string}=[], origin, callbackId?) {
+    async runRoute(route, method: FetchMethods, args:any[]|{eventName?:string}=[], origin, callbackId?) {
 
       try { //we should only use try-catch where necessary (e.g. auto try-catch wrapping unsafe functions) to maximize scalability
         if(route == null) return; // NOTE: Now allowing users not on the server to submit requests
-        if (!method && Array.isArray(args)) method = (args.length > 0) ? 'post' : 'get'
+        if (!method && Array.isArray(args)) method = (args.length > 0) ? 'POST' : 'GET'
         if(this.DEBUG) console.log('route', route);
 
 
@@ -579,7 +612,7 @@ export class Router {
 
             // Pass Out
 
-            if(dict.message === DONOTSEND) return dict;
+            if(dict.message === DONOTSEND) return;
             return dict;
           }).catch(console.error)
       } catch (e) {
@@ -630,7 +663,7 @@ export class Router {
     for (let key in this.SERVICES.server){
         const s = this.SERVICES.server[key]
         const route = s.name + '/addUser'
-        if (this.ROUTES[route]) this.runRoute(route, 'post', [userinfo], id) 
+        if (this.ROUTES[route]) this.runRoute(route, 'POST', [userinfo], id) 
     }
 
     return newuser; //returns the generated id so you can look up
@@ -644,7 +677,7 @@ export class Router {
       
         this.SERVICES.server.forEach(s => {
           const route = s.name + '/removeUser'
-          if (this.ROUTES[route]) this.runRoute(route, 'delete', [u], u.id) // TODO: Fix WebRTC
+          if (this.ROUTES[route]) this.runRoute(route, 'DELETE', [u], u.id) // TODO: Fix WebRTC
         })
 
         this.USERS.delete(u._id);
@@ -768,7 +801,7 @@ export class Router {
       route,
       input=[],
       origin?,
-      method=(input.length > 0) ? 'post' : 'get',
+      method=(input.length > 0) ? 'POST' : 'GET',
     ) {
 
       return new Promise(async resolve => {
@@ -786,7 +819,7 @@ export class Router {
           if (routeInfo) {
             try {
               let res;
-              if (method === 'get' || !routeInfo?.callback) {
+              if (method.toUpperCase() === 'GET' || !routeInfo?.callback) {
                 const split = route.split('/').filter(a => a != '*' && a != '**') // Remove wildcards
                 const value = this.STATE.data[split[0]]
                 if (value){

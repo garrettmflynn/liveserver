@@ -4,21 +4,21 @@ const builder = require('build-dev')
 function run([type]) {
     switch (type) {
 
+        case 'run:nodejs2':
+            return builder.runNodejs({
+                entryFile: './src/server2', 
+            });
+            
         case 'run:nodejs':
-           const res = builder.runNodejs({
+            return builder.runNodejs({
                 entryFile: './src/server1', 
                 watchDirs: ['src'],
                 nodeArgs: ['development'] 
             });
 
-            builder.runNodejs({
-                entryFile: './src/server2', 
-            });
-
-            return res
-
         case 'run':
             run(['run:nodejs'])
+            run(['run:nodejs2'])
             break;
 
         default:
