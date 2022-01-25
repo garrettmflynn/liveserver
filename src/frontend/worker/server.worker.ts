@@ -40,6 +40,24 @@ export class ServerWorker extends Service {
             }
         },
         {
+            route:'postPort', //send a message to a port
+            callback:(self,args,origin) => {
+                if(!args[1]){
+                    if(this[`${origin}`]) 
+                        this[`${origin}`].postMessage(JSON.stringify(args[0]),undefined,args[2]); //0 is whatever, 2 is transfer array
+                } else {
+                    if(this[`${args[1]}`])
+                        this[`${args[1]}`].postMessage(JSON.stringify(args[0]),undefined,args[2]);
+                }
+            }
+        },
+        {
+            route:'postMessage',
+            callback:(self,args,origin)=>{
+                postMessage(args[0],undefined,args[1]); //0 is args, 1 is transfer array
+            }
+        },
+        {
             route:'addcallback',
             callback:(self,args,origin)=>{
                 if(!args[0] && !args[1]) return;
