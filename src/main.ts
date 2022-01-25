@@ -15,6 +15,9 @@ import { Router } from '@brainsatplay/liveserver-common'
 config({ path: resolve(__dirname, `../.env`) });
 config({ path: resolve(__dirname, `../.key`) });
 
+const main = (port="80") => {
+
+  console.log('port', port)
 const app = express();
 
 // Parse Body
@@ -25,7 +28,7 @@ app.use(cors()); // how to allow data to only intended website without cors
 
 // Set Server
 let protocol = "http";
-const port = process.env.PORT || "80";
+ port = port;
 const server = http.createServer(app);
 
 // Start Server
@@ -45,43 +48,46 @@ mongoose
     init();
   });
 
-// ----------------- Initialize API ------------------
-function init(instance?:any) {
+  // ----------------- Initialize API ------------------
+  function init(instance?:any) {
 
-  // Instantiate the Router class to handle services
-  let controller = new Router({ debug: false });
+    // Instantiate the Router class to handle services
+    let controller = new Router({ debug: false });
 
-  // Enable HTTP Messages
-  let http = new api.HTTPService();
+    // Enable HTTP Messages
+    let http = new api.HTTPService();
 
-  app.get("**", http.controller);
-  app.post("**", http.controller);
-  // http.subscribe(o => {
-  //   console.log('Route', o)
-  // })
-  controller.load(http);
+    app.get("**", http.controller);
+    app.post("**", http.controller);
+    // http.subscribe(o => {
+    //   console.log('Route', o)
+    // })
+    controller.load(http);
 
-  // Enable WebSocket Messages
-  let websocket = new api.WebsocketService(server);
-  controller.load(websocket)
+    // Enable WebSocket Messages
+    let websocket = new api.WebsocketService(server);
+    controller.load(websocket)
 
-  // Enable OSC Messages
-  let osc = new api.OSCService();
-  controller.load(osc)
+    // Enable OSC Messages
+    let osc = new api.OSCService();
+    controller.load(osc)
 
-  // Enable WebRTC Messages
-  let webrtc = new api.WebRTCService();
-  controller.load(webrtc)
+    // Enable WebRTC Messages
+    let webrtc = new api.WebRTCService();
+    controller.load(webrtc)
 
-  // Enable Other Services
-  let sessions = new api.SessionsService(controller);
-  let database = new api.DatabaseService(controller, { mode: "mongdb", instance });
-  let ssr = new api.SSRService();
-  controller.load(sessions)
-  controller.load(database)
-  controller.load(ssr)
+    // Enable Other Services
+    let sessions = new api.SessionsService(controller);
+    let database = new api.DatabaseService(controller, { mode: "mongdb", instance });
+    let ssr = new api.SSRService();
+    controller.load(sessions)
+    controller.load(database)
+    controller.load(ssr)
 
-  // Enable Unsafe Service
-  let unsafe = new UnsafeService()
-  controller.load(unsafe);
+    // Enable Unsafe Service
+    let unsafe = new UnsafeService()
+    controller.load(unsafe);
+  }
 }
+
+export default main

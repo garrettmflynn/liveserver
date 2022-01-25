@@ -17,6 +17,12 @@ export type RouteConfig = {
     callback: (...args:any[]) => any
 }
 
+export type RouteSpec = string | {
+    route: string,
+    remote?: string | URL,
+    id?: string // id
+}
+
 export type SubscriptionCallbackType = (o:MessageObject, name?: MessageType) => any 
 
 export type ProtocolObject = {

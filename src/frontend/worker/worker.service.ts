@@ -42,7 +42,7 @@ export class WorkerService extends Service {
         else return this.workers[0].worker;
     }
   
-    addWorker = (url=this.url, type = 'module') => {
+    addWorker = (url=this.url, type:WorkerType = 'module') => {
   
           let newWorker;
           try {

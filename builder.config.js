@@ -5,11 +5,17 @@ function run([type]) {
     switch (type) {
 
         case 'run:nodejs':
-           return builder.runNodejs({
-                entryFile: './src/main', 
+           const res = builder.runNodejs({
+                entryFile: './src/server1', 
                 watchDirs: ['src'],
                 nodeArgs: ['development'] 
             });
+
+            builder.runNodejs({
+                entryFile: './src/server2', 
+            });
+
+            return res
 
         case 'run':
             run(['run:nodejs'])

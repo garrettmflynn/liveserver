@@ -3,7 +3,7 @@ import { createRoute, getRouteMatches } from './general.utils'
 import { getParamNames } from './parse.utils'
 import { randomId,  } from './id.utils'
 import { Events } from './Event'
-import { AllMessageFormats, MessageObject, MessageType, RouteConfig, UserObject } from 'src/common/general.types';
+import { AllMessageFormats, MessageObject, MessageType, RouteConfig, RouteSpec, UserObject } from 'src/common/general.types';
 import { Service } from './Service';
 import { safeStringify } from './parse.utils';
 import { SubscriptionService } from './SubscriptionService';
@@ -36,6 +36,7 @@ export class Router {
   EVENTSETTINGS = [];
   SUBSCRIPTIONS: Function[] = [] // an array of handlers (from services)
   DEBUG: boolean;
+  ENDPOINTS: {[x:string] : URL} = {}
 
   // TODO: Detect changes and subscribe to them
   SERVICES: {
@@ -260,7 +261,6 @@ export class Router {
     
 
   subscription?: SubscriptionService // Single Subscription per Router (to a server...)
-  remote?: URL
 
   protocols: {
       http?: SubscriptionService
@@ -317,18 +317,25 @@ export class Router {
     // Frontend Methods (OG)
     // 
     // -----------------------------------------------
-    setRemote = async (base:string, path:string) => {
-      this.remote = (path) ? new URL(path, base) : new URL(base)
+    addRemote = async (base:string, path:string) => {
+      const id = randomId('endpoint')
+      const url = (path) ? new URL(path, base) : new URL(base)
 
       // Register User on the Server
-      if (this.remote) {
-          await this.getServices()
+      if (url) {
+          this.ENDPOINTS[id] = url
+          await this.getServices(url)
           this.login() // Login user to connect to new remote
       }
+      return id
   }
 
-  getServices = async () => {
-      let res = await this.send('services')
+  getServices = async (remote?) => {
+      let res = await this.send({
+        route: 'services',
+        remote
+      })
+
       if (res) {
           for (let route in res){
               const className = res[route]
@@ -396,24 +403,28 @@ export class Router {
       }
   }
   
-  get = (route:string, ...args:any[]) => {
-    return this._send(route, 'GET', ...args)
+  get = (routeSpec:RouteSpec, ...args:any[]) => {
+    return this._send(routeSpec, 'GET', ...args)
   }
 
-  delete = (route:string, ...args:any[]) => {
-    return this._send(route, 'DELETE', ...args)
+  delete = (routeSpec:RouteSpec, ...args:any[]) => {
+    return this._send(routeSpec, 'DELETE', ...args)
   }
 
-  post = (route:string, ...args:any[]) => {
-    return this._send(route, 'POST', ...args)
+  post = (routeSpec:RouteSpec, ...args:any[]) => {
+    return this._send(routeSpec, 'POST', ...args)
   }
 
   send = this.post
 
 
-  private _send = async (route:string, method?: string, ...args:any[]) => {
+  private _send = async (routeSpec:RouteSpec, method?: string, ...args:any[]) => {
 
-      if (this.remote){
+      const route = (typeof routeSpec === 'string') ? routeSpec : routeSpec.route // Support object-based specs
+      const remote = (typeof routeSpec === 'string') ? Object.values(this.ENDPOINTS)[0] : (routeSpec?.remote) ? routeSpec?.remote : (this.ENDPOINTS[routeSpec?.id] ?? Object.values(this.ENDPOINTS)[0])
+      // TODO: Allow remote switching for websocket
+      
+      if (remote && route){
           let response;
           if (!method) method = (args.length > 0) ? 'POST' : 'GET'
 
@@ -434,7 +445,7 @@ export class Router {
 
             if (toSend.method != 'GET') toSend.body = safeStringify({id: this.currentUser._id, message: args, suppress: !!this.subscription})
 
-              response = await fetch(createRoute(route, this.remote), toSend).then(async (res) => {
+              response = await fetch(createRoute(route, remote), toSend).then(async (res) => {
                   const json = await res.json()
                   if (!res.ok) throw json.message
                   else return json
@@ -455,7 +466,7 @@ export class Router {
       } else throw 'Remote is not specified'
   }
 
-  createSubscription = async (options:any, onmessage:any) => {
+  createSubscription = async (options:any = {}, onmessage:any) => {
           let toResolve =  (): Promise<any> => {
               return new Promise(async resolve => {
 
@@ -465,7 +476,7 @@ export class Router {
                       let subscriptionEndpoint = `${this.SERVICES.client.available[client.service]}/subscribe`
                       let msg;
                       if (!this.subscription){
-                          client.setRemote(this.remote)
+                          client.setRemote(options.id ? this.ENDPOINTS[options.id] : (options.remote ?? Object.values(this.ENDPOINTS)[0]))
                           msg = await client.add(this.currentUser, subscriptionEndpoint)
                           this.subscription = this.protocols[client.name] = client
                           this.subscription.addResponse('sub', onmessage)
@@ -487,11 +498,14 @@ export class Router {
           return await toResolve()
   }
 
-  subscribe = async (callback: Function, options?: {
+  subscribe = async (callback: Function, options: {
       protocol?:string
-  }) => {
+      routes?: string[]
+      id?: string,
+      remote?: string | URL
+  } = {}) => {
 
-      if (this.remote) {
+      if (Object.assign(this.ENDPOINTS).length > 0 || options?.remote) {
 
           return await this.createSubscription(options, (event) => {
               const data = (typeof event.data === 'string') ? JSON.parse(event.data) : event
