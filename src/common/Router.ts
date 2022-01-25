@@ -31,6 +31,7 @@ export class Router {
 
   // Backend
   USERS: Map<string, UserObject> = new Map(); //live sockets and basic user info
+  CONNECTIONS: Map<string,{}> = new Map(); //threads or other servers
   EVENTS = new Events();
   EVENTSETTINGS = [];
   SUBSCRIPTIONS: Function[] = [] // an array of handlers (from services)

@@ -119,14 +119,14 @@ export class WebsocketService extends SubscriptionService {
         // });
     }
 
-    process = async (ws, o) => {
-      // console.log(o)
-      this.defaultCallback(ws, o)
-      let res = await this.notify(o);
-      res.callbackId = o.callbackId
-      if (res instanceof Error) ws.send(JSON.stringify(res, Object.getOwnPropertyNames(res))) 
-      else if (res != null) ws.send(JSON.stringify(res)) // send back  
-    }
+  process = async (ws, o) => {
+    // console.log(o)
+    this.defaultCallback(ws, o)
+    let res = await this.notify(o);
+    res.callbackId = o.callbackId
+    if (res instanceof Error) ws.send(JSON.stringify(res, Object.getOwnPropertyNames(res))) 
+    else if (res != null) ws.send(JSON.stringify(res)) // send back  
+  }
 
   defaultCallback = async (ws, o) => {
 
