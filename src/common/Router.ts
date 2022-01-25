@@ -31,6 +31,7 @@ export class Router {
 
   // Backend
   USERS: Map<string, UserObject> = new Map(); //live sockets and basic user info
+  CONNECTIONS: Map<string,{}> = new Map(); //threads or other servers
   EVENTS = new Events();
   EVENTSETTINGS = [];
   SUBSCRIPTIONS: Function[] = [] // an array of handlers (from services)
@@ -587,7 +588,7 @@ export class Router {
     this.SERVICES.server.forEach(s => {
       const route = s.name + '/addUser'
       if (this.ROUTES[route]) this.runRoute(route, 'post', [userinfo], id) 
-    })
+    });
 
     return newuser; //returns the generated id so you can look up
   }

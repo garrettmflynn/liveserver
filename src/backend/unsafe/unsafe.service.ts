@@ -22,6 +22,18 @@ export class UnsafeService extends Service {
             return true;
           }
         },
+        {
+          route:'runfunc', //pass a stringified function, parse, and run it. Use second argument for the function argument array. Good for testing
+          callback:(self,args,origin)=>{
+              if(args[0] && args[1]) {
+                  let func = parseFunctionFromText(args[0]);
+                  try{
+                      let result = func(self,args[1],origin);
+                      return result;
+                  } catch(err) {return err;}          
+              }
+          }
+        },
         { //set locally accessible values, just make sure not to overwrite the defaults in the callbackManager
           route: 'setValues', callback: (self, args) => {
             if (typeof args === 'object') {
