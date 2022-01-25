@@ -52,7 +52,7 @@ export class ServerWorker extends Service {
             }
         },
         {
-            route:'postMessage',
+            route:'postMessage', //post back to main thread
             callback:(self,args,origin)=>{
                 postMessage(args[0],undefined,args[1]); //0 is args, 1 is transfer array
             }
