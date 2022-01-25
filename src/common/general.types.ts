@@ -1,10 +1,12 @@
-import { Request } from 'express'
 
 export type RouteConfig = {
     id?: string, // Basic identifier for Clients
     private?: boolean, // Hide Route from Router 'routes' function (TODO: can still be called from knowledgeable clients...)
     // method?: 'GET' | 'POST', // Method constraints
-    reference?: any, // Reference to an object that notifies subscribers on change
+    reference?: any | {
+        object: any,
+        transform: (o) => any
+    }, // Reference to an object that notifies subscribers on change
     route: string, // Route Name
     aliases?: string[], // Name aliases
     protocols?: ProtocolObject // Networking constraints

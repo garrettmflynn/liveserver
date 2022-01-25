@@ -1,7 +1,6 @@
 import { DS, DataTablet } from 'brainsatplay-data'
 import { UserObject } from '../../common/general.types';
-import { WebsocketClient } from '../websocket/WebsocketClient';
-import { randomId, Router, safeStringify } from '@brainsatplay/liveserver-common';
+import { randomId, Router } from '@brainsatplay/liveserver-common';
 import { DatabaseClient } from '../database/database.service';
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 //

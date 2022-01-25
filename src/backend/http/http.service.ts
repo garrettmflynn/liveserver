@@ -44,6 +44,7 @@ export class HTTPService extends Service {
         let path = request.route.path.replace(/\/?\*?\*/, '')
         let route = request.originalUrl.replace(path, '')
         if (route[0] === '/') route = route.slice(1) // Remove leading slash from routes
+        console.log('route', route)
 
         const method = Object.keys(request.route.methods).find(k => request.route.methods[k])
         let info = safeParse(request.body)

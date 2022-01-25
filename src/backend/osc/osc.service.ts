@@ -1,12 +1,12 @@
 import osc from "osc"
 import { RouteConfig } from "src/common/general.types"
 import { DONOTSEND } from "@brainsatplay/liveserver-common/Router";
-import { Service } from "@brainsatplay/liveserver-common/Service";
+import { SubscriptionService } from "src/common";
 
 // Garrett Flynn, AGPL v3.0
 // TODO: Break OSC into another network protocol ( totally untested )
 
-export class OSCService extends Service {
+export class OSCService extends SubscriptionService {
     name = 'osc'
 
     ports = []   
@@ -18,17 +18,19 @@ export class OSCService extends Service {
             { 
                 route:'startOSC',
                 callback: async (self,args) => {
-                    const res = await this.add(args[0],args[1],args[2],args[3])
-                    return res
+                    return await this.addPort(args[0],args[1],args[2],args[3])
                 }
               },
               { 
                 route:'sendOSC',
                 callback:(self,args,origin) => {
-                    const u = self.USERS.get(origin)
-                    if (!u) return false
-                  if (args.length > 2) u.osc.send(args[0],args[1],args[2]);
-                  else this.send(args[0]);
+                    // const u = self.USERS.get(origin)
+                    // if (!u) return false
+
+                    // console.log(u)
+                    // if (args.length > 2) if (u.osc) u.osc.sendOverOSC(args[0],args[1],args[2]);
+                    // else 
+                    this.sendOverOSC(args[0]); // TODO: OSC ports can be managed as 'users'
                   return DONOTSEND;
                 }
               },
@@ -55,26 +57,16 @@ export class OSCService extends Service {
         return info;
     }
 
-    send(dict, localAddress?, localPort?, remoteAddress?, remotePort?) {
-        if (!localAddress || !localPort || !remoteAddress || !remotePort){
+    sendOverOSC(dict, port?) {
+        if (!port){
             this.ports.forEach(o => {
                 o.send(this.encodeMessage(dict))
             });
             return true;
-        } else {
-            let found = this.ports.find((o,i) => {
-                if (o.options.localAddress === localAddress && o.options.localPort === localPort && o.options.remotePort === remotePort && o.options.remoteAddress === remoteAddress) {
-                    o.close()
-                    this.ports.splice(i,1)
-                    return true
-                }
-            })
-            if(found) return found;
-            else return undefined;
-        }
+        } else port.send(this.encodeMessage(dict))
     }
 
-    encodeMessage(message){
+    encodeMessage(message={test: 'hello'}){
         let bundle = {
             timeTag: osc.timeTag(0),
             packets: []
@@ -85,12 +77,13 @@ export class OSCService extends Service {
             message[key].forEach(v => {
                 args.push({value: v})
             })
-            bundle.packets.push({route: `/brainsatplay/${key}`, message: message[key]})
+            bundle.packets.push({address: `/brainsatplay/${key}`, args: message[key]})
         }
+
         return bundle;
     }
 
-    async add(localAddress="127.0.0.1",localPort=57121, remoteAddress=localAddress, remotePort=localPort) {
+    async addPort(localAddress="127.0.0.1",localPort=57120, remoteAddress=localAddress, remotePort=57121) {
 
         return new Promise(resolve => {
         if (typeof localAddress === 'string' && typeof remoteAddress === 'string'){
@@ -108,15 +101,26 @@ export class OSCService extends Service {
 
             port.on("error", (error) => {
                 resolve({route: 'oscError', message:  error.message})
-                this.notify({route: 'oscError', message: error.message}, true)
+                this.notify({route: 'oscError', message: error.message}, true) // reach subscribers
             });
 
             port.on("message", (o) => {
-                this.notify({route: 'oscData', message: o}, true)
+                console.log('OSC Data', o)
+                if (o.args[0] === 'liveserver_route') {
+                    let parsed:any = {route: o.args[1]}
+                    for (let i = 2; i < o.args.length; i+=2){
+                        parsed[o.args[i]] = o.args[i+1]
+                    }
+                    parsed.message = (parsed.method) ? o.args.slice(4) : o.args.slice(2)
+                    let res = this.notify(parsed, true) // reach subscribers and run a route
+                    this.sendOverOSC(res, port)
+                }
+                else this.notify({route: this.name + o.address, message: o.args}, true) // reach subscribers and run a route
+                this.notify({route: this.name + o.address, message: o.args}, true) // reach subscribers and run a route
             });
 
             port.on("close", (message) => {
-                this.notify({route: 'oscClosed', message}, true)
+                this.notify({route: 'oscClosed', message}, true) // reach subscribers
             })
             
             port.open();
