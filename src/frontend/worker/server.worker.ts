@@ -14,22 +14,30 @@ import { parseFunctionFromText, randomId, Router, Service } from "src/common";
 
 
 export class ServerWorker extends Service {
-
+    name:string='worker';
     id=randomId('worker');
     Router:Router;
     responses=[];
 
     routes = [
         {
+            route:'workerPost',
+            callback:(self,args,origin)=>{
+              console.log('worker message received!', args, origin);
+              return;
+            }
+        },
+        {
             route:'addservice',
             callback:(self,args,origin)=>{
                 //provide service name and setup arguments (e.g. duplicating server details etc)
+                return;
             }
         },
         {
             route:'removeservice',
             callback:(self,args,origin)=>{
-                
+                return;
             }
         },
         { //MessageChannel port, it just runs the whole callback system to keep it pain-free, while allowing messages from other workers
@@ -38,10 +46,11 @@ export class ServerWorker extends Service {
                 let port = args[1]; //messageport 
                 this[`${origin}`] = port; //message ports will have the origin marked as the worker id 
                 port.onmessage = onmessage; //port messages get processed generically, an argument will denote they are from a worker 
+                return true;
             }
         },
         {
-            route:'postPort', //send a message to a port
+            route:'postMessagePort', //send a message to another worker via a message port
             callback:(self,args,origin) => {
                 if(!args[1]){
                     if(this[`${origin}`]) 
@@ -50,12 +59,14 @@ export class ServerWorker extends Service {
                     if(this[`${args[1]}`])
                         this[`${args[1]}`].postMessage(JSON.stringify(args[0]),undefined,args[2]);
                 }
+                return;
             }
         },
         {
             route:'postMessage', //post back to main thread
             callback:(self,args,origin)=>{
                 postMessage(args[0],undefined,args[1]); //0 is args, 1 is transfer array
+                return;
             }
         },
         {
@@ -83,14 +94,13 @@ export class ServerWorker extends Service {
                     }
                 });
                 if(c && args[1]) return c.callback(args[1]); 
+                return;
             }
         }
     ]
 
-    constructor(Router:Router) {
-        super();
-
-        this.Router = Router;
+    constructor() {
+        super()
     }
 
         //automated responses
@@ -114,15 +124,20 @@ export class ServerWorker extends Service {
 }
 
 let router = new Router({debug:false});
-let worker = new ServerWorker(router);
-router.load(new ServerWorker(router));
+let worker = new ServerWorker();
+router.load(worker);
 
 //message from main thread or port
 self.onmessage = async (event) => {
     //do the thing with the router
-    if(event.data.workerId) worker.id = event.data.workerId;
+    if(event.data.workerId) {
+        worker.id = event.data.workerId;
+        if(event.data.port) worker[event.data.origin] = event.data.port; //set the message channel port as the output
+    }
 
-    if(event.data) worker.notify(event.data);
+    if(event.data) {
+        worker.notify(event.data,undefined,event.data.origin);
+    }
     //if origin is a message port, pass through the port
     //if origin is main thread, pass to main thread
     //else pass to respective web apis

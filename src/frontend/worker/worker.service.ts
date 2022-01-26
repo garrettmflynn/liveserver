@@ -1,13 +1,13 @@
 //Main thread control of workers
 
-import { Router, Service } from "src/common";
+import { randomId, Router, Service } from "src/common";
 
 import worker from './server.worker'
 
 //Runs on main thread
 export class WorkerService extends Service {
-
-    name:string='worker';
+    id:string=randomId('worker_main');
+    name:string='worker_main';
     defaultRoutes:any[];
     Router:Router;
     url:any;
@@ -17,7 +17,13 @@ export class WorkerService extends Service {
     threadrot = 0;
     toResolve = {};
     routes = [
-
+      {
+        route:'workerPost',
+        callback:(self,args,origin)=>{
+          console.log('worker message received!', args, origin);
+          return;
+        }
+      }
     ];
 
     constructor(Router:Router, url:string, nThreads:number=0) {
@@ -44,7 +50,7 @@ export class WorkerService extends Service {
   
     addWorker = (url=this.url, type:WorkerType = 'module') => {
   
-          let newWorker;
+          let newWorker:Worker;
           try {
             if (!url) newWorker = (worker as any)();
             else {
@@ -74,34 +80,45 @@ export class WorkerService extends Service {
             if (newWorker){
   
             let id = "worker_"+Math.floor(Math.random()*10000000000);
-              
-            this.workers.push({worker:newWorker, id:id});
 
-            newWorker.onmessage = (ev) => {
+            let messageport = new MessageChannel();
+              
+            this.workers.push({worker:newWorker, id:id, port:messageport.port1});
+            this[id] = messageport.port1;
+
+            let onmessage = (ev) => {
   
-                var msg = ev.data;
-  
-                // Resolve 
-                let toResolve = this.toResolve[ev.data.callbackId];
-                if (toResolve) {
-                  toResolve(msg.output);
-                  delete this.toResolve[ev.data.callbackId]
-                }
-  
-                // Run Response Callbacks
-                this.responses.forEach((foo,_) => {
-                  if(typeof foo === 'object') foo.callback(msg);
-                  else if (typeof foo === 'function') foo(msg);
-                });
+              var msg = ev.data;
+
+              // Resolve 
+              let toResolve = this.toResolve[ev.data.callbackId];
+              if (toResolve) {
+                toResolve(msg.output);
+                delete this.toResolve[ev.data.callbackId]
+              }
+
+              // Run Response Callbacks
+              this.responses.forEach((foo,_) => {
+                if(typeof foo === 'object') foo.callback(msg);
+                else if (typeof foo === 'function') foo(msg);
+              });
+
+              this.notify(msg, undefined, msg.origin);
+
             };
+
+            newWorker.onmessage = onmessage;
+            messageport.port1.onmessage = onmessage;
   
-            newWorker.onerror = (e) => {
+            let onerror  = (e) => {
               console.error(e)
             }
-  
+
+            newWorker.onerror = onerror;
+
             console.log("server threads: ", this.workers.length);
             
-            newWorker.postMessage(JSON.stringify({workerId:id}));
+            newWorker.postMessage({workerId:id, port:messageport.port2, origin:this.id},[messageport.port2]);
 
             return id; //worker id
           } else return;
@@ -138,7 +155,7 @@ export class WorkerService extends Service {
               }
             }
           }
-          let dict = {foo:functionName, args:args, origin:origin};
+          let dict = {route:functionName, args:args, origin:origin};
           return await this.post(dict,workerId,transfer,callback);
         }
     }
@@ -148,11 +165,6 @@ export class WorkerService extends Service {
 
         return new Promise(resolve => {
           //console.log('posting',input,id);
-          if (Array.isArray(input.input)){
-          input.input = input.input.map((v) => {
-            if (typeof v === 'function') return v.toString();
-            else return v;
-          })} 
   
           const resolver = (res) => 
             {    

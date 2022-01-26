@@ -378,7 +378,7 @@ export class Router {
 
       return new Promise(resolve => {
 
-        const name = service.constructor.name.replace('Client', '')
+        const name = service.constructor.name.replace('Client', ''); //redundant?
 
           this.SERVICES.client.clients[name] = service
           const toResolve = (route) => {
@@ -393,13 +393,19 @@ export class Router {
           // Auto-Resolve if Already Available
           const available = this.SERVICES.client.available[name]
           if (available) toResolve(available)
-          else this.SERVICES.client.connecting[name] = toResolve
+          else this.SERVICES.client.connecting[name] = toResolve;
+
+          let worker = false;
+          if(name.includes('worker')) worker = true;
 
           // NOTE: This is where you listen for service.notify()
           service.subscribe(async (o:MessageObject, _:MessageType) => {
-              const available = this.SERVICES.client.available[name]
               // Check if Service is Available
-              if (available) return await this.send(`${available}/${o.route}`, ...o.message) // send automatically with extension
+              const available = this.SERVICES.client.available[name];
+              
+              if (available) {
+                return await this.send(`${available}/${o.route}`, ...o.message) // send automatically with extension
+              }
           })
 
       })
@@ -488,7 +494,7 @@ export class Router {
           if (!response.suppress && endpoint.subscription) endpoint.subscription?.responses?.forEach(f => f(response))
           
           // Pass Back to the User
-          return response.message
+          return response?.message
 
       } else throw 'Remote is not specified'
   }
@@ -579,8 +585,14 @@ export class Router {
       })
 
       if (service.subscribe) {
-        service.subscribe((o:MessageObject, updateSubscribers?:MessageType) => {
-          return this.handleMessage(o, updateSubscribers)
+        service.subscribe(async (o:MessageObject, updateSubscribers?:MessageType, origin?:string|undefined) => {
+          let res = this.handleMessage(o, updateSubscribers);
+          if(origin?.includes('worker')) {
+            res = await res; //await the promise to resolve it
+            if(res !== null && service[origin]) service[origin].postMessage({route:'workerPost', message:res, origin:service.id, callbackId:o.callbackId})
+            else return res;
+          }
+          return res;
         })
       }
 
@@ -724,22 +736,23 @@ export class Router {
       if(o._id) o.id = o._id; //just in case
       
 
-        if(o.route != null) {
-          
-          let u = this.USERS.get(o.id)
+      if(o.route != null) {
+        
+        let u = this.USERS.get(o.id)
 
-          console.log('runRoute', o.route)
-          // Handle Subscription Updates based on updateSubscribers Notifications
-          if (updateSubscribers) this.triggerSubscriptions(o as MessageObject)
+        console.log('runRoute', o.route)
+        // Handle Subscription Updates based on updateSubscribers Notifications
+        if (updateSubscribers) this.triggerSubscriptions(o as MessageObject)
 
-          let res = await this.runRoute(o.route, o.method, o.message, u?.id ?? o.id, o.callbackId);
-          if (o.suppress) res.suppress = o.suppress // only suppress when handling messages here
+        let res = await this.runRoute(o.route, o.method, o.message, u?.id ?? o.id, o.callbackId);
+        if (o.suppress) res.suppress = o.suppress // only suppress when handling messages here
 
-          // Handle Subscription Updates based on Internal Notifications
-          
-          return res
-        }
+        // Handle Subscription Updates based on Internal Notifications
+        
+        return res;
       }
+    }
+    return null;
 
   }
   

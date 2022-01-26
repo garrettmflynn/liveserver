@@ -25,7 +25,8 @@ export class WebRTCService extends Service {
             route: 'removeUser',
             callback: (self, args, id) => {
                 this.users.delete(id)
-                this.rooms.forEach(r => r.peers.has(id) && r.removePeer(id))
+                this.rooms.forEach(r => r.peers.has(id) && r.removePeer(id));
+                return;
             }
         },
 

@@ -4,7 +4,7 @@ import { MessageObject, ProtocolObject, RouteConfig, SubscriptionCallbackType } 
 // Browser and Node-Compatible Service Class
 export class Service extends EventTarget {
 
-    id = randomId() // Unique Service ID
+    id = randomId('service') // Unique Service ID
     name:string = 'service' // Service Name
     callbacks: Map<string, SubscriptionCallbackType >  = new Map() // Subscriber Callbacks
 
@@ -26,13 +26,14 @@ export class Service extends EventTarget {
     // Notify subscribers (e.g. Router / UserPlatform ) of a New Message
     notify = async (
         o: MessageObject, // defines the route to activate
-        type?: boolean // specifies whether the notification is internal (true) OR from a client (false / default). Internal notifications will be only forwarded to route subscribers.
-    ) => {
+        type?: boolean|undefined, // specifies whether the notification is internal (true) OR from a client (false / default). Internal notifications will be only forwarded to route subscribers.
+        origin?: string|number|undefined //origin of the call
+     ) => {
         let responses = [];
 
         // Notify All Subscribers
         await Promise.all(Array.from(this.callbacks).map(async (arr, i) => {
-            const res = await arr[1](o, type)
+            const res = await arr[1](o, type, origin);
             if (res && !(res instanceof Error)) responses.push(res)
         }))
 

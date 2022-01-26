@@ -29,7 +29,7 @@ export type RouteSpec = string | {
     id?: string // id
 }
 
-export type SubscriptionCallbackType = (o:MessageObject, name?: MessageType) => any 
+export type SubscriptionCallbackType = (o:MessageObject, name?: MessageType, origin?:string|number|undefined) => any 
 
 export type ProtocolObject = {
     websocket?: boolean,
