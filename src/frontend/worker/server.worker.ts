@@ -9,7 +9,36 @@ import { UnsafeService   } from "src/backend";
 import { DatabaseService } from "src/backend";
 //can import all
 
+let services = {
+    SessionsService,
+    DatabaseService,
+    UnsafeService
+};
+
 import { parseFunctionFromText, randomId, Router, Service } from "src/common";
+
+let httpServer;
+
+//check if in node ENV (enables backend)
+let NODE = false;
+try {
+    if(process.env) { //indicates node
+        NODE = true;
+        const SSRService = require("src/backend/ssr/ssr.service").default;
+        const WebsocketService = require("src/backend/websocket/websocket.service").default;
+        const HTTPService = require('src/backend/http/http.service').default;
+        const EventsService = require('src/backend/http/events.service').default;
+        const OSCService = require('src/backend/osc/osc.service').default;
+        const WebRTCService = require('src/backend/webrtc/webrtc.service').default;
+        services['SSRService'] = SSRService;
+        services['WebsocketService'] = WebsocketService;
+        services['HTTPService'] = HTTPService;
+        services['EventsService'] = EventsService;
+        services['OSCService'] = OSCService;
+        services['WebRTCService'] = WebRTCService;
+    }
+} catch (err) {}
+
 
 
 
@@ -18,6 +47,7 @@ export class ServerWorker extends Service {
     id=randomId('worker');
     Router:Router;
     responses=[];
+    httpServer:any;
 
     routes = [
         {
@@ -31,6 +61,19 @@ export class ServerWorker extends Service {
             route:'addservice',
             callback:(self,args,origin)=>{
                 //provide service name and setup arguments (e.g. duplicating server details etc)
+                if(services[args[0]]) {
+                    let service;
+                    //TODO: test mongodb in thread
+
+                    if(args[0] === 'WebsocketService')
+                        if(self.httpServer) service = new services[args[0]](self.httpServer);
+                    else {
+                        service = new services[args[0]](this.Router,...args.slice(1)); //some constructors take the router and other args so add them
+                    }
+
+                    if(service) this.Router.load(service);
+                    return true;
+                }
                 return;
             }
         },

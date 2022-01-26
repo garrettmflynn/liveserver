@@ -165,3 +165,5 @@ export class WebRTCService extends Service {
         if (recipient?.send) recipient.send(JSON.stringify({cmd, data: {id: origin, msg}, id: origin, service: 'webrtc'}))
     }
 }
+
+export default WebRTCService;
