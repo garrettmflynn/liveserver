@@ -27,7 +27,17 @@ export class WorkerService extends Service {
       {
         route:'addworker',
         callback:(self,args,origin)=>{
-          return this.addWorker(args[0],args[1]); //can specify a url and module type 
+          let id = this.addWorker(args[0],args[1]); //can specify a url and module type 
+          if(this.workers.length > 0 ) {
+            this.workers.forEach((w) => { //set up message channels for each thread to talk to each other
+              if(w.id !== id) {
+                this.establishMessageChannel(
+                  id,w.id
+                );
+              }
+            });
+          }
+          return id;
         }
       },
       {
