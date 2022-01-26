@@ -1,6 +1,8 @@
 export function createRoute (path:string, remote:string|URL) {
-    let baseUrl = (remote instanceof URL) ? remote : new URL(remote)
+  let baseUrl = (remote instanceof URL) ? remote : new URL(remote)
     path = (baseUrl.pathname === '/') ? path : baseUrl.pathname + path
+
+    console.log(path, baseUrl.href)
     let href = (new URL(path, baseUrl.href)).href
     return href
   }

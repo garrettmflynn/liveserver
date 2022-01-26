@@ -1,4 +1,4 @@
-import { SubscriptionService, createRoute } from "@brainsatplay/liveserver-common";
+import { SubscriptionService, createRoute } from "@brainsatplay/router";
 
 class HTTPClient extends SubscriptionService {
 
@@ -12,7 +12,7 @@ class HTTPClient extends SubscriptionService {
     add = (user, endpoint) => {
         return new Promise(resolve => {
 
-            this.reference = new EventSource(createRoute(endpoint, this.remote))
+            this.reference = new EventSource(createRoute('',endpoint))
             this.reference.onopen = () => {
                 this.reference.onmessage = (event) => {
                 let data = JSON.parse(event.data)

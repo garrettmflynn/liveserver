@@ -1,9 +1,9 @@
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 //import { streamUtils } from "./streamSession";
 
-import {Events, randomId, SubscriptionService} from '@brainsatplay/liveserver-common'
+import {Events, randomId, SubscriptionService} from '@brainsatplay/router'
 import { MessageObject, UserObject } from 'src/common/general.types';
-import { safeStringify } from  '@brainsatplay/liveserver-common/parse.utils';
+import { safeStringify } from  '@brainsatplay/router/parse.utils';
 
 // TODO: Convert to SubscriptionService and mirror the backend network services
 export class WebsocketClient extends SubscriptionService {
@@ -99,7 +99,7 @@ export class WebsocketClient extends SubscriptionService {
 
         // let id = randomId('socket')
 
-        const remote = url.href
+        const remote = url.host
         this.sockets.set(remote, socket);
 
         return remote
@@ -107,11 +107,10 @@ export class WebsocketClient extends SubscriptionService {
     }
 
     getSocket(remote?:string|URL) {
-        if (remote instanceof URL) remote = remote.href
-        if(!remote) return this.sockets.values().next();
+        if (typeof remote === 'string') remote = new URL(remote)
+        if(!remote) return this.sockets.values().next().value;
 
-        console.log(this.sockets, remote)
-        return this.sockets.get(remote);
+        return this.sockets.get(remote.host);
 
     }
 

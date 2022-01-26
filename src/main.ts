@@ -11,7 +11,7 @@ import * as api from "./backend";
 import { resolve } from "path";
 import { config } from "dotenv";
 import { UnsafeService } from './backend'
-import { Router } from '@brainsatplay/liveserver-common'
+import { Router } from '@brainsatplay/router'
 config({ path: resolve(__dirname, `../.env`) });
 config({ path: resolve(__dirname, `../.key`) });
 

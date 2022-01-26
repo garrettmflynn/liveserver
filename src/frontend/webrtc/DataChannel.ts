@@ -1,5 +1,5 @@
 import { DataStreamTrack } from "datastreams-api"
-import { randomId } from '@brainsatplay/liveserver-common'
+import { randomId } from '@brainsatplay/router'
 
 // Data Channels Behave Just Like Tracks
 export default class DataChannel extends DataStreamTrack{

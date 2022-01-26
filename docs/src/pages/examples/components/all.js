@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import styles from '../examples.module.css'
 
-export default function AllExample({server, router}) {
+export default function AllExample({server, endpointIds, router}) {
   
     const buttons = useRef(null);
     const output = useRef(null);
@@ -50,6 +50,7 @@ export default function AllExample({server, router}) {
     }
 
     useEffect(async () => {
+      console.log('ENDPOINT IDs', endpointIds)
 
       router.subscribe((o) => {
 
@@ -62,7 +63,7 @@ export default function AllExample({server, router}) {
         else output.current.innerHTML = data.error
 
       }
-      }, {protocol: 'http', routes: ['routes', 'osc']})
+      }, {protocol: 'http', routes: ['routes', 'osc'], id: endpointIds[1]})
     });
 
     send('routes', 'get')

@@ -1,5 +1,5 @@
 import StateManager from 'anotherstatemanager'
-import { Service } from '@brainsatplay/liveserver-common';
+import { Service } from '@brainsatplay/router';
 
 //OSC stream frontend calls
 export class OSCClient extends Service{

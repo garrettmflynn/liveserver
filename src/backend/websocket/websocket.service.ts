@@ -1,7 +1,7 @@
 // Joshua Brewster, Garrett Flynn, AGPL v3.0
 import { WebSocketServer } from 'ws'
-import { SubscriptionService } from '@brainsatplay/liveserver-common/SubscriptionService';
-import { MessageObject } from '@brainsatplay/liveserver-common/general.types';
+import { SubscriptionService } from '@brainsatplay/router/SubscriptionService';
+import { MessageObject } from '@brainsatplay/router/general.types';
 
 // Create WS Server Instance
 export class WebsocketService extends SubscriptionService {

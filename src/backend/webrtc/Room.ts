@@ -1,7 +1,7 @@
 
 import { RoomInterface } from './types/Room.types'
-import { randomId } from '@brainsatplay/liveserver-common'
-import { UserObject } from '@brainsatplay/liveserver-common/general.types'
+import { randomId } from '@brainsatplay/router'
+import { UserObject } from '@brainsatplay/router/general.types'
 
 export class Room {
 

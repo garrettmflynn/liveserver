@@ -1,6 +1,6 @@
 import { DS, DataTablet } from 'brainsatplay-data'
 import { UserObject } from '../../common/general.types';
-import { randomId, Router } from '@brainsatplay/liveserver-common';
+import { randomId, Router } from '@brainsatplay/router';
 import { DatabaseClient } from '../database/database.service';
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 //

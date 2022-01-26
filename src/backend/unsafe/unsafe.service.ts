@@ -1,5 +1,5 @@
 import { parseFunctionFromText } from "src/common";
-import { Service } from "@brainsatplay/liveserver-common/Service";
+import { Service } from "@brainsatplay/router/Service";
 
 // Garrett Flynn and Joshua Brewster, AGPL v3.0
 export class UnsafeService extends Service {

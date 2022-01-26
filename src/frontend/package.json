@@ -26,7 +26,7 @@
   "author": "Joshua Brewster, Garrett Flynn",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
-    "@brainsatplay/liveserver-common": "*",
+    "@brainsatplay/router": "*",
     "anotherstatemanager": "^1.0.4",
     "brainsatplay-data": "^0.0.9",
     "magicworker": "^1.0.8",

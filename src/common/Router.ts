@@ -36,7 +36,7 @@ export class Router {
   EVENTSETTINGS = [];
   SUBSCRIPTIONS: Function[] = [] // an array of handlers (from services)
   DEBUG: boolean;
-  ENDPOINTS: {[x:string] : EndpointType} = {}
+  ENDPOINTS: Map<string, EndpointType> = new Map()
 
   // TODO: Detect changes and subscribe to them
   SERVICES: {
@@ -78,7 +78,7 @@ export class Router {
         let dict = {};
         for (let k in reference){
           const o = reference[k]
-          dict[k] = o.constructor.name;
+          if (o instanceof Service) dict[k] = o.constructor.name;
         }
         return dict;
       }
@@ -300,7 +300,7 @@ export class Router {
         // Browser-Only
         if (global.onbeforeunload){
           global.onbeforeunload = () => {
-              Object.values(this.ENDPOINTS).forEach(e => this.logout(e))
+            this.ENDPOINTS.forEach(e => this.logout(e))
           }
         }
 
@@ -323,9 +323,10 @@ export class Router {
 
       // Register User on the Server
       if (url) {
-          this.ENDPOINTS[id] = {
+
+          this.ENDPOINTS.set(id, {
             remote: url,
-          }
+          })
           this.getServices(id)
           this.login(url) // Login user to connect to new remote
       }
@@ -333,8 +334,8 @@ export class Router {
   }
 
   removeRemote = async (id) => {
-    this.logout(this.ENDPOINTS[id])
-    delete this.ENDPOINTS[id]
+    this.logout(this.ENDPOINTS.get(id))
+    this.ENDPOINTS.delete(id)
   }
 
   getServices = async (id?) => {
@@ -344,9 +345,9 @@ export class Router {
       }).catch(async (e) => {
 
         // Fallback to WS
-        console.log('Falling back to Websocket protocol', e, e === 'Failed to fetch')
+        console.log('Falling back to Websocket protocol')
         await this.subscribe(() => {
-          console.log('unused callback')
+          console.log('unused ws callback')
         }, {protocol: 'websocket', id, force: true})
         return await this.send({route: 'services', id})
 
@@ -450,10 +451,9 @@ export class Router {
 
 
   private _send = async (routeSpec:RouteSpec, method?: FetchMethods, ...args:any[]) => {
-    console.log(routeSpec)
 
       const route = (typeof routeSpec === 'string') ? routeSpec : routeSpec.route // Support object-based specs
-      const endpoint = ((typeof routeSpec === 'string') ? Object.values(this.ENDPOINTS)[0] : (routeSpec?.remote) ? {remote: routeSpec?.remote} : (this.ENDPOINTS[routeSpec?.id] ?? Object.values(this.ENDPOINTS)[0])) as EndpointType
+      const endpoint = ((typeof routeSpec === 'string') ? this.ENDPOINTS.values().next().value : (routeSpec?.remote) ? {remote: routeSpec?.remote} : (this.ENDPOINTS.get(routeSpec?.id) ?? this.ENDPOINTS.values().next().value)) as EndpointType
       const remote = endpoint.remote
 
       // TODO: Allow remote switching for websocket
@@ -463,7 +463,7 @@ export class Router {
 
           // Send over Websockets if Active
           if (endpoint.type === 'websocket'){
-              response = await endpoint.subscription.send({id: this.currentUser._id, route, message: args, method}, {suppress: true, remote}) // NOTE: Will handle response in the subscription too
+              response = await endpoint.subscription.send({id: this.currentUser.id, route, message: args, method}, {suppress: true, remote}) // NOTE: Will handle response in the subscription too
           } 
           
           // Default to HTTP
@@ -508,11 +508,12 @@ export class Router {
                     if ((options.protocol == null || options.protocol === client.name) && (options.force || this.SERVICES.client.available[client.service])) {
                       let subscriptionEndpoint = `${this.SERVICES.client?.available[client.service] ?? name.toLowerCase()}/subscribe`
                       let msg;
-                      const endpoint = (options.id ? this.ENDPOINTS[options.id] : ({remote: options.remote}?? Object.values(this.ENDPOINTS)[0])) as EndpointType
+                      const endpoint = (options.id ? this.ENDPOINTS.get(options.id) : ((options.remote) ? {remote: options.remote} : this.ENDPOINTS.values().next().value)) as EndpointType
                       
                       if (!endpoint.subscription){
                           client.setRemote(endpoint.remote)
-                          msg = await client.add(this.currentUser, endpoint.remote)
+                          const url = new URL(subscriptionEndpoint, endpoint.remote)
+                          msg = await client.add(this.currentUser, url)
                           endpoint.subscription = client
                           endpoint.subscription.addResponse('sub', onmessage)
                           endpoint.type = client.name
@@ -543,7 +544,7 @@ export class Router {
       remote?: string | URL,
       force?:boolean
   } = {}) => {
-      if (Object.keys(this.ENDPOINTS).length > 0 || options?.remote) {
+      if (this.ENDPOINTS.size > 0 || options?.remote) {
 
           return await this.createSubscription(options, (event) => {
               const data = (typeof event.data === 'string') ? JSON.parse(event.data) : event

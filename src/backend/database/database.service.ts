@@ -3,7 +3,7 @@
 // Joshua Brewster, Garrett Flynn, AGPL v3.0
 import { ObjectId } from "mongodb"
 import { RouteConfig, UserObject } from 'src/common/general.types';
-import { Service, randomId, Router } from "@brainsatplay/liveserver-common";
+import { Service, randomId, Router } from "@brainsatplay/router";
 
 export class DatabaseService extends Service{
     

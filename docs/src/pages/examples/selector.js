@@ -18,6 +18,7 @@ export default function ExampleSelector({server, endpointIds, router}) {
             return <AllExample
             server={server}
             router={router}
+            endpointIds={endpointIds}
           />
 
           case 'multiple':
