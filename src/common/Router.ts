@@ -456,7 +456,6 @@ export class Router {
       const endpoint = ((typeof routeSpec === 'string') ? this.ENDPOINTS.values().next().value : (routeSpec?.remote) ? {remote: routeSpec?.remote} : (this.ENDPOINTS.get(routeSpec?.id) ?? this.ENDPOINTS.values().next().value)) as EndpointType
       const remote = endpoint.remote
 
-      // TODO: Allow remote switching for websocket
       if (remote && route){
           let response;
           if (!method) method = (args.length > 0) ? 'POST' : 'GET'

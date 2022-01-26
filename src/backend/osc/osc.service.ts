@@ -1,6 +1,6 @@
 import osc from "osc"
 import { RouteConfig } from "src/common/general.types"
-import { DONOTSEND } from "liveserver-router/Router";
+import { DONOTSEND } from "src/common/Router";
 import { SubscriptionService } from "src/common";
 
 // Garrett Flynn, AGPL v3.0

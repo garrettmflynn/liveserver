@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import { ClientObject, MessageObject, RouteConfig } from "liveserver-router/general.types";
-import { safeParse } from "liveserver-router/parse.utils";
-import { Service } from "liveserver-router/Service";
-import { randomId } from "src/common";
+import { safeParse } from "src/common/parse.utils";
+import { Service } from "liveserver-router";
+import { randomId } from "src/common/id.utils";
 import EventsService from "./events.service";
 
 // var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;

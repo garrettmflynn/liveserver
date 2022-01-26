@@ -1,7 +1,7 @@
 
 import { RoomInterface } from './types/Room.types'
-import { randomId } from 'liveserver-router'
-import { UserObject } from 'liveserver-router/general.types'
+import { randomId } from 'src/common/id.utils'
+import { UserObject } from 'src/common/general.types'
 
 export class Room {
 

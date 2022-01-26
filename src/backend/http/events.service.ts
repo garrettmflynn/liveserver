@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { ClientObject } from "liveserver-router/general.types";
+import { ClientObject } from "src/common/general.types";
 import { SubscriptionService } from "liveserver-router/SubscriptionService";
-import { randomId } from "src/common";
+import { randomId } from "src/common/id.utils";
 
 // var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
 // var ARGUMENT_NAMES = /([^\s,]+)/g;

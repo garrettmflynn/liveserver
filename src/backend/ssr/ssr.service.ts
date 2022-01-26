@@ -1,4 +1,4 @@
-import { Service } from "liveserver-router/Service";
+import { Service } from "liveserver-router";
 
 // Garrett Flynn and Joshua Brewster, AGPL v3.0
 export class SSRService extends Service {

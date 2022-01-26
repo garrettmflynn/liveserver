@@ -5,22 +5,22 @@ sidebar_position: 2
 # Using the Router
 
 ### Getting Started
-To start using the router, import `@brainsatplay/router` into your project:
+To start using the router, import `liveserver-router` into your project:
 
 #### Browser
 ##### Script Tag
 ``` html
-<script src="https://cdn.jsdelivr.net/npm/@brainsatplay/router@latest">
+<script src="https://cdn.jsdelivr.net/npm/liveserver-router@latest">
 ```
 
 #### ES6
 ``` js
-import router from '@brainsatplay/router'
+import router from 'liveserver-router'
 ```
 
 #### Node
 ``` js
-const router = require('@brainsatplay/router')
+const router = require('liveserver-router')
 ```
 
 ### Loading Frontend Services
@@ -67,7 +67,7 @@ let express = require("express")
 let bodyParser = require("body-parser")
 
 // Router Imports
-import { Router } from '@brainsatplay/router'
+import { Router } from 'liveserver-router'
 import { HTTPService } from '@brainsatplay/http' // TODO: Publish and relink
 import { WebsocketService } from '@brainsatplay/websockets' // TODO: Publish and relink
 

@@ -3,7 +3,7 @@ import Layout from '@theme/Layout';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import ExampleSelector from './selector';
 import { OSCClient, SessionsClient, WebsocketClient, WebRTCClient, HTTPClient, DatabaseClient, UnsafeClient } from '../../../../src/frontend';
-import router from '@brainsatplay/router';
+import router from 'liveserver-router';
 
 const SERVER_URI = (window.location.href.includes('localhost')) ? 'http://localhost:80' : 'http://localhost:80' // Replace with production server URI
 const SERVER_URI_2 = (window.location.href.includes('localhost')) ? 'http://localhost:81' : 'http://localhost:81' // Replace with production server URI

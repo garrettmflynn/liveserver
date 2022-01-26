@@ -1,6 +1,6 @@
 import { RouteConfig, SettingsObject, UserObject } from "src/common/general.types";
-import { DONOTSEND } from "liveserver-router/Router";
-import { Service } from "src/common/Service";
+import { DONOTSEND } from "src/common/Router";
+import { Service } from "@brainsastplay/router";
 
 //TODO: one-off data calls based on session configs
 //      reimplement callbacks

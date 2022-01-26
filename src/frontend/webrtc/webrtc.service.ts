@@ -8,7 +8,7 @@ Known Bugs
 */
 
 import { SubscriptionService } from 'liveserver-router';
-import { UserObject, MessageObject } from 'liveserver-router/general.types';
+import { UserObject, MessageObject } from '../../common/general.types';
 
 export class WebRTCClient extends SubscriptionService {
 

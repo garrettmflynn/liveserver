@@ -1,5 +1,5 @@
 import { DataStreamTrack } from "datastreams-api"
-import { randomId } from 'liveserver-router'
+import { randomId } from '../../common/id.utils'
 
 // Data Channels Behave Just Like Tracks
 export default class DataChannel extends DataStreamTrack{
