@@ -6,8 +6,8 @@ import worker from './server.worker'
 
 //Runs on main thread
 export class WorkerService extends Service {
-    id:string=randomId('worker_main');
-    name:string='worker_main';
+    id:string=randomId('worker');
+    name:string='worker';
     defaultRoutes:any[];
     Router:Router;
     url:any;
@@ -300,8 +300,8 @@ export class WorkerService extends Service {
         let port2 = channel.port2;
 
         //transfer the ports and hook up the responses 
-        this.run('addport',[port1],worker1Id,worker2Id,[port1]);
-        this.run('addport',[port2],worker2Id,worker1Id,[port2]);
+        this.run('worker/addport',[port1],worker1Id,worker2Id,[port1]);
+        this.run('worker/addport',[port2],worker2Id,worker1Id,[port2]);
 
     }
 }

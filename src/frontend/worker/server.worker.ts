@@ -21,7 +21,7 @@ import { parseFunctionFromText, randomId, Router, Service } from "src/common";
 //check if in node ENV (enables backend)
 let NODE = false;
 try {
-    if(process.env) { //indicates node
+    if(typeof process === 'object') { //indicates node
         NODE = true;
         const SSRService = require("src/backend/ssr/ssr.service").default;
         const WebsocketService = require("src/backend/websocket/websocket.service").default;
