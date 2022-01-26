@@ -1,4 +1,4 @@
-import { SubscriptionService, createRoute } from "@brainsatplay/router";
+import { SubscriptionService, createRoute } from "liveserver-router";
 
 class HTTPClient extends SubscriptionService {
 

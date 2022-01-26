@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { ClientObject } from "@brainsatplay/router/general.types";
-import { SubscriptionService } from "@brainsatplay/router/SubscriptionService";
+import { ClientObject } from "liveserver-router/general.types";
+import { SubscriptionService } from "liveserver-router/SubscriptionService";
 import { randomId } from "src/common";
 
 // var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;

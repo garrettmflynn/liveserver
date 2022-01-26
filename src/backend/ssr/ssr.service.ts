@@ -1,4 +1,4 @@
-import { Service } from "@brainsatplay/router/Service";
+import { Service } from "liveserver-router/Service";
 
 // Garrett Flynn and Joshua Brewster, AGPL v3.0
 export class SSRService extends Service {

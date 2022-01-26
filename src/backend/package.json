@@ -1,6 +1,6 @@
 {
-  "name": "@brainsatplay/backend",
-  "version": "0.0.0",
+  "name": "liveserver-backend",
+  "version": "0.0.2",
   "type": "module",
   "workspaces": [
     "./*"
@@ -11,7 +11,7 @@
     "author": "Joshua Brewster, Garrett Flynn",
     "license": "AGPL-3.0-or-later",
     "dependencies": {
-      "@brainsatplay/router": "0.0.0"
+      "liveserver-router": "^0.0.1"
     },
     "bugs": {
       "url": "https://github.com/brainsatplay/liveserver"

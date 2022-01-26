@@ -1,10 +1,10 @@
 {
   "name": "liveserver-frontend",
-  "version": "0.0.11",
+  "version": "0.0.2",
   "description": "Websockets with user communication, access controls, and notifications. Clientside and serverside data management plus mongodb integration.",
   "main": "./index.js",
   "type":"module",
-  "private": true,
+  "private": false,
   "directories": {
     "example": "example"
   },
@@ -26,8 +26,8 @@
   "author": "Joshua Brewster, Garrett Flynn",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
-    "@brainsatplay/router": "*",
-    "anotherstatemanager": "^1.0.4",
+    "liveserver-router": "^0.0.1",
+    "anotherstatemanager": "^1.0.5",
     "brainsatplay-data": "^0.0.9",
     "magicworker": "^1.0.8",
     "brainsatplay-storage": "^0.0.2"

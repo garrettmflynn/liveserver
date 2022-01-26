@@ -1,5 +1,5 @@
 {
-    "name": "@brainsatplay/webrtc",
+    "name": "liveserver-webrtc",
     "version": "0.0.0",
     "main": "./index.ts",
     "type": "module",
@@ -8,7 +8,7 @@
     "license": "AGPL-3.0-or-later",
     "private": false,
     "dependencies": {
-      "@brainsatplay/router": "*",
+      "liveserver-router": "*",
       "datastreams-api": "^0.0.4"
     }
   }

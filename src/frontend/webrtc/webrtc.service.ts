@@ -7,8 +7,8 @@ Known Bugs
 
 */
 
-import { SubscriptionService } from '@brainsatplay/router';
-import { UserObject, MessageObject } from '@brainsatplay/router/general.types';
+import { SubscriptionService } from 'liveserver-router';
+import { UserObject, MessageObject } from 'liveserver-router/general.types';
 
 export class WebRTCClient extends SubscriptionService {
 

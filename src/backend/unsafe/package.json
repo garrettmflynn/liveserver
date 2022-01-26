@@ -1,5 +1,5 @@
 {
-  "name": "@brainsatplay/unsafe",
+  "name": "liveserver-unsafe",
   "version": "0.0.0",
   "main": "./index.ts",
   "type":"module",

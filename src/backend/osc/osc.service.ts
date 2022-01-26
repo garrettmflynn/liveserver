@@ -1,6 +1,6 @@
 import osc from "osc"
 import { RouteConfig } from "src/common/general.types"
-import { DONOTSEND } from "@brainsatplay/router/Router";
+import { DONOTSEND } from "liveserver-router/Router";
 import { SubscriptionService } from "src/common";
 
 // Garrett Flynn, AGPL v3.0

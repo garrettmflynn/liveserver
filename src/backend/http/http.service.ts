@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { ClientObject, MessageObject, RouteConfig } from "@brainsatplay/router/general.types";
-import { safeParse } from "@brainsatplay/router/parse.utils";
-import { Service } from "@brainsatplay/router/Service";
+import { ClientObject, MessageObject, RouteConfig } from "liveserver-router/general.types";
+import { safeParse } from "liveserver-router/parse.utils";
+import { Service } from "liveserver-router/Service";
 import { randomId } from "src/common";
 import EventsService from "./events.service";
 

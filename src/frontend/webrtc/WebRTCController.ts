@@ -3,7 +3,7 @@
 import { WebRTCClient } from ".";
 import { DatabaseService, SessionsService, UnsafeService } from "src/backend";
 import { SessionsClient, UserPlatform } from "..";
-import { Router } from '@brainsatplay/router';
+import { Router } from 'liveserver-router';
 
 //creates a WebRTC controller for running sessions and p2p databases, i.e. backend data streaming services but hosted on WebRTC
 export class WebRTCController {
