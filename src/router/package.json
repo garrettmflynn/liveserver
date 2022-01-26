@@ -1,0 +1,19 @@
+{
+  "name": "liveserver-router",
+  "version": "0.0.3",
+  "main": "./index.ts",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Joshua Brewster, Garrett Flynn",
+  "license": "AGPL-3.0-or-later",
+  "dependencies": {
+    "anotherstatemanager": "^1.0.5",
+    "node-fetch-polyfill": "^2.0.6"
+  },
+  "bugs": {
+    "url": "https://github.com/brainsatplay/liveserver"
+  },
+  "homepage": "https://github.com/brainsatplay/liveserver#readme"
+}
