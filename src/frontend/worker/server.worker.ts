@@ -132,7 +132,7 @@ self.onmessage = async (event) => {
     //do the thing with the router
     if(event.data.workerId) {
         worker.id = event.data.workerId;
-        if(event.data.port) worker[event.data.origin] = event.data.port; //set the message channel port as the output
+        if(event.data.port) worker[event.data.origin] = event.data.port; //set the message channel port by the origin worker id to send return outputs to that thread (incl main thread)
     }
 
     if(event.data) {
