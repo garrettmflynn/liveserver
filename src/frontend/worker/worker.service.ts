@@ -1,6 +1,6 @@
 //Main thread control of workers
 
-import { randomId, Router, Service } from "src/common";
+import { parseFunctionFromText, randomId, Router, Service } from "src/common";
 
 import worker from './server.worker'
 
@@ -23,10 +23,50 @@ export class WorkerService extends Service {
           console.log('worker message received!', args, origin);
           return;
         }
+      },
+      {
+        route:'addworker',
+        callback:(self,args,origin)=>{
+          return this.addWorker(args[0],args[1]); //can specify a url and module type 
+        }
+      },
+      {
+        route:'terminate',
+        callback:(self,args,origin)=>{
+          return this.terminate(args[0]); //specify worker id or terminate all workers
+        }
+      },
+      {
+        route:'addcallback',
+        callback:(self,args,origin)=>{
+            if(!args[0] && !args[1]) return;
+            let func = parseFunctionFromText(args[1]);
+            if(func) this.addCallback(args[0],func);
+            return true;
+        }
+      },
+      {
+        route:'removecallback',
+        callback:(self,args,origin)=>{
+            if(args[0]) this.removeCallback(args[0]);
+            return true;
+        }
+      },
+      {
+        route:'run',
+        callback:(self,args,origin)=>{
+            let c = this.responses.find((o) => {
+                if(o.name === args[0]) {
+                    return true;
+                }
+            });
+            if(c && args[1]) return c.callback(args[1]); 
+            return;
+        }
       }
     ];
 
-    constructor(Router:Router, url:string, nThreads:number=0) {
+    constructor(Router:Router, url:string|URL, nThreads:number=0) {
         super();
 
         this.Router = Router;
@@ -43,12 +83,12 @@ export class WorkerService extends Service {
     }
   
       //return the worker by id, or the first worker (e.g. the default one)
-    getWorker(id) {
+    getWorker(id:string|number) {
         if(id) return this.workers.find((o) => {if(o.id === id) return true}).worker;
         else return this.workers[0].worker;
     }
   
-    addWorker = (url=this.url, type:WorkerType = 'module') => {
+    addWorker = (url:string|URL=this.url, type:WorkerType = 'module') => {
   
           let newWorker:Worker;
           try {
@@ -58,7 +98,7 @@ export class WorkerService extends Service {
               newWorker = new Worker(url, {name:'worker_'+this.workers.length, type});
             }
           } catch (err) {
-            //   try { //blob worker which works in principle but gpujs doesn't want to transfer correctly, how do we fix it?  
+            //   try { //blob worker which works in principle 
             //     if(!document.getElementById('blobworker')) {
             //       document.head.insertAdjacentHTML('beforeend',`
             //         <script id='blobworker' type='javascript/worker'>
@@ -126,14 +166,14 @@ export class WorkerService extends Service {
     }
   
       //automated responses
-    addCallback(name='',callback=(result)=>{}) {
+    addCallback(name:string,callback:(result)=>{}) {
         if(name.length > 0 && !this.responses.find((o)=>{if(typeof o === 'object') {if(o.name === name) return true;} return})) {
           this.responses.push({name:name,callback:callback});
         }
     }
   
       //remove automated response by name
-    removeCallback(nameOrIdx='') {
+    removeCallback(nameOrIdx:string) {
         if(nameOrIdx.length > 0) {
           let idx;
           if(this.responses.find((o,i)=>{if(typeof o === 'object') {if(o.name === nameOrIdx) { idx = i; return true;}}  return})) {
@@ -146,37 +186,53 @@ export class WorkerService extends Service {
   
       
     //run from the list of callbacks on an available worker
-    async run(functionName,args,workerId,origin,transfer,callback=(result)=>{}) {
+    async run(
+      functionName:string,
+      args:any[]|{},
+      workerId:string|number|undefined,
+      origin:string|number|undefined,
+      transfer:any[]|undefined,
+      callback?:(res)=>{}
+    ) {
         if(functionName) {
           if(functionName === 'transferClassObject') {
             if(typeof args === 'object' && !Array.isArray(args)) {
               for(const prop in args) {
-                if(typeof args[prop] === 'object' && !Array.isArray(args[prop])) args[prop] = args[prop].toString();
+                if(typeof args[prop] === 'object' && !Array.isArray(args[prop])) (args[prop] as any) = (args[prop] as any).toString();
               }
             }
           }
-          let dict = {route:functionName, args:args, origin:origin};
-          return await this.post(dict,workerId,transfer,callback);
+          let dict = {route:functionName, message:args, origin:origin};
+          return await this.post((dict as any),workerId,transfer,callback);
         }
     }
 
     
-    post = (input, workerId, transfer, callback=(result)=>{}) => {
+    post = (
+      input:{route:string,message:any[]|{},origin:string|number|undefined}, 
+      workerId:string|number|undefined, 
+      transfer:any[], 
+      callback?:(result)=>{}
+    ) => {
 
         return new Promise(resolve => {
           //console.log('posting',input,id);
-  
+          if(typeof input !== 'object') {
+            input = {route:'',message:input, origin:this.id};
+          }
+          
           const resolver = (res) => 
-            {    
-                if (callback) {
-                    callback(res);
-                }
-                resolve(res);
-            }
-  
-          input.callbackId = Math.floor(1000000 * Math.random());
-          this.toResolve[input.callbackId] = resolver;
-  
+          {    
+              if (callback) {
+                  callback(res);
+              }
+              resolve(res);
+          }
+        
+          (input as any).callbackId = Math.floor(1000000 * Math.random());
+          this.toResolve[(input as any).callbackId] = resolver;
+          
+
           if(workerId == null) {
               const worker = this.workers?.[this.threadrot]?.worker
               if (worker){
@@ -201,7 +257,7 @@ export class WorkerService extends Service {
         })
       }
 
-      terminate(workerId) {
+      terminate(workerId:string|number|undefined) {
         if(!workerId) {
           this.workers.forEach((o) => o.worker.terminate()); //terminate all
         }
@@ -225,8 +281,8 @@ export class WorkerService extends Service {
 
     //this creates a message port so particular event outputs can directly message another worker and save overhead on the main thread
     establishMessageChannel(
-        worker1Id,
-        worker2Id,
+        worker1Id:string|number,
+        worker2Id:string|number,
     ) 
     {
         let channel = new MessageChannel();
@@ -234,8 +290,8 @@ export class WorkerService extends Service {
         let port2 = channel.port2;
 
         //transfer the ports and hook up the responses 
-        this.run('addport',[port1],worker1Id,this.Router.id,[port1]);
-        this.run('addport',[port2],worker2Id,this.Router.id,[port2]);
+        this.run('addport',[port1],worker1Id,worker2Id,[port1]);
+        this.run('addport',[port2],worker2Id,worker1Id,[port2]);
 
     }
 }

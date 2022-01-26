@@ -587,9 +587,9 @@ export class Router {
       if (service.subscribe) {
         service.subscribe(async (o:MessageObject, updateSubscribers?:MessageType, origin?:string|undefined) => {
           let res = this.handleMessage(o, updateSubscribers);
-          if(origin?.includes('worker')) {
+          if(origin?.includes('worker')) { 
             res = await res; //await the promise to resolve it
-            if(res !== null && service[origin]) service[origin].postMessage({route:'workerPost', message:res, origin:service.id, callbackId:o.callbackId})
+            if(res !== null && service[origin]) service[origin].postMessage({route:'worker/workerPost', message:res, origin:service.id, callbackId:o.callbackId})
             else return res;
           }
           return res;
@@ -716,6 +716,7 @@ export class Router {
   handleMessage = async (msg:AllMessageFormats, updateSubscribers?:MessageType) => {
 
     let o:Partial<MessageObject> = {}
+
     if (Array.isArray(msg)) { //handle commands sent as arrays [username,cmd,arg1,arg2]
       o.route = msg[0]
       o.message =  msg.slice(1)

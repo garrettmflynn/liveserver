@@ -17,7 +17,6 @@ let services = {
 
 import { parseFunctionFromText, randomId, Router, Service } from "src/common";
 
-let httpServer;
 
 //check if in node ENV (enables backend)
 let NODE = false;
@@ -65,6 +64,7 @@ export class ServerWorker extends Service {
                     let service;
                     //TODO: test mongodb in thread
 
+                    //add http service and set httpServer
                     if(args[0] === 'WebsocketService')
                         if(self.httpServer) service = new services[args[0]](self.httpServer);
                     else {
@@ -172,26 +172,25 @@ router.load(worker);
 
 //message from main thread or port
 self.onmessage = async (event) => {
+
     //do the thing with the router
     if(event.data.workerId) {
         worker.id = event.data.workerId;
         if(event.data.port) worker[event.data.origin] = event.data.port; //set the message channel port by the origin worker id to send return outputs to that thread (incl main thread)
     }
-
-    if(event.data) {
+    else if(event.data) {
         worker.notify(event.data,undefined,event.data.origin);
     }
     //if origin is a message port, pass through the port
     //if origin is main thread, pass to main thread
     //else pass to respective web apis
 
-    // Run Response Callbacks
-    if(!event.data.route.includes('run')) {
-        worker.responses.forEach((foo,_) => {
-            if(typeof foo === 'object') foo.callback(event.data);
-            else if (typeof foo === 'function') foo(event.data);
-        });
-    }
+    // Run worker response callbacks
+    worker.responses.forEach((foo,_) => {
+        if(typeof foo === 'object') foo.callback(event.data);
+        else if (typeof foo === 'function') foo(event.data);
+    });
+    
 }
 
 export default self;
