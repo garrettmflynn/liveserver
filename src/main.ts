@@ -5,12 +5,11 @@ let mongoose = require("mongoose")
 let bodyParser = require("body-parser")
 
 // Import the LiveServer API
-import * as api from "./backend";
+import * as api from 'liveserver-backend'
 
 // Set Environment Variables
 import { resolve } from "path";
 import { config } from "dotenv";
-import { UnsafeService } from './backend'
 import { Router } from 'liveserver-router'
 config({ path: resolve(__dirname, `../.env`) });
 config({ path: resolve(__dirname, `../.key`) });
@@ -94,7 +93,7 @@ mongoose
     }
 
     if (services.unsafe){
-      let unsafe = new UnsafeService()
+      let unsafe = new api.UnsafeService()
       controller.load(unsafe)
     }
   }

@@ -1,12 +1,8 @@
 {
   "name": "liveserver-router",
   "version": "0.0.2",
-  "private": false,
   "main":"./index.ts",
   "type": "module",
-  "workspaces": [
-    "./*"
-  ],
     "scripts": {
       "test": "echo \"Error: no test specified\" && exit 1"
     },

@@ -2,7 +2,6 @@ import StateManager from 'anotherstatemanager'
 import { createRoute, getRouteMatches } from './general.utils'
 import { getParamNames } from './parse.utils'
 import { randomId,  } from './id.utils'
-import { Events } from './Event'
 import { AllMessageFormats, EndpointType, FetchMethods, MessageObject, MessageType, RouteConfig, RouteSpec, UserObject } from 'src/common/general.types';
 import { Service } from './Service';
 import { safeStringify } from './parse.utils';
@@ -32,8 +31,6 @@ export class Router {
   // Backend
   USERS: Map<string, UserObject> = new Map(); //live sockets and basic user info
   CONNECTIONS: Map<string,{}> = new Map(); //threads or other servers
-  EVENTS = new Events();
-  EVENTSETTINGS = [];
   SUBSCRIPTIONS: Function[] = [] // an array of handlers (from services)
   DEBUG: boolean;
   ENDPOINTS: Map<string, EndpointType> = new Map()
@@ -603,7 +600,7 @@ export class Router {
     }
 
 
-    async runRoute(route, method: FetchMethods, args:any[]|{eventName?:string}=[], origin, callbackId?) {
+    async runRoute(route, method: FetchMethods, args:any[]=[], origin, callbackId?) {
 
       try { //we should only use try-catch where necessary (e.g. auto try-catch wrapping unsafe functions) to maximize scalability
         if(route == null) return; // NOTE: Now allowing users not on the server to submit requests
