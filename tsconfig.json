@@ -45,7 +45,7 @@
       "./node_modules/*",
       "./docs",
       "**/__test__/**",
-      "**/dist/**"
+      "**/dist/**",
   ],
   "include": ["src"],
 }
