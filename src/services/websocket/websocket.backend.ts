@@ -1,6 +1,6 @@
 // Joshua Brewster, Garrett Flynn, AGPL v3.0
 import { WebSocketServer } from 'ws'
-import { SubscriptionService } from 'liveserver-router';
+import { SubscriptionService } from '../../router/SubscriptionService'
 import { MessageObject } from '../../common/general.types';
 
 // Create WS Server Instance

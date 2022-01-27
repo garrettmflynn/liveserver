@@ -1,7 +1,7 @@
 import {Room} from './Room'
 import { RoomInterface } from './types/Room.types'
 import { MessageObject, UserObject } from '../../common/general.types'
-import { Service } from 'liveserver-router';
+import { Service } from '../../router/Service'
 
 export class WebRTCBackend extends Service {
 

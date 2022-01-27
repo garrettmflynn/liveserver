@@ -1,4 +1,4 @@
-import { SubscriptionService } from "liveserver-router";
+import { SubscriptionService } from "../../router/SubscriptionService";
 import { createRoute } from "../../common/general.utils";
 
 class HTTPClient extends SubscriptionService {

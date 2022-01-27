@@ -1,5 +1,5 @@
 import StateManager from 'anotherstatemanager'
-import { Service } from 'liveserver-router';
+import { Service } from '../../router/Service'
 
 //OSC stream frontend calls
 export class OSCClient extends Service{

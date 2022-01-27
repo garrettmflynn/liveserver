@@ -1,7 +1,7 @@
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 //import { streamUtils } from "./streamSession";
 
-import { SubscriptionService } from 'liveserver-router'
+import { SubscriptionService } from '../../router/SubscriptionService'
 import { MessageObject, UserObject } from '../../common/general.types';
 import { safeStringify } from  '../../common/parse.utils';
 import { randomId } from  '../../common/id.utils';

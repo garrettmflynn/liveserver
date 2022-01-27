@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { ClientObject, MessageObject, RouteConfig } from "../../common/general.types";
 import { safeParse } from "../../common/parse.utils";
-import { Service } from "liveserver-router";
+import { Service } from "../../router/Service";
 import { randomId } from "../..//common/id.utils";
 import EventsService from "./events.backend";
 

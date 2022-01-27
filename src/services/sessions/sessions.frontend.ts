@@ -1,7 +1,7 @@
 import StateManager from 'anotherstatemanager'
 import { MessageObject, SettingsObject } from '../../common/general.types';
 import { DataStreaming } from '../stream/stream.frontend';
-import { Service } from 'liveserver-router';
+import { Service } from '../../router/Service'
 
 //Joshua Brewster, Garrett Flynn AGPL v3.0
 export class SessionsClient extends Service {

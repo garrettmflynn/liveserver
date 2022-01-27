@@ -1,4 +1,4 @@
-import { Service } from 'liveserver-router';
+import { Service } from '../../router/Service'
 
 //OSC stream frontend calls
 export class UnsafeClient extends Service{

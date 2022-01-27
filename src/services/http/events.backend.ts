@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { SubscriptionService } from "liveserver-router/SubscriptionService";
+import { SubscriptionService } from "../../router/SubscriptionService";
 import { randomId } from "../../common/id.utils";
 
 // var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;

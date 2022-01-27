@@ -1,6 +1,7 @@
 //Main thread control of workers
 
-import { Router, Service } from "liveserver-router";
+import { Router } from "../../router/Router";
+import { Service } from "../../router/Service";
 import { randomId } from "../../common/id.utils";
 import { parseFunctionFromText, } from "../../common/parse.utils";
 

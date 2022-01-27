@@ -3,7 +3,8 @@
 // Joshua Brewster, Garrett Flynn, AGPL v3.0
 import ObjectID from "bson-objectid"
 import { RouteConfig, UserObject } from '../../common/general.types';
-import { Service, Router } from "liveserver-router";
+import { Router } from "../../router/Router";
+import { Service } from "../../router/Service";
 import { randomId } from '../../common/id.utils';
 
 export class DatabaseBackend extends Service {

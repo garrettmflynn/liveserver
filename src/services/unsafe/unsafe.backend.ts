@@ -1,5 +1,5 @@
 import { parseFunctionFromText } from "../../common/parse.utils";
-import { Service } from "liveserver-router";
+import { Service } from "../../router/Service";
 
 // Garrett Flynn and Joshua Brewster, AGPL v3.0
 export class UnsafeBackend extends Service {

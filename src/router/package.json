@@ -8,7 +8,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "webpack --config browser.config.js --mode production && webpack --config ../../module.config.js --mode production",
+    "build": "webpack --config browser.config.js --mode production && webpack --config ../module.config.js --mode production",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Joshua Brewster, Garrett Flynn",

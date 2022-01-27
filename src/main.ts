@@ -5,16 +5,12 @@ let mongoose = require("mongoose")
 let bodyParser = require("body-parser")
 
 // Import the LiveServer API
-import * as api from 'liveserver-backend'
-// import * as api from './backend/dist/index.js';
-// let api = require('./backend/dist/index.js')
+import * as api from './backend/index'
 
 // Set Environment Variables
 import { resolve } from "path";
 import { config } from "dotenv";
-// import router from './router/dist/index.js';
-// let {Router} = require('./router/dist/index.js')
-import {Router} from 'liveserver-router'
+import {Router} from './router/Router'
 
 // import { Router } from 'liveserver-router'
 import { OSCBackend } from './services/osc/osc.backend'

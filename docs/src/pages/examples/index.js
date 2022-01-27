@@ -2,13 +2,16 @@ import React from 'react';
 import Layout from '@theme/Layout';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import ExampleSelector from './selector';
-import { OSCClient } from 'liveserver-osc';
-import { SessionsClient} from 'liveserver-sessions';
-import { WebRTCClient } from 'liveserver-webrtc';
-import { DatabaseClient } from 'liveserver-database';
-import { UnsafeClient } from 'liveserver-unsafe';
-import { HTTPClient, WebsocketClient } from 'liveserver-frontend';
-import router from 'liveserver-router';
+import { OSCClient } from './../../../../src/services/osc/osc.frontend';
+import { SessionsClient} from './../../../../src/services/sessions/sessions.frontend';
+import { WebRTCClient } from './../../../../src/services/webrtc/webrtc.frontend';
+import { DatabaseClient } from './../../../../src/services/database/database.frontend';
+import { UnsafeClient } from './../../../../src/services/unsafe/unsafe.frontend';
+import { HTTPClient } from './../../../../src/services/http/http.frontend';
+import { WebsocketClient } from './../../../../src/services/websocket/websocket.frontend';
+import { Router } from './../../../../src/router/Router';
+
+let router = new Router()
 
 const SERVER_URI = (window.location.href.includes('localhost')) ? 'http://localhost:80' : 'http://localhost:80' // Replace with production server URI
 const SERVER_URI_2 = (window.location.href.includes('localhost')) ? 'http://localhost:81' : 'http://localhost:81' // Replace with production server URI

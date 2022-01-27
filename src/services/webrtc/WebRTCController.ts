@@ -1,7 +1,7 @@
 //A host on a WebRTC channel can relay session streams, regulate file streams, etc.
 
 import { WebRTCClient } from ".";
-import { Router } from 'liveserver-router';
+import { Router } from '../../router/Router'
 import { SessionsBackend, SessionsClient } from "../sessions";
 import { DatabaseBackend, UsersClient } from "../database";
 import { UnsafeBackend } from "../unsafe";

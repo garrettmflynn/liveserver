@@ -1,6 +1,6 @@
 import { SettingsObject, UserObject } from "../../common/general.types";
 import { DONOTSEND } from "../../router/Router";
-import { Service } from "liveserver-router";
+import { Service } from "../../router/Service";
 
 //TODO: one-off data calls based on session configs
 //      reimplement callbacks
