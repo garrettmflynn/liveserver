@@ -783,6 +783,7 @@ export class UsersClient extends Router {
     deleteLocalData(structs) {
         if(Array.isArray(structs)) structs.forEach(s => this.deleteStruct(s));
         else this.deleteStruct(structs); //single
+        return true;
     }
 
     deleteStruct(struct) {
