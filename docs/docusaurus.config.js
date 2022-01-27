@@ -22,41 +22,42 @@ const config = {
   // ---------------------- TypeDoc Configuration ----------------------
   plugins: [
     './plugins/webpack',
-    [
-      'docusaurus-plugin-typedoc',
+    // [
+    //   'docusaurus-plugin-typedoc',
 
-      // Plugin / TypeDoc options
-      {
-        tsconfig: '../tsconfig.json',
-        entryPoints: [
-          "../src/backend", 
-          "../src/frontend", 
-          "../src/router", 
-          "../src/services/database",
-          "../src/services/http",
-          "../src/services/osc",
-          "../src/services/sessions",
-          "../src/services/stream",
-          "../src/services/unsafe",
-          "../src/services/webrtc",
-          "../src/services/websocket",
-          "../src/services/worker"
-        ],
-        // entryPointStrategy: "Expand",
-        exclude: [
-            "./"
-        ],
-        readme: "none",
+    //   // Plugin / TypeDoc options
+    //   {
+    //     tsconfig: '../tsconfig.json',
+    //     ignoreCompilerErrors: true,
+    //     entryPoints: [
+    //       "../src/backend", 
+    //       "../src/frontend", 
+    //       "../src/router", 
+    //       "../src/services/database",
+    //       "../src/services/http",
+    //       "../src/services/osc",
+    //       "../src/services/sessions",
+    //       "../src/services/stream",
+    //       "../src/services/unsafe",
+    //       "../src/services/webrtc",
+    //       "../src/services/websocket",
+    //       "../src/services/worker"
+    //     ],
+    //     // entryPointStrategy: "Expand",
+    //     exclude: [
+    //         "./"
+    //     ],
+    //     readme: "none",
 
-        // Plugin options
-        out: 'reference',
-        sidebar: {
-          categoryLabel: 'Reference',
-          position: 1,
-          fullNames: false
-        },
-      },
-    ],
+    //     // Plugin options
+    //     out: 'reference',
+    //     sidebar: {
+    //       categoryLabel: 'Reference',
+    //       position: 1,
+    //       fullNames: false
+    //     },
+    //   },
+    // ],
   ],
 
   presets: [
