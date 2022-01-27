@@ -882,6 +882,19 @@ export class UsersClient extends Router {
         return newGroup;
     }
 
+    //these can be used to add some metadata to arrays of data kept in a DataStruct
+    dataObject (
+        data:any=undefined,
+        type:string='any',
+        timestamp:string|number=Date.now()
+    ) {
+        return {
+            type,
+            data,
+            timestamp
+        };
+    }
+
     addData = (
         parentUser= this.userStruct(), 
         author='', 
