@@ -15,7 +15,7 @@
       "experimentalDecorators": true,
 
       /* -- For Parallel Typechecking -- */
-      // "skipLibCheck": true,
+      "skipLibCheck": true,
 
       /* -- Strict Type-Checking Options -- */
       // "alwaysStrict": true, /* Parse in strict mode and emit "use strict" for each source file. */
