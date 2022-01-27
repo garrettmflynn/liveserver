@@ -54,17 +54,17 @@ export class DatabaseBackend extends Service {
                     data = await this.setMongoData(u,args); //input array of structs
                 } else { 
                     let non_notes = [];
-                    data = false;
+                    data = [];
                     await Promise.all(args.map(async(structId) => {
                         let struct = this.getLocalData(structId);
-                        let passed = await this.checkAuthorization(u,struct, this.mode);
+                        let passed = await this.checkAuthorization(u, struct, this.mode);
                         if(passed) {
-                            this.deleteLocalData(struct);
-                            data = true;
+                            this.setLocalData(struct);
+                            data.push(struct);
                             if(struct.structType !== 'notification') non_notes.push(struct);
                         }
                     }));
-                    if(non_notes.length > 0) this.checkToNotify(u,non_notes, this.mode);
+                    if(non_notes.length > 0) this.checkToNotify(u, non_notes, this.mode);
                     return true;
                 }
                 return data;

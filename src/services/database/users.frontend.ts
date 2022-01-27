@@ -259,11 +259,11 @@ export class UsersClient extends Router {
         }
      */
     addStruct (
-        structType='struct', 
-        props={}, //add any props you want to set, adding users[] with ids will tell who to notify if this struct is updated
-        parentUser=undefined, 
-        parentStruct=undefined,
-        updateServer = true
+        structType:string='struct', 
+        props:any={}, //add any props you want to set, adding users[] with ids will tell who to notify if this struct is updated
+        parentUser:string|undefined=undefined, 
+        parentStruct:string|undefined=undefined,
+        updateServer:boolean = true
     ) {
         let newStruct = DS.Struct(structType, props, parentUser, parentStruct);
 
@@ -280,7 +280,7 @@ export class UsersClient extends Router {
     }
 
     //send a direct message to somebody
-    async sendMessage(userId='',message='',data=undefined,callback=(res)=>{console.log(res);}) {
+    async sendMessage(userId:string='',message:any='',data:any=undefined,callback=(res)=>{console.log(res);}) {
         let args = [userId,message];
         if(data) args[2] = data;
 
@@ -290,35 +290,35 @@ export class UsersClient extends Router {
     }
 
     //info can be email, id, username, or name. Returns their profile and authorizations
-    async getUserFromDatabase (info='',callback=this.baseServerCallback) {
+    async getUserFromDatabase (info:string|number='',callback=this.baseServerCallback) {
         let res = await this.send('database/getProfile', info)
         callback(res)
         return res
     }
 
     //get user basic info by id
-    async getUsersByIdsFromDatabase (ids=[],callback=this.baseServerCallback) {
+    async getUsersByIdsFromDatabase (ids:string|number[]=[],callback=this.baseServerCallback) {
         let res = await this.send('database/getProfilesByIds', ids)
         callback(res)
         return res
     }
     
     //info can be email, id, username, or name. Returns their profile and authorizations
-    async getUsersByRolesFromDatabase (userRoles=[],callback=this.baseServerCallback) {
+    async getUsersByRolesFromDatabase (userRoles:string[]=[],callback=this.baseServerCallback) {
         let res = await this.send('database/getProfilesByRoles', userRoles)
         callback(res)
         return res
     }
 
     //pull all of the collections (except excluded collection names e.g. 'groups') for a user from the server
-    async getAllUserDataFromDatabase(ownerId, excluded=[], callback=this.baseServerCallback) {
+    async getAllUserDataFromDatabase(ownerId:string|number, excluded=[], callback=this.baseServerCallback) {
         let res = await this.send('database/getAllData', ownerId, excluded)
         callback(res)
         return res
     }
 
     //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
-    async getDataFromDatabase(collection,ownerId?,searchDict?,limit:number=0,skip:number=0,callback=this.baseServerCallback) {
+    async getDataFromDatabase(collection:string,ownerId?:string|number,searchDict?,limit:number=0,skip:number=0,callback=this.baseServerCallback) {
         let res = await this.send('database/getData', collection,ownerId,searchDict,limit,skip)
         callback(res)
         return res
@@ -326,7 +326,7 @@ export class UsersClient extends Router {
 
 
     //get struct based on the parentId 
-    async getStructParentDataFromDatabase (struct,callback=this.baseServerCallback) {
+    async getStructParentDataFromDatabase (struct:any,callback=this.baseServerCallback) {
         if(!struct.parent) return;
         let args = [struct.parent?.structType,'_id',struct.parent?._id];
 
@@ -735,7 +735,6 @@ export class UsersClient extends Router {
     setLocalData (structs) {
         this.tablet.setLocalData(structs);
     }
-
 
     //pull a struct by collection, owner, and key/value pair from the local platform, leave collection blank to pull all ownerId associated data
     getLocalData(collection, query?) {
