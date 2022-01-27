@@ -1,9 +1,10 @@
 {
   "name": "liveserver-frontend",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Websockets with user communication, access controls, and notifications. Clientside and serverside data management plus mongodb integration.",
-  "main": "./index.ts",
-  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/module.js",
+  "types": "./dist/frontend/index.d.ts",
   "scripts": {
     "build": "webpack --config browser.config.js --mode production && webpack --config ../../module.config.js --mode production",
     "test": "echo \"Error: no test specified\" && exit 1"
