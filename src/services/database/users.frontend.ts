@@ -42,7 +42,7 @@ export class UsersClient extends Router {
 
         let res = await this.login();
         console.log("Generating/Getting User: ", userinfo._id)
-        let data = await this.getUserFromDatabase(userinfo._id);
+        let data = await this.getUser(userinfo._id);
         // console.log("getUser", res);
         let u;
         let newu = false;
@@ -51,13 +51,13 @@ export class UsersClient extends Router {
             // if(!userinfo._id) userinfo._id = userinfo._id;
             u = this.userStruct(userinfo,true);
             newu = true;
-            let newdata = await this.setUserOnDatabase(u);
+            let newdata = await this.setUser(u);
             console.log('setProfile', data);
             let structs = this.getLocalData(undefined,{'ownerId': u._id});
             if(structs?.length > 0) this.updateServerData(structs, (data)=>{
                 console.log('setData', data);
             });
-            this.setAuthorizationsByGroupOnDatabase(u);
+            this.setAuthorizationsByGroup(u);
         }
         else {
             u = data.user;
@@ -109,7 +109,7 @@ export class UsersClient extends Router {
 
         if(newu) {this.currentUser = u; this.setLocalData(u);}
         else {
-            let res = await this.getAllUserDataFromDatabase(u._id,undefined);
+            let res = await this.getAllUserData(u._id,undefined);
 
             console.log("getServerData", res);
             if(!data || data.length === 0) { 
@@ -141,7 +141,7 @@ export class UsersClient extends Router {
                 comments.forEach((comment) => {
                     if(!this.getLocalData('comment',{'_id':comment._id})) toDelete.push(comment._id);
                 });
-                if(toDelete.length > 0) this.deleteDataFromDatabase(toDelete); //extraneous comments
+                if(toDelete.length > 0) this.deleteData(toDelete); //extraneous comments
 
                 if(notes.length > 0) {
                     this.resolveNotifications(notes, false, undefined);
@@ -226,7 +226,7 @@ export class UsersClient extends Router {
         } 
 
         if (data?.message === 'notifications') {
-            this.checkForNotificationsOnDatabase(); //pull notifications
+            this.checkForNotifications(); //pull notifications
         }
         if (data?.message === 'deleted') {
             this.deleteLocalData(data.id); //remove local instance
@@ -290,35 +290,35 @@ export class UsersClient extends Router {
     }
 
     //info can be email, id, username, or name. Returns their profile and authorizations
-    async getUserFromDatabase (info:string|number='',callback=this.baseServerCallback) {
+    async getUser (info:string|number='',callback=this.baseServerCallback) {
         let res = await this.send('database/getProfile', info)
         callback(res)
         return res
     }
 
     //get user basic info by id
-    async getUsersByIdsFromDatabase (ids:string|number[]=[],callback=this.baseServerCallback) {
+    async getUsers (ids:string|number[]=[],callback=this.baseServerCallback) {
         let res = await this.send('database/getProfilesByIds', ids)
         callback(res)
         return res
     }
     
     //info can be email, id, username, or name. Returns their profile and authorizations
-    async getUsersByRolesFromDatabase (userRoles:string[]=[],callback=this.baseServerCallback) {
+    async getUsersByRoles (userRoles:string[]=[],callback=this.baseServerCallback) {
         let res = await this.send('database/getProfilesByRoles', userRoles)
         callback(res)
         return res
     }
 
     //pull all of the collections (except excluded collection names e.g. 'groups') for a user from the server
-    async getAllUserDataFromDatabase(ownerId:string|number, excluded=[], callback=this.baseServerCallback) {
+    async getAllUserData(ownerId:string|number, excluded=[], callback=this.baseServerCallback) {
         let res = await this.send('database/getAllData', ownerId, excluded)
         callback(res)
         return res
     }
 
     //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
-    async getDataFromDatabase(collection:string,ownerId?:string|number,searchDict?,limit:number=0,skip:number=0,callback=this.baseServerCallback) {
+    async getData(collection:string,ownerId?:string|number,searchDict?,limit:number=0,skip:number=0,callback=this.baseServerCallback) {
         let res = await this.send('database/getData', collection,ownerId,searchDict,limit,skip)
         callback(res)
         return res
@@ -326,7 +326,7 @@ export class UsersClient extends Router {
 
 
     //get struct based on the parentId 
-    async getStructParentDataFromDatabase (struct:any,callback=this.baseServerCallback) {
+    async getStructParentData (struct:any,callback=this.baseServerCallback) {
         if(!struct.parent) return;
         let args = [struct.parent?.structType,'_id',struct.parent?._id];
 
@@ -336,7 +336,7 @@ export class UsersClient extends Router {
     }
     
     // //get struct(s) based on an array of ids or string id in the parent struct
-    // async getStructChildDataFromDatabase (struct,childPropName='', limit=0, skip=0, callback=this.baseServerCallback) {
+    // async getStructChildData (struct,childPropName='', limit=0, skip=0, callback=this.baseServerCallback) {
     //     let children = struct[childPropName];
     //     if(!children) return;
       
@@ -350,7 +350,7 @@ export class UsersClient extends Router {
     // }
 
     //sets the user profile data on the server
-    async setUserOnDatabase (userStruct={},callback=this.baseServerCallback) {
+    async setUser (userStruct={},callback=this.baseServerCallback) {
         let res = await this.send('database/setProfile', this.stripStruct(userStruct))
         callback(res)
         return res
@@ -389,7 +389,7 @@ export class UsersClient extends Router {
                 user[prop] = usertoken[prop];  changed = true;
             }
         }
-        if(changed) return await this.setUserOnDatabase(user,callback);
+        if(changed) return await this.setUser(user,callback);
         return changed;
     }
 
@@ -407,7 +407,7 @@ export class UsersClient extends Router {
     }
     
     //delete a list of structs from local and server
-    async deleteDataFromDatabase (structs=[],callback=this.baseServerCallback) {
+    async deleteData (structs=[],callback=this.baseServerCallback) {
         let toDelete = [];
         structs.forEach((struct) => {
             if(struct?.structType && struct?._id) {
@@ -438,21 +438,21 @@ export class UsersClient extends Router {
     }
 
     //set a group struct on the server
-    async setGroupOnDatabase (groupStruct={},callback=this.baseServerCallback) {
+    async setGroup (groupStruct={},callback=this.baseServerCallback) {
         let res = await this.send('database/setGroup', this.stripStruct(groupStruct))
         callback(res)
         return res
     }
 
     //get group structs or single one by Id
-    async getGroupsFromDatabase (userId=this.currentUser._id, groupId='',callback=this.baseServerCallback) {
+    async getGroups (userId=this.currentUser._id, groupId='',callback=this.baseServerCallback) {
         let res = await this.send('database/getGroups', userId,groupId)
         callback(res)
         return res
     }
 
     //deletes a group off the server
-    async deleteGroupFromDatabase (groupId,callback=this.baseServerCallback) {
+    async deleteGroup (groupId,callback=this.baseServerCallback) {
         if(!groupId) return;
         this.deleteLocalData(groupId);
 
@@ -462,7 +462,7 @@ export class UsersClient extends Router {
     }
 
     //set an authorization struct on the server
-    async setAuthorizationOnDatabase (authorizationStruct={},callback=this.baseServerCallback) {
+    async setAuthorization (authorizationStruct={},callback=this.baseServerCallback) {
 
         let res = await this.send('database/setAuth', this.stripStruct(authorizationStruct))
         callback(res)
@@ -470,7 +470,7 @@ export class UsersClient extends Router {
     }
 
     //get an authorization struct by Id
-    async getAuthorizationsFromDatabase (userId=this.currentUser?._id, authorizationId='',callback=this.baseServerCallback) {
+    async getAuthorizations (userId=this.currentUser?._id, authorizationId='',callback=this.baseServerCallback) {
         if(userId === undefined) return;
         let res = await this.send('database/getAuths', userId, authorizationId)
         callback(res)
@@ -478,7 +478,7 @@ export class UsersClient extends Router {
     }
 
     //delete an authoriztion off the server
-    async deleteAuthorizationOnDatabase (authorizationId,callback=this.baseServerCallback) {
+    async deleteAuthorization (authorizationId,callback=this.baseServerCallback) {
         if(!authorizationId) return;
         this.deleteLocalData(authorizationId);
         
@@ -488,8 +488,8 @@ export class UsersClient extends Router {
     }
 
     //notifications are GENERALIZED for all structs, where all authorized users will receive notifications when those structs are updated
-    async checkForNotificationsOnDatabase(userId=this.currentUser?._id) {
-        return await this.getDataFromDatabase('notification',userId);
+    async checkForNotifications(userId=this.currentUser?._id) {
+        return await this.getData('notification',userId);
     }
 
     
@@ -512,7 +512,7 @@ export class UsersClient extends Router {
             //console.log(this.structs.get(struct._id));
         });
 
-        this.deleteDataFromDatabase(notificationIds); //delete server entries
+        this.deleteData(notificationIds); //delete server entries
         if(pull) {
             nTypes.reverse().forEach((note,i)=>{
                 // if(note === 'comment') { //when resolving comments we need to pull the tree (temp)
@@ -523,18 +523,18 @@ export class UsersClient extends Router {
                 //     structIds.splice(i,1);
                 // }
                 if(note === 'user') {
-                    this.getUserFromDatabase(notificationIds[i]);
+                    this.getUser(notificationIds[i]);
                     structIds.splice(structIds.length-i-1,1);
                 }
             });
-            if(structIds.length > 0) return await this.getDataFromDatabase(structIds);
+            if(structIds.length > 0) return await this.getData(structIds);
         }
         return true;
     } 
 
 
     //setup authorizations automatically based on group
-    async setAuthorizationsByGroupOnDatabase(user=this.currentUser) {
+    async setAuthorizationsByGroup(user=this.currentUser) {
 
         let auths = this.getLocalData('authorization',{'ownerId': user._id});
         // console.log(u);
@@ -554,7 +554,7 @@ export class UsersClient extends Router {
                 otherrole = team+'_owner';
             }
             if(otherrole) {
-                this.getUsersByRolesFromDatabase([otherrole],(data) => {
+                this.getUsersByRoles([otherrole],(data) => {
                     //console.log(res.data)
                     data?.forEach((groupie)=>{
                         let theirname = groupie.username;
@@ -609,7 +609,7 @@ export class UsersClient extends Router {
 
     
     //delete a discussion or chatroom and associated comments
-    async deleteRoomOnDatabase(roomStruct) {
+    async deleteRoom(roomStruct) {
         if(!roomStruct) return false;
 
         let toDelete = [roomStruct];
@@ -620,13 +620,13 @@ export class UsersClient extends Router {
         });
 
         if(roomStruct)
-            return await this.deleteDataFromDatabase(toDelete);
+            return await this.deleteData(toDelete);
         else return false;
 
     }
 
     //delete comment and associated replies by recursive gets
-    async deleteCommentOnDatabase(commentStruct) {
+    async deleteComment(commentStruct) {
         let allReplies = [commentStruct];
         let getRepliesRecursive = (head=commentStruct) => {
             if(head?.replies) {
@@ -666,19 +666,19 @@ export class UsersClient extends Router {
         }
 
         if(toUpdate.length > 0) await this.updateServerData(toUpdate);
-        return await this.deleteDataFromDatabase(allReplies);
+        return await this.deleteData(allReplies);
         
     }
 
     //get user data by their auth struct (e.g. if you don't grab their id directly), includes collection, limits, skips
-    async getUserDataByAuthorizationFromDatabase (authorizationStruct, collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) {
+    async getUserDataByAuthorization (authorizationStruct, collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) {
 
         let u = authorizationStruct.authorizerId;
         if(u) {
             return new Promise(async resolve => {
-               this.getUserFromDatabase(u,async (data)=> {
-                    if(!collection) await this.getAllUserDataFromDatabase(u,['notification'],callback);
-                    else await this.getDataFromDatabase(collection,u,searchDict,limit,skip,callback);
+               this.getUser(u,async (data)=> {
+                    if(!collection) await this.getAllUserData(u,['notification'],callback);
+                    else await this.getData(collection,u,searchDict,limit,skip,callback);
 
                     resolve(data)
                     callback(data);
@@ -688,7 +688,7 @@ export class UsersClient extends Router {
     }
 
     //get user data for all users in a group, includes collection, limits, skips
-    async getUserDataByAuthorizationGroupFromDatabase (group='', collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) {
+    async getUserDataByAuthorizationGroup (group='', collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) {
         let auths = this.getLocalData('authorization');
 
         let results = [];
@@ -697,11 +697,11 @@ export class UsersClient extends Router {
                 let u = o.authorizerId;
                 if(u) {
                     let data;
-                    let user = await this.getUserFromDatabase(u,callback);
+                    let user = await this.getUser(u,callback);
                     
                     if(user) results.push(user);
-                    if(!collection) data = await this.getAllUserDataFromDatabase(u,['notification'],callback);
-                    else data = await this.getDataFromDatabase(collection,u,searchDict,limit,skip,callback);
+                    if(!collection) data = await this.getAllUserData(u,['notification'],callback);
+                    else data = await this.getData(collection,u,searchDict,limit,skip,callback);
                     if(data) results.push(data);
                 }
                 return true;
@@ -823,7 +823,7 @@ export class UsersClient extends Router {
     }
 
     //TODO: Update the rest of these to use the DB structs but this should all work the same for now
-    authorizeUser = (
+    authorizeUser = async (
         parentUser=this.userStruct(),
         authorizerUserId='',
         authorizerUserName='',
@@ -833,9 +833,9 @@ export class UsersClient extends Router {
         structs=[],
         excluded=[],
         groups=[],
-        expires=''
+        expires=false
     ) => {
-        const newAuthorization = this.createStruct('authorization',undefined,parentUser,undefined);  
+        let newAuthorization = this.createStruct('authorization',undefined,parentUser,undefined);  
         newAuthorization.authorizedId = authorizedUserId; // Only pass ID
         newAuthorization.authorizedName = authorizedUserName; //set name
         newAuthorization.authorizerId = authorizerUserId; // Only pass ID
@@ -849,12 +849,12 @@ export class UsersClient extends Router {
         newAuthorization.associatedAuthId = '';
         newAuthorization.ownerId = parentUser._id;
 
-        this.setAuthorizationOnDatabase(newAuthorization);
+        newAuthorization = await this.setAuthorization(newAuthorization);
        
         return newAuthorization;
     }
 
-    addGroup = (
+    addGroup = async (
         parentUser= this.userStruct(), 
         name='',  
         details='',
@@ -876,7 +876,7 @@ export class UsersClient extends Router {
         //this.setLocalData(newGroup);
         
         if(updateServer) {
-            this.setGroupOnDatabase(newGroup);
+            newGroup = await this.setGroup(newGroup);
         }
 
         return newGroup;
@@ -895,13 +895,13 @@ export class UsersClient extends Router {
         };
     }
 
-    addData = (
+    addData = async (
         parentUser= this.userStruct(), 
         author='', 
         title='', 
         type='', 
         data=[], 
-        expires='', 
+        expires=false, 
         updateServer=true
     ) => {
         let newDataInstance = this.createStruct('dataInstance',undefined,parentUser); //auto assigns instances to assigned users' data views
@@ -914,12 +914,12 @@ export class UsersClient extends Router {
         
         //this.setLocalData(newDataInstance);
         
-        if(updateServer) this.updateServerData([newDataInstance]);
+        if(updateServer) newDataInstance = await this.updateServerData([newDataInstance]);
 
         return newDataInstance;
     }
 
-    addEvent = (
+    addEvent = async (
         parentUser=this.userStruct(), 
         author='', 
         event='', 
@@ -945,11 +945,13 @@ export class UsersClient extends Router {
         newEvent.ownerId = parentUser._id;
 
         //this.setLocalData(newEvent);
-        if(updateServer) this.updateServerData([newEvent]);
+        if(updateServer) newEvent = await this.updateServerData([newEvent]);
+
+        return newEvent;
     }
 
     //create discussion board topic
-    addDiscussion = (
+    addDiscussion = async (
         parentUser=this.userStruct(), 
         authorId='',  
         topic='', 
@@ -975,11 +977,11 @@ export class UsersClient extends Router {
         //this.setLocalData(newDiscussion);
     
         let update = [newDiscussion];
-        if(updateServer) this.updateServerData(update);
+        if(updateServer) newDiscussion = await this.updateServerData(update);
         return newDiscussion;
     }
 
-    addChatroom = (
+    addChatroom = async (
         parentUser=this.userStruct(), 
         authorId='', 
         message='', 
@@ -999,13 +1001,13 @@ export class UsersClient extends Router {
         newChatroom.ownerId = parentUser._id;
 
         let update = [newChatroom];
-        if(updateServer) this.updateServerData(update);
+        if(updateServer) newChatroom = await this.updateServerData(update);
 
         return newChatroom;
     }
 
     //add comment to chatroom or discussion board
-    addComment = (
+    addComment = async (
         parentUser=this.userStruct(), 
         roomStruct?:{
             _id: string;
@@ -1040,7 +1042,7 @@ export class UsersClient extends Router {
             //this.setLocalData(newComment);
             let update = [roomStruct,newComment];
             if(replyTo._id !== roomStruct._id) update.push(replyTo);
-            if(updateServer) this.updateServerData(update);
+            if(updateServer) newComment = await this.updateServerData(update);
 
             return newComment;
     }

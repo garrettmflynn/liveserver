@@ -82,8 +82,12 @@ export class DatabaseBackend extends Service {
                     data = await this.getMongoData(u, args[0], args[1], args[2], args[4], args[5]);
                 } else {
                     data = [];
-                    await Promise.all(args.map(async(structId) => {
-                        let struct = this.getLocalData(structId);
+                    let structs;
+                    if(args[0]) structs = this.getLocalData(args[0]);
+                    if(structs && args[1]) structs = structs.filter((o)=>{if(o.ownerId === args[1]) return true;});
+                    //bandaid
+                    await Promise.all(structs.map(async(s) => {
+                        let struct = this.getLocalData(s._id);
                         let passed = await this.checkAuthorization(u,struct);
                         if(passed) data.push(struct);
                     }));
@@ -795,10 +799,10 @@ export class DatabaseBackend extends Service {
                     if(passed === true) structs.push(s);
                 });
             }
-        } else if (!!dict && Object.keys(dict).length > 0 && ownerId) {
+        } else if (Object.keys(dict).length > 0 && ownerId) {
             let found = await this.db.collection(collection).findOne({ownerId:ownerId,...dict});
             if(found) structs.push(found);
-        } else if (!!dict && Object.keys(dict).length > 0 && !ownerId) { //need to search all collections in this case
+        } else if (Object.keys(dict).length > 0 && !ownerId) { //need to search all collections in this case
             await Promise.all(this.collectionNames.map(async (name) => {
                 let found = await this.db.collection(name).findOne(dict);
                 if(found) {
