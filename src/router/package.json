@@ -1,9 +1,15 @@
 {
   "name": "liveserver-router",
-  "version": "0.0.3",
-  "main": "./index.ts",
+  "version": "0.0.4",
+  "main": "./dist/index.ts",
   "type": "module",
+  "module": "./module/index.js",
+  "files": [
+    "dist",
+    "module"
+  ],
   "scripts": {
+    "build": "webpack --config browser.config.js --mode production && webpack --config ../../module.config.js --mode production",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Joshua Brewster, Garrett Flynn",
