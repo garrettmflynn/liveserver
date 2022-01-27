@@ -22,7 +22,7 @@ Made for [Brains@Play](https://github.com/brainsatplay/brainsatplay) and [MyAlyc
 
 ```
 //ES6 style
-import { UserPlatform } from 'liveserver-frontend'
+import { UsersClient } from 'liveserver-frontend'
 
 let client = new WebsocketClient(
     socketUrl='https://localhost:80', 
@@ -38,7 +38,7 @@ client.run('ping',undefined,socketId,(result)=>{console.log(result)});
 ```
 
 Derived Tools using WebsocketClient:
-- [User Platform](src/frontend/userplatform/README.md)
+- [User Platform](src/frontend/UsersClient/README.md)
 - [Data Streaming](src/frontend/datastream/README.md)
 - [Session Streaming](src/frontend/sessionstream/README.md)
 - [OSC Streaming](src/frontend/osc/README.md)

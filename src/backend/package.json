@@ -1,18 +1,20 @@
 {
   "name": "liveserver-backend",
   "version": "0.0.2",
+  "main": "./index.ts",
   "type": "module",
-    "scripts": {
-      "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "author": "Joshua Brewster, Garrett Flynn",
-    "license": "AGPL-3.0-or-later",
-    "dependencies": {
-      "liveserver-router": "*"
-    },
-    "bugs": {
-      "url": "https://github.com/brainsatplay/liveserver"
-    },
-    "homepage": "https://github.com/brainsatplay/liveserver#readme"
-  }
-  
+  "scripts": {
+    "build": "webpack --config node.config.js --mode production && webpack --config ../../module.config.js --mode production",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Joshua Brewster, Garrett Flynn",
+  "license": "AGPL-3.0-or-later",
+  "dependencies": {
+    "liveserver-router": "*",
+    "ws": "^8.4.2"
+  },
+  "bugs": {
+    "url": "https://github.com/brainsatplay/liveserver"
+  },
+  "homepage": "https://github.com/brainsatplay/liveserver#readme"
+}

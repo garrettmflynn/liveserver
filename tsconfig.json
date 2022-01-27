@@ -4,7 +4,7 @@
       "target": "es5", /* Specify ECMAScript target version: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017', or 'ESNEXT'. */
       "rootDir": "./src", /* Specify the root directory of input files. Use to control the output directory structure with --outDir. */
       "outDir": "dist/", /* Redirect output structure to the directory. */
-      "module": "ESNext", //"umd", /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', or 'ESNext'. */
+      "module": "es2015", /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', or 'ESNext'. */
       "declaration": true, /* Generates corresponding '.d.ts' file. */
       "lib": ["webworker", "es5", "dom", "scripthost"],
       "importHelpers": true, /* Import emit helpers from 'tslib'. */
@@ -15,7 +15,7 @@
       "experimentalDecorators": true,
 
       /* -- For Parallel Typechecking -- */
-      "skipLibCheck": true,
+      // "skipLibCheck": true,
 
       /* -- Strict Type-Checking Options -- */
       // "alwaysStrict": true, /* Parse in strict mode and emit "use strict" for each source file. */
@@ -42,8 +42,9 @@
       "baseUrl": "./",
   },
   "exclude": [
-    //   "node_modules",
-      "**/__test__/**"
+      "node_modules",
+      "**/__test__/**",
+      "**/dist/**"
   ],
-  "include": ["src"],
+  "include": ["src", "index.js", "module.config.js"],
 }

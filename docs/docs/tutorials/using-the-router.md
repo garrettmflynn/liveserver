@@ -68,8 +68,8 @@ let bodyParser = require("body-parser")
 
 // Router Imports
 import { Router } from 'liveserver-router'
-import { HTTPService } from '@brainsatplay/http' // TODO: Publish and relink
-import { WebsocketService } from '@brainsatplay/websockets' // TODO: Publish and relink
+import { HTTPBackend } from '@brainsatplay/http' // TODO: Publish and relink
+import { WebsocketBackend } from '@brainsatplay/websockets' // TODO: Publish and relink
 
 // Create Express App
 const app = express();
@@ -84,14 +84,14 @@ const server = http.createServer(app);
 let router = new Router({ debug: true });
 
 // Handle All HTTP Routes
-let http = new HTTPService();
+let http = new HTTPBackend();
 app.get("**", http.controller);
 app.post("**", http.controller);
 app.delete("**", http.controller);
 router.load(http);
 
 // Handle WebSocket Messages
-let websocket = new WebsocketService(server);
+let websocket = new WebsocketBackend(server);
 router.load(websocket)
 
 // Start the Server

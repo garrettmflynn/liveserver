@@ -2,7 +2,12 @@ import React from 'react';
 import Layout from '@theme/Layout';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import ExampleSelector from './selector';
-import { OSCClient, SessionsClient, WebsocketClient, WebRTCClient, HTTPClient, DatabaseClient, UnsafeClient } from '../../../../src/frontend';
+import { OSCClient } from 'liveserver-osc';
+import { SessionsClient} from 'liveserver-sessions';
+import { WebRTCClient } from 'liveserver-webrtc';
+import { DatabaseClient } from 'liveserver-database';
+import { UnsafeClient } from 'liveserver-unsafe';
+import { HTTPClient, WebsocketClient } from 'liveserver-frontend';
 import router from 'liveserver-router';
 
 const SERVER_URI = (window.location.href.includes('localhost')) ? 'http://localhost:80' : 'http://localhost:80' // Replace with production server URI

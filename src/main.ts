@@ -6,11 +6,22 @@ let bodyParser = require("body-parser")
 
 // Import the LiveServer API
 import * as api from 'liveserver-backend'
+// import * as api from './backend/dist/index.js';
+// let api = require('./backend/dist/index.js')
 
 // Set Environment Variables
 import { resolve } from "path";
 import { config } from "dotenv";
-import { Router } from 'liveserver-router'
+// import router from './router/dist/index.js';
+// let {Router} = require('./router/dist/index.js')
+import {Router} from 'liveserver-router'
+
+// import { Router } from 'liveserver-router'
+import { OSCBackend } from './services/osc/osc.backend'
+import { WebRTCBackend } from './services/webrtc/webrtc.backend'
+import { SessionsBackend } from './services/sessions/sessions.backend'
+import { DatabaseBackend } from './services/database/database.backend'
+import { UnsafeBackend } from './services/unsafe/unsafe.backend'
 config({ path: resolve(__dirname, `../.env`) });
 config({ path: resolve(__dirname, `../.key`) });
 
@@ -54,7 +65,7 @@ mongoose
 
     // Enable HTTP Messages
     if (services.http){
-      let http = new api.HTTPService();
+      let http = new api.HTTPBackend();
 
       app.get("**", http.controller);
       app.post("**", http.controller);
@@ -63,37 +74,32 @@ mongoose
 
     // Enable WebSocket Messages
     if (services.websocket){
-      let websocket = new api.WebsocketService(server);
+      let websocket = new api.WebsocketBackend(server);
       controller.load(websocket)
     }
 
     if (services.osc){
-      let osc = new api.OSCService();
+      let osc = new OSCBackend();
       controller.load(osc)
     }
 
     if (services.webrtc){
-      let webrtc = new api.WebRTCService();
+      let webrtc = new WebRTCBackend();
       controller.load(webrtc)
     }
 
     if (services.sessions){
-      let sessions = new api.SessionsService(controller);
+      let sessions = new SessionsBackend(controller);
       controller.load(sessions)
     }
 
     if (services.database){
-      let database = new api.DatabaseService(controller, { mode: "mongdb", instance });
+      let database = new DatabaseBackend(controller, { mode: "mongdb", instance });
       controller.load(database)
     }
 
-    if (services.ssr){
-      let ssr = new api.SSRService();
-      controller.load(ssr)
-    }
-
     if (services.unsafe){
-      let unsafe = new api.UnsafeService()
+      let unsafe = new UnsafeBackend()
       controller.load(unsafe)
     }
   }

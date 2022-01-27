@@ -13,7 +13,7 @@ function run([type]) {
             return builder.runNodejs({
                 entryFile: './src/server1', 
                 watchDirs: ['src'],
-                nodeArgs: ['development'] 
+                nodeArgs: ['development'],
             });
 
         case 'run':

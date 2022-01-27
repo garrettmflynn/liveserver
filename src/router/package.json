@@ -1,12 +1,12 @@
 {
   "name": "liveserver-router",
   "version": "0.0.4",
-  "main": "./dist/index.ts",
+  "main": "./dist/browser/index.js",
   "type": "module",
-  "module": "./module/index.js",
+  "types": "./dist/router/index.d.ts",
+  "module": "./dist/module/index.js",
   "files": [
-    "dist",
-    "module"
+    "dist"
   ],
   "scripts": {
     "build": "webpack --config browser.config.js --mode production && webpack --config ../../module.config.js --mode production",
