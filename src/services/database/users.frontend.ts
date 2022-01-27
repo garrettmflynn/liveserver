@@ -258,7 +258,7 @@ export class UsersClient extends Router {
             parent: {structType:parentStruct?.structType,_id:parentStruct?._id}, //parent struct it's associated with (e.g. if it needs to spawn with it)
         }
      */
-    addStruct (
+    async addStruct (
         structType:string='struct', 
         props:any={}, //add any props you want to set, adding users[] with ids will tell who to notify if this struct is updated
         parentUser:string|undefined=undefined, 
@@ -267,7 +267,7 @@ export class UsersClient extends Router {
     ) {
         let newStruct = DS.Struct(structType, props, parentUser, parentStruct);
 
-        if(updateServer) this.updateServerData([newStruct]);
+        if(updateServer) newStruct = await this.updateServerData([newStruct])[0];
 
         return newStruct;
     }
