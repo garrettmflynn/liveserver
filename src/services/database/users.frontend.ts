@@ -318,12 +318,18 @@ export class UsersClient extends Router {
     }
 
     //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
-    async getData(collection:string,ownerId?:string|number,searchDict?,limit:number=0,skip:number=0,callback=this.baseServerCallback) {
+    async getData(collection:string,ownerId?:string|number|undefined,searchDict?,limit:number=0,skip:number=0,callback=this.baseServerCallback) {
         let res = await this.send('database/getData', collection,ownerId,searchDict,limit,skip)
-        callback(res)
-        return res
+        callback(res);
+        return res;
     }
 
+    //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
+    async getDataByIds(structIds=[],ownerId?:string|number|undefined,collection?:string|undefined,callback=this.baseServerCallback) {
+        let res = await this.send('database/getDataByIdss', structIds, ownerId, collection);
+        callback(res);
+        return res
+    }
 
     //get struct based on the parentId 
     async getStructParentData (struct:any,callback=this.baseServerCallback) {
@@ -331,8 +337,8 @@ export class UsersClient extends Router {
         let args = [struct.parent?.structType,'_id',struct.parent?._id];
 
         let res = await this.send('database/getData', ...args)
-        callback(res)
-        return res
+        callback(res);
+        return res;
     }
     
     // //get struct(s) based on an array of ids or string id in the parent struct
@@ -527,7 +533,7 @@ export class UsersClient extends Router {
                     structIds.splice(structIds.length-i-1,1);
                 }
             });
-            if(structIds.length > 0) return await this.getData(structIds);
+            if(structIds.length > 0) return await this.getDataByIds(structIds,user._id,'notification');
         }
         return true;
     } 
@@ -914,7 +920,7 @@ export class UsersClient extends Router {
         
         //this.setLocalData(newDataInstance);
         
-        if(updateServer) newDataInstance = await this.updateServerData([newDataInstance]);
+        if(updateServer) newDataInstance = await this.updateServerData([newDataInstance])[0];
 
         return newDataInstance;
     }
@@ -945,7 +951,7 @@ export class UsersClient extends Router {
         newEvent.ownerId = parentUser._id;
 
         //this.setLocalData(newEvent);
-        if(updateServer) newEvent = await this.updateServerData([newEvent]);
+        if(updateServer) newEvent = await this.updateServerData([newEvent])[0];
 
         return newEvent;
     }
@@ -977,7 +983,7 @@ export class UsersClient extends Router {
         //this.setLocalData(newDiscussion);
     
         let update = [newDiscussion];
-        if(updateServer) newDiscussion = await this.updateServerData(update);
+        if(updateServer) newDiscussion = await this.updateServerData(update)[0];
         return newDiscussion;
     }
 
@@ -1001,7 +1007,7 @@ export class UsersClient extends Router {
         newChatroom.ownerId = parentUser._id;
 
         let update = [newChatroom];
-        if(updateServer) newChatroom = await this.updateServerData(update);
+        if(updateServer) newChatroom = await this.updateServerData(update)[0];
 
         return newChatroom;
     }
@@ -1040,9 +1046,9 @@ export class UsersClient extends Router {
             else roomStruct?.comments.push(newComment); // push full comment if not on server
 
             //this.setLocalData(newComment);
-            let update = [roomStruct,newComment];
+            let update = [newComment,roomStruct];
             if(replyTo._id !== roomStruct._id) update.push(replyTo);
-            if(updateServer) newComment = await this.updateServerData(update);
+            if(updateServer) newComment = await this.updateServerData(update)[0];
 
             return newComment;
     }

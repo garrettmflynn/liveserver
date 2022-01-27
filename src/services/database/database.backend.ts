@@ -86,7 +86,31 @@ export class DatabaseBackend extends Service {
                     if(args[0]) structs = this.getLocalData(args[0]);
                     if(structs && args[1]) structs = structs.filter((o)=>{if(o.ownerId === args[1]) return true;});
                     //bandaid
-                    await Promise.all(structs.map(async(s) => {
+                    if(structs) await Promise.all(structs.map(async(s) => {
+                        let struct = this.getLocalData(s._id);
+                        let passed = await this.checkAuthorization(u,struct);
+                        if(passed) data.push(struct);
+                    }));
+                }
+                return data;
+            }
+        },  
+        { 
+            route:'getDataByIds', 
+            aliases:['getMongoDataByIds','getUserDataByIds'],
+            callback:async (self,args,origin) => {
+                const u = self.USERS.get(origin)
+                if (!u) return false
+
+                let data;
+                if(this.mode === 'mongo') {
+                    data = await this.getMongoDataByIds(u, args[0], args[1], args[2]);
+                } else {
+                    data = [];
+                    let structs;
+                    if(args[2]) structs = this.getLocalData(args[2]);
+                    if(structs && args[1]) structs = structs.filter((o)=>{if(o.ownerId === args[1]) return true;});
+                    if(structs)await Promise.all(structs.map(async(s) => {
                         let struct = this.getLocalData(s._id);
                         let passed = await this.checkAuthorization(u,struct);
                         if(passed) data.push(struct);
@@ -609,8 +633,10 @@ export class DatabaseBackend extends Service {
             }
             else await this.db.collection('profile').updateOne({ _id: ObjectID(struct._id) }, {$set: copy}, {upsert: true}); 
 
+            user = await this.db.collection('profile').findOne({ _id: ObjectID(struct._id) });
+            
             this.checkToNotify(user, [struct]);
-            return true;
+            return user;
         } else return false;
     }
 
@@ -699,7 +725,7 @@ export class DatabaseBackend extends Service {
                 this.setLocalData(struct);
             }
             this.checkToNotify(user, [struct], this.mode);
-            return true;
+            return struct;
         } else return false;
     }
 
@@ -777,8 +803,54 @@ export class DatabaseBackend extends Service {
         return found;
     }
 
+    async getMongoDataByIds(user:UserObject, structIds:[], ownerId:string|undefined, collection:string|undefined) {
+        if(structIds.length > 0) {
+            let query = [];
+            structIds.forEach(
+                (_id)=>{
+                    let q = {_id};
+                    if(ownerId) (q as any).ownerId = ownerId;
+                    query.push(q);
+                })
+            let found = [];
+            if(!collection) {
+                await Promise.all(this.collectionNames.map(async (name) => {
+                    let cursor = await this.db.collection(name).find({$or:query});
+                    
+                    if(await cursor.count() > 0) {
+                        let passed = true;
+                        let checkedAuth = '';
+                        await cursor.forEach(async (s) => {
+                            if(user.id !== s.ownerId && checkedAuth !== s.ownerId) {
+                                passed = await this.checkAuthorization(user,s);
+                                checkedAuth = s.ownerId;
+                            }
+                            if(passed) found.push(s);
+                        })
+                    }
+                }));
+            }
+            else {
+                let cursor = await this.db.collection(collection).find({$or:query});
+                    
+                    if(await cursor.count() > 0) {
+                        let passed = true;
+                        let checkedAuth = '';
+                        await cursor.forEach(async (s) => {
+                            if(user.id !== s.ownerId && checkedAuth !== s.ownerId) {
+                                passed = await this.checkAuthorization(user,s);
+                                checkedAuth = s.ownerId;
+                            }
+                            if(passed) found.push(s);
+                        })
+                    }
+            }
+            return found;
+        }
+    }
+
     //get all data for an associated user, can add a search string
-    async getMongoData(user:UserObject, collection, ownerId, dict:any={}, limit=0, skip=0) {
+    async getMongoData(user:UserObject, collection:string|undefined, ownerId:string|undefined, dict:any|undefined={}, limit=0, skip=0) {
         if (!ownerId) ownerId = dict?.ownerId // TODO: Ensure that replacing ownerId, key, value with dict was successful
         if (dict._id) dict._id = ObjectID(dict._id)
 
