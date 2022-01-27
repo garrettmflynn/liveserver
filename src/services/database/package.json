@@ -16,6 +16,6 @@
   },
   "dependencies": {
     "bson-objectid": "^2.0.2",
-    "brainsatplay-data": "^0.0.13"
+    "brainsatplay-data": "^0.0.14"
   }
 }

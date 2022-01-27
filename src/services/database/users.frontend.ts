@@ -932,7 +932,7 @@ export class UsersClient extends Router {
         notes='', 
         startTime=0, 
         endTime=0,
-        grade='', 
+        grade=0, 
         attachments=[], 
         users=[], 
         updateServer=true
