@@ -1,8 +1,10 @@
 {
   "name": "liveserver-backend",
-  "version": "0.0.2",
-  "main": "./index.ts",
+  "version": "0.0.3",
+  "main": "./dist/index.js",
+  "module": "./dist/module.js",
   "type": "module",
+  "types": "./dist/backend/index.d.ts",
   "scripts": {
     "build": "webpack --config node.config.js --mode production && webpack --config ../../module.config.js --mode production",
     "test": "echo \"Error: no test specified\" && exit 1"
