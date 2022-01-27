@@ -18,23 +18,21 @@ export class UsersClient extends Router {
     
     id: string = randomId()
 
-    constructor(userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}) {
+    constructor (userinfo:Partial<UserObject>={_id:'user'+Math.floor(Math.random()*10000000000)}) {
         super()
         this.currentUser = userinfo;
-        if (this.currentUser.id) this.currentUser._id = this.currentUser.id // Add a persistent ID
-
-
+        if (this.currentUser?.id) this.currentUser._id = this.currentUser.id // Add a persistent ID
+       
         // Auto-Connect Database Client
         this.connect(new DatabaseClient())
-        
     }
 
     //TODO: make this able to be awaited to return the currentUser
     //uses a bunch of the functions below to set up a user and get their data w/ some cross checking for consistent profiles
-    async setupUser(userinfo, callback=(currentUser)=>{}) {
+    async setupUser(userinfo:Partial<UserObject>, callback=(currentUser)=>{}) {
 
         if(!userinfo) {
-            console.error('must provide an info object! e.g. {id:"abc123"}');
+            console.error('must provide an info object! e.g. {_id:"abc123"}');
             callback(undefined);
             return undefined;
         }
@@ -167,6 +165,7 @@ export class UsersClient extends Router {
             console.log('collections', this.tablet.collections);
         }
         callback(this.currentUser);
+        return this.currentUser;
     }
 
     //default socket response for the platform
