@@ -1,10 +1,8 @@
-import path, { dirname } from 'path';
-import { fileURLToPath } from 'url';
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const path = require('path')
 
 var PATHS = {
   entryPoint: path.resolve(__dirname, './index.ts'),
-  bundles: path.resolve(__dirname, './dist/browser'),
+  bundles: path.resolve(__dirname, './dist'),
 }
 
 var config = {
@@ -75,4 +73,4 @@ var config = {
   //  ]
 }
 
-export default config;
+module.exports = config;
