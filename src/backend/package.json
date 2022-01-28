@@ -1,6 +1,6 @@
 {
   "name": "liveserver-backend",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "main": "./dist/index.js",
   "module": "./dist/module.js",
   "types": "./dist/backend/index.d.ts",
@@ -11,10 +11,15 @@
   "author": "Joshua Brewster, Garrett Flynn",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
+    "bufferutil": "^4.0.6",
+    "utf-8-validate": "^5.0.8",
     "ws": "^8.4.2"
   },
   "bugs": {
     "url": "https://github.com/brainsatplay/liveserver"
   },
-  "homepage": "https://github.com/brainsatplay/liveserver#readme"
+  "homepage": "https://github.com/brainsatplay/liveserver#readme",
+  "devDependencies": {
+    "stream-browserify": "^3.0.0"
+  }
 }
