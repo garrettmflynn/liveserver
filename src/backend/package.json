@@ -4,6 +4,9 @@
   "main": "./dist/index.js",
   "module": "./dist/module.js",
   "types": "./dist/backend/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "webpack --config node.config.js --mode production && webpack --config ../module.config.js --mode production",
     "test": "echo \"Error: no test specified\" && exit 1"

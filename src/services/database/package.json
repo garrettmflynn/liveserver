@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "main": "./dist/index.js",
   "module": "./dist/module.js",
-  "types": "./dist/frontend/index.d.ts",
+  "types": "./dist/services/database/index.d.ts",
   "repository": "https://github.com/brainsatplay/LiveServer",
   "author": "Joshua Brewster, Garrett Flynn",
   "license": "AGPL-3.0-or-later",

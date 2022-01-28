@@ -1,6 +1,4 @@
-import path, { dirname } from 'path';
-import { fileURLToPath } from 'url';
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const path = require('path')
 
 var PATHS = {
   entryPoint: path.resolve(__dirname, './index.ts'),
@@ -12,42 +10,35 @@ var config = {
     'index': [PATHS.entryPoint],
     'index.min': [PATHS.entryPoint]
   },
+  // externals: [/node_modules/, 'bufferutil', 'utf-8-validate'],
   output: {
     path: PATHS.bundles,
     filename: '[name].js',
     library: {
-      type: 'commonjs',
+      type: 'umd',
       // type: 'module',
-      name: 'router',
+      name: 'liveserver',
       // export: 'default',
       // umdNamedDefine: true,
     },
     globalObject: 'this',
     publicPath: '',
   },
-  // experiments: {
-  //   outputModule: true,
-  // },
+  externals: {
+    bufferutil: "bufferutil",
+    "utf-8-validate": "utf-8-validate",
+  },
   resolve: {
     extensions: ['.ts', '.tsx', '.js'],
     fallback: {
-      browser: false,
-      buffer: false,
-      fs: false,
       http: false,
       https: false,
-      os: false,
-      util: false,
-      path:false,
       crypto:false,
-      stream: false,
+      stream: require.resolve("stream-browserify"),
       zlib:false,
-      dns:false,
       tls:false,
       url:false,
-      dgram:false,
       net:false,
-      child_process:false,
     },
   },
   optimization: {
@@ -75,4 +66,4 @@ var config = {
   //  ]
 }
 
-export default config;
+module.exports = config;

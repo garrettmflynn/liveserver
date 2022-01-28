@@ -325,9 +325,9 @@ export class Router {
     // Frontend Methods (OG)
     // 
     // -----------------------------------------------
-    addRemote = (base:string, path:string) => {
+    addRemote = (base:string|URL) => {
       const id = randomId('endpoint')
-      const url = (path) ? new URL(path, base) : new URL(base)
+      const url = (base instanceof URL) ? base : new URL(base)
 
       // Register User on the Server
       if (url) {
