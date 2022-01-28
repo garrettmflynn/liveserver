@@ -26,8 +26,7 @@
   "dependencies": {
     "anotherstatemanager": "^1.0.5",
     "brainsatplay-data": "^0.0.9",
-    "brainsatplay-storage": "^0.0.2",
-    "magicworker": "^1.0.8"
+    "brainsatplay-storage": "^0.0.2"
   },
   "bugs": {
     "url": "https://github.com/brainsatplay/liveserver"
