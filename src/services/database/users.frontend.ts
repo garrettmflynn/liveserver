@@ -13,7 +13,7 @@ export class UsersClient extends Router {
 
     currentUser: Partial<UserObject>
 		        
-    tablet = new DataTablet(); //DataTablet (for alyce)
+    tablet = new DataTablet(); //DataTablet 
     collections = this.tablet.collections;
     
     id: string = randomId()
@@ -355,6 +355,7 @@ export class UsersClient extends Router {
     //     );
     // }
 
+    
     //sets the user profile data on the server
     async setUser (userStruct={},callback=this.baseServerCallback) {
         let res = await this.send('database/setProfile', this.stripStruct(userStruct))
@@ -694,12 +695,12 @@ export class UsersClient extends Router {
     }
 
     //get user data for all users in a group, includes collection, limits, skips
-    async getUserDataByAuthorizationGroup (group='', collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) {
+    async getUserDataByAuthorizationGroup (groupId='', collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) {
         let auths = this.getLocalData('authorization');
 
         let results = [];
         await Promise.all(auths.map(async (o) => {
-            if(o.groups?.includes(group)) {
+            if(o.groups?.includes(groupId)) {
                 let u = o.authorizerId;
                 if(u) {
                     let data;
