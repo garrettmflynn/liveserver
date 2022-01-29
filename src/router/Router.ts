@@ -40,7 +40,7 @@ export class Router {
   id: string = randomId()
 
   // Backend
-  USERS: Map<string, UserObject> = new Map(); //live sockets and basic user info
+  USERS: {[x:string]: UserObject} = {} //live message passing functions and basic user info
   CONNECTIONS: Map<string,{}> = new Map(); //threads or other servers
   SUBSCRIPTIONS: Function[] = [] // an array of handlers (from services)
   DEBUG: boolean;
@@ -52,7 +52,9 @@ export class Router {
       available: {[x:string]: string},
       clients: {[x:string]: any},
       connecting: {[x:string]: Function},
-      subscribeQueue: Function[],
+      subscribeQueue: {
+        [x:string]: Function[]
+      },
       subscriptions: string[]
   }, // TODO: Detect changes and subscribe to them
     server: {[x:string] : any}
@@ -61,7 +63,7 @@ export class Router {
       available: {},
       clients: {},
       connecting: {},
-      subscribeQueue: [],
+      subscribeQueue: {},
       subscriptions: []
     }, 
     server: {}
@@ -131,7 +133,7 @@ export class Router {
   { //set user details for yourRouter
       route:'setUserServerDetails',
       callback:(Router,args,origin)=>{
-        let user = Router.USERS.get(origin)
+        let user = Router.USERS[origin]
         if (!user) return false
         if(args[0]) user.username = args[0];
         if(args[1]) user.password = args[1];
@@ -145,14 +147,14 @@ export class Router {
   { //assign user props for yourRouter or someone else (by user unique id)
       route:'setProps',
       callback:(Router,args,origin)=>{
-        let user = Router.USERS.get(origin)
+        let user = Router.USERS[origin]
         if (!user) return false
         if(typeof args === 'object' && !Array.isArray(args)) {
           Object.assign(user.props,args);
           return true;
         }
         else if (Array.isArray(args) && typeof args[1] === 'object') {
-          let u = Router.USERS.get(args[0]);
+          let u = Router.USERS[args[0]];
           if(u) Object.assign(u.props,args[1]);
           return true;
         }
@@ -162,11 +164,11 @@ export class Router {
   { //get props of a user by id or of yourRouter
       route:'getProps',
       callback:(Router,args,origin)=>{
-        let user = Router.USERS.get(origin)
+        let user = Router.USERS[origin]
         if (!user) return false
   
         if(args[0]) {
-          let u = Router.USERS.get(args[0]);
+          let u = Router.USERS[args[0]];
           if(u) return u.props;
         }
         else return user.props;
@@ -181,7 +183,7 @@ export class Router {
   { //lists user keys
     route:'blockUser',
     callback:(Router,args,origin)=>{
-      let user = Router.USERS.get(origin)
+      let user = Router.USERS[origin]
       if (!user) return false
       return this.blockUser(user,args[0]);
     }
@@ -193,18 +195,19 @@ export class Router {
       transform: (o) => {
 
         let dict = {}
-        o.forEach((u,k) => {
-          dict[k] = {
-            _id:u._id,
-            username:u.username,
-            origin:u.origin,
-            props:u.props,
-            updatedPropNames:u.updatedPropNames,
-            lastUpdate:u.lastUpdate,
-            lastTransmit:u.lastTransmit,
-            latency:u.latency
-          }
-        })
+        for (let k in o) {
+          const u = o[k]
+            dict[k] = {
+              _id:u._id,
+              username:u.username,
+              origin:u.origin,
+              props:u.props,
+              updatedPropNames:u.updatedPropNames,
+              lastUpdate:u.lastUpdate,
+              lastTransmit:u.lastTransmit,
+              latency:u.latency
+            }
+        }
         return dict
       }
     }
@@ -212,11 +215,11 @@ export class Router {
   { //get basic details of a user or of yourRouter
       route:'getUser',
       callback:(Router,args,origin)=>{
-        let user = Router.USERS.get(origin)
+        let user = Router.USERS[origin]
         if (!user) return false
   
         if(args[0]) {
-          let u = this.USERS.get(args[0]);
+          let u = this.USERS[args[0]]
           if(u) {
             return {
               _id:u._id,
@@ -256,7 +259,7 @@ export class Router {
     route:'logout',
     aliases:['removeUser','endSession'],
     callback:(Router,args,origin) => {
-      let user = Router.USERS.get(origin)
+      let user = Router.USERS[origin]
         if (!user) return false
       if(args[0]) Router.removeUser(...args)
       else Router.removeUser(user);
@@ -293,9 +296,10 @@ export class Router {
         if(this.OPTIONS.interval) this.INTERVAL = this.OPTIONS.interval;
 
         this.currentUser = this.OPTIONS.user;
-        // Add a persistent ID
+
+        // Add a persistent ID (TODO: Somewhere along the way, _id becomes undefined...)
         if (this.currentUser.id) this.currentUser._id = this.currentUser.id
-        if (!this.currentUser._id) this.currentUser._id = randomId('user')
+        if (!this.currentUser._id) this.currentUser.id = this.currentUser._id = randomId('user')
 
         this.STATE = new StateManager(
           {},
@@ -353,7 +357,7 @@ export class Router {
       }).catch(async (e) => {
 
         // Fallback to WS
-        console.log('Falling back to Websocket protocol')
+        console.log('Falling back to Websocket protocol', id)
         await this.subscribe(() => {
           console.log('unused ws callback')
         }, {protocol: 'websocket', id, force: true})
@@ -363,12 +367,12 @@ export class Router {
 
       if (res) {
 
-          let serviceClassNames = []
+          let serviceNames = []
           for (let route in res){
               const className = res[route]
-              const name = className.replace('Service', '')
-              this.SERVICES.client.available[className] = route
-              serviceClassNames.push(className)
+              const name = className.replace('Backend', '').toLowerCase()
+              this.SERVICES.client.available[name] = route
+              serviceNames.push(name)
   
               // Resolve Load Promises
               if (this.SERVICES.client.connecting[name]){
@@ -377,9 +381,15 @@ export class Router {
               }
 
               if (this.SERVICES.client.clients[name] instanceof SubscriptionService){
-                  this.SERVICES.client.subscribeQueue.forEach(f => f())
+                  this.SERVICES.client.subscribeQueue[name]?.forEach(f => f())
+                  this.SERVICES.client.subscribeQueue[name] = []
               }
           }
+
+          // General Subscription Check
+          this.SERVICES.client.subscribeQueue['undefined']?.forEach(f => f())
+          this.SERVICES.client.subscribeQueue['undefined'] = []
+
       }
   }
 
@@ -387,7 +397,7 @@ export class Router {
 
       return new Promise(resolve => {
 
-        const name = service.constructor.name.replace('Client', ''); //redundant?
+        const name = service.constructor.name.replace('Client', '').toLowerCase(); //redundant?
 
           this.SERVICES.client.clients[name] = service
           const toResolve = (route) => {
@@ -404,8 +414,8 @@ export class Router {
           if (available) toResolve(available)
           else this.SERVICES.client.connecting[name] = toResolve;
 
-          let worker = false;
-          if(name.includes('worker')) worker = true;
+          // let worker = false;
+          // if(name.includes('worker')) worker = true;
 
           // NOTE: This is where you listen for service.notify()
           service.subscribe(async (o:MessageObject, _:MessageType) => {
@@ -483,7 +493,7 @@ export class Router {
               },
           }
 
-            if (toSend.method != 'GET') toSend.body = safeStringify({id: this.currentUser._id, message: args, suppress: !!endpoint.subscription})
+            if (toSend.method != 'GET') toSend.body = safeStringify({id: this.currentUser.id, message: args, suppress: !!endpoint.subscription})
 
               response = await fetch(createRoute(route, remote), toSend).then(async (res) => {
                   const json = await res.json()
@@ -509,11 +519,12 @@ export class Router {
   createSubscription = async (options:any = {}, onmessage:any) => {
           let toResolve =  (): Promise<any> => {
               return new Promise(async resolve => {
+                let servicesToCheck = (options.protocol) ? [this.SERVICES.client.clients[options.protocol]] : Object.values(this.SERVICES.client.clients)
 
-                  for (let name in this.SERVICES.client.clients) {
-                    const client = this.SERVICES.client.clients[name]
-                    if ((options.protocol == null || options.protocol === client.name) && (options.force || this.SERVICES.client.available[client.service])) {
-                      let subscriptionEndpoint = `${this.SERVICES.client?.available[client.service] ?? name.toLowerCase()}/subscribe`
+                servicesToCheck.forEach(async client => {
+
+                    if (options.force || this.SERVICES.client.available[client.service]) {
+                      let subscriptionEndpoint = `${this.SERVICES.client?.available[client.service] ?? client.name.toLowerCase()}/subscribe`
                       let msg;
                       const endpoint = (options.id ? this.ENDPOINTS.get(options.id) : ((options.remote) ? {remote: options.remote} : this.ENDPOINTS.values().next().value)) as EndpointType
                       
@@ -533,9 +544,10 @@ export class Router {
                       resolve(endpoint.subscription)
                       return
                     }
-                  }
+                  })
 
-                  this.SERVICES.client.subscribeQueue.push(async () => {
+                  if (!this.SERVICES.client.subscribeQueue[options.protocol]) this.SERVICES.client.subscribeQueue[options.protocol] = []
+                  this.SERVICES.client.subscribeQueue[options.protocol].push(async () => {
                       let res = await toResolve()
                       resolve(res)
                   })
@@ -551,8 +563,8 @@ export class Router {
       remote?: string | URL,
       force?:boolean
   } = {}) => {
-      if (this.ENDPOINTS.size > 0 || options?.remote) {
 
+      if (this.ENDPOINTS.size > 0 || options?.remote) {
           return await this.createSubscription(options, (event) => {
               const data = (typeof event.data === 'string') ? JSON.parse(event.data) : event
               callback(data) // whole data object (including route)
@@ -591,6 +603,7 @@ export class Router {
             }, o))
         // })
       })
+
 
       if (service.subscribe) {
         service.subscribe(async (o:MessageObject, updateSubscribers?:MessageType, origin?:string|undefined) => {
@@ -655,8 +668,9 @@ export class Router {
     }
 
     // Get Current User if Exists
-    const u = this.USERS.get(id);
-    
+    const u = this.USERS[id]
+
+    // Grab Base
     let newuser: UserObject = u ?? {
       id:id, 
       _id:id, //second reference (for mongodb parity)
@@ -669,17 +683,16 @@ export class Router {
       lastUpdate:Date.now(),
       lastTransmit:0,
       latency:0,
-      routes: new Map()
+      routes: new Map(),
     } ;
 
-    Object.assign(newuser,userinfo); //assign any supplied info
+    Object.assign(newuser,userinfo); //assign any supplied info to the base
 
     if(this.DEBUG) console.log('Adding User, Id:', id);
 
-    this.USERS.set(id, newuser);
+    this.USERS[id] =  newuser
 
     //add any additional properties sent. remote.service has more functions for using these
-
     for (let key in this.SERVICES.server){
         const s = this.SERVICES.server[key]
         const route = s.name + '/addUser'
@@ -690,7 +703,7 @@ export class Router {
   }
 
   removeUser(user:string|UserObject) {
-    let u = (typeof user === 'string') ? this.USERS.get(user) : user
+    let u = (typeof user === 'string') ? this.USERS[user] : user
     
     if(u) {
 
@@ -700,7 +713,7 @@ export class Router {
           if (this.ROUTES[route]) this.runRoute(route, 'DELETE', [u], u.id) // TODO: Fix WebRTC
         })
 
-        this.USERS.delete(u._id);
+        delete u.id
         return true;
     } 
     return false;
@@ -708,7 +721,7 @@ export class Router {
 
   //adds an id to a blocklist for access control
   blockUser(user:UserObject, userId='') {
-    if(this.USERS.get(userId)) {
+    if(this.USERS[userId]) {
       if(!user.blocked.includes(userId) && user.id !== userId) { //can't block Router 
         user.blocked.push(userId);
         return true;
@@ -747,7 +760,7 @@ export class Router {
 
       if(o.route != null) {
         
-        let u = this.USERS.get(o.id)
+        let u = this.USERS[o?.id]
 
         console.log('runRoute', o.route)
         // Handle Subscription Updates based on updateSubscribers Notifications
@@ -772,7 +785,7 @@ export class Router {
       let toSend = (data) ? Object.assign(data, { message }) : { message }
 
       if(typeof user === 'string') {
-          let u = this.USERS.get(user)
+          let u = this.USERS[user]
           if(u) {
             u.send(toSend)
           }

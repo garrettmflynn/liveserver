@@ -4,6 +4,8 @@ import { Service } from '../../router/Service'
 export class UnsafeClient extends Service{
 
 	name = 'unsafe'
+	service = 'unsafe'
+
 	routes = []
 
 	constructor() {

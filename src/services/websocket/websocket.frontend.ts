@@ -10,7 +10,7 @@ import { randomId } from  '../../common/id.utils';
 export class WebsocketClient extends SubscriptionService {
 
     name = 'websocket'
-    service = 'WebsocketBackend'
+    service = 'websocket'
 
     subprotocols?: Partial<UserObject>
     connected = false;
@@ -55,6 +55,7 @@ export class WebsocketClient extends SubscriptionService {
     addSocket(url:string|URL=new URL('https://localhost:80'), subprotocolObject=this.subprotocols) {
         let socket;
 
+        console.error('adding socket')
         if (!(url instanceof URL)) url = new URL(url)
         
         try {

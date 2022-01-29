@@ -4,6 +4,7 @@ import { Service } from '../../router/Service'
 export class DatabaseClient extends Service{
 
 	name = 'database'
+	service = 'database'
 	routes = []
 
 	constructor() {

@@ -6,25 +6,53 @@ import { Service } from '../../router/Service'
 export class WebRTCBackend extends Service {
 
     name = 'webrtc'
-    users: Map<string,UserObject> = new Map()
+    subscribers: Map<string,UserObject> = new Map()
     rooms: Map<string,any> = new Map()
 
     routes = [
+
         {
-            private: true,
-            route: 'addUser',
+            route: 'subscribe',
             callback: (self, args, id) => {
-                let u = self.USERS.get(id)
-                this.users.set(u.id, u)
-                let message = this.getRoomsByAuth(args[0])
-                return {route:'rooms', message}
+                let u = self.USERS[id]
+                console.log(u, id, self.USERS)
+                if (u) this.subscribers.set(id, u)
+
+                // Subscribe or Create Room
+                const rooms = this.getRooms()
+                const users = Array.from(this.subscribers).map(a => a[1])
+                args[0]?.forEach(route => {
+                    const slice = route.slice(0,6)
+                    route = route.slice(6)
+
+                    if (u?.send) u.send({route: 'webrtc/rooms', message: rooms})
+                    if (u?.send) u.send({route: 'webrtc/users', message: users})
+                    if (slice === 'rooms'){
+                        console.log(slice, route)
+                        const room = this.rooms.get(route)
+                        if (room) {
+                            if (u?.send) u.send({route: 'webrtc/room', message: room}) // Send back to user in whatever way you can
+                            this.connect(room, id)
+                        } else console.log('Room not found.')
+                    } else {
+                        console.log(slice, route)
+                        const user = this.subscribers.get(route)
+                        if (user) {
+                            if (u?.send) u.send({route: 'webrtc/user', message: user}) // Send back to user in whatever way you can
+                            this.connect(user, id)
+                        } else console.log('User not found.')
+                    }
+                })
+                return {route:'rooms', message: {
+                    users,
+                    rooms
+                }} // TODO: Limit viewable rooms and users
             }
         },
         {
-            private: true,
-            route: 'removeUser',
+            route: 'unsubscribe',
             callback: (self, args, id) => {
-                this.users.delete(id)
+                this.subscribers.delete(id)
                 this.rooms.forEach(r => r.peers.has(id) && r.removePeer(id));
                 return;
             }
@@ -90,7 +118,7 @@ export class WebRTCBackend extends Service {
 
     getRoomsByAuth = (auth:string) => this.getRooms((r) => r.restrictions?.users == null || r.restrictions.users.includes(auth))
 
-    getRooms = (filter:(arg:Room) => boolean) => {
+    getRooms = (filter:(arg:Room) => boolean = () => true) => {
         return Array.from(this.rooms, ([, value]) => value.export()).filter(filter)
     }
 
@@ -101,9 +129,9 @@ export class WebRTCBackend extends Service {
         console.log('connecting room', room, this.rooms)
 
         // Reset Auth and Info on Peer
-        let u = this.users.get(origin)
+        let u = this.subscribers.get(origin)
 
-        console.log('connecting user', u, this.users)
+        console.log('connecting subscriber', u, this.subscribers)
         if (u){
 
             // TODO: Fix
@@ -120,7 +148,7 @@ export class WebRTCBackend extends Service {
     createRoom = async (settings:RoomInterface,origin='server') => {
 
         // Get Room Initiator
-        let initiator = this.users.get(origin)
+        let initiator = this.subscribers.get(origin)
 
         let room = new Room(initiator, settings)
 
@@ -131,7 +159,7 @@ export class WebRTCBackend extends Service {
         // Setup a Room
 
         // Tell Everyone about the New Room
-        this.users.forEach((u) => {
+        this.subscribers.forEach((u) => {
             this.notify({route: 'roomadded', message: data})
         })
 
@@ -161,7 +189,7 @@ export class WebRTCBackend extends Service {
 
     // Macro for Passing Offers, Answers, and Candidates between Peers
     pass = (cmd:string, origin: string, destination:string, msg:any) => {
-        let recipient = this.users.get(destination)
+        let recipient = this.subscribers.get(destination)
         if (recipient?.send) recipient.send(JSON.stringify({cmd, data: {id: origin, msg}, id: origin, service: 'webrtc'}))
     }
 }

@@ -11,6 +11,19 @@ export default function AllExample({server, endpointIds, router}) {
       'add': 0
     }
 
+    router.subscribe((o) => {
+        console.log('Remote #1 Subscription', o)
+        let data = o.message
+        if (o.route === 'routes') handleRoutes(o.message)
+        else {
+        
+        // Subscription Responses
+        if (!data?.error) output.current.innerHTML = JSON.stringify(vals[o.route] = data)
+        else output.current.innerHTML = data.error
+
+      }
+    }, {protocol: 'http', routes: ['routes', 'osc'], id: endpointIds[0]})
+
     function handleRoutes(data){
 
       let divs = {}
@@ -52,24 +65,14 @@ export default function AllExample({server, endpointIds, router}) {
     useEffect(async () => {
       console.log('ENDPOINT IDs', endpointIds)
 
-      router.subscribe((o) => {
-
-        let data = o.message
-        if (o.route === 'routes') handleRoutes(o.message)
-        else {
-        
-        // Subscription Responses
-        if (!data?.error) output.current.innerHTML = JSON.stringify(vals[o.route] = data)
-        else output.current.innerHTML = data.error
-
-      }
-      }, {protocol: 'http', routes: ['routes', 'osc'], id: endpointIds[1]})
     });
 
     send('routes', 'get')
 
     async function send(route, method, ...args){
       return await router[method](route, ...args).then(res => {
+
+        console.log('Direct response', res)
 
         if (!res?.error) {
           console.log(res)

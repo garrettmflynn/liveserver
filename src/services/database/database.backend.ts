@@ -46,7 +46,7 @@ export class DatabaseBackend extends Service {
                 route:'setData', 
             aliases:['setMongoData'],
             callback: async (self,args,origin) => {
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
 
                 let data;
@@ -74,7 +74,7 @@ export class DatabaseBackend extends Service {
             route:'getData', 
             aliases:['getMongoData','getUserData'],
             callback:async (self,args,origin) => {
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
 
                 let data;
@@ -99,7 +99,7 @@ export class DatabaseBackend extends Service {
             route:'getDataByIds', 
             aliases:['getMongoDataByIds','getUserDataByIds'],
             callback:async (self,args,origin) => {
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
 
                 let data;
@@ -122,7 +122,7 @@ export class DatabaseBackend extends Service {
         {
             route:'getAllData',
             callback:async (self,args,origin) => {
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
 
                 let data;
@@ -149,7 +149,7 @@ export class DatabaseBackend extends Service {
         {
             route:'deleteData', 
             callback:async (self,args,origin) => {
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
 
                 let data;
@@ -170,7 +170,7 @@ export class DatabaseBackend extends Service {
         {
             route:'getProfile',
             callback:async (self,args,origin) => {
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
 
                 let data;
@@ -195,7 +195,7 @@ export class DatabaseBackend extends Service {
             route:'setProfile',
             aliases: ['addUser'],
             callback:async (self,args,origin) => {
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
                 let data;
                 if(this.mode === 'mongo') {
@@ -211,7 +211,7 @@ export class DatabaseBackend extends Service {
         {
             route:'getProfilesByIds',
             callback:async (self,args,origin) => { 
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
 
                 let data;
@@ -230,7 +230,7 @@ export class DatabaseBackend extends Service {
         {
             route:'getProfilesByRoles',
             callback:async (self,args,origin) => {
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
 
                 let data;
@@ -252,7 +252,7 @@ export class DatabaseBackend extends Service {
             route:'getGroup',
             aliases:['getGroups'],
             callback:async (self,args,origin) => {
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
 
                 let data;
@@ -282,7 +282,7 @@ export class DatabaseBackend extends Service {
         {
             route:'setGroup',
             callback:async (self,args,origin) => {
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
 
                 return await this.setGroup(u,args[0], this.mode);
@@ -291,7 +291,7 @@ export class DatabaseBackend extends Service {
         {
             route:'deleteGroup',
             callback:async (self,args,origin) => {
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
 
                 let data;
@@ -312,7 +312,7 @@ export class DatabaseBackend extends Service {
             route:'deleteProfile',
             aliases: ['removeUser'],
             callback:async (self,args,origin) => {
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
 
                 let data;
@@ -332,7 +332,7 @@ export class DatabaseBackend extends Service {
         {
             route:'setAuth',
             callback:async (self,args,origin) => {
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
                 return await this.setAuthorization(u, args[0], this.mode);
             }
@@ -340,7 +340,7 @@ export class DatabaseBackend extends Service {
         {
             route:'getAuths',
             callback:async (self,args,origin) => {
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
 
                 let data;
@@ -360,7 +360,7 @@ export class DatabaseBackend extends Service {
         {
             route:'deleteAuth',
             callback:async (self,args,origin) => {
-                const u = self.USERS.get(origin)
+                const u = self.USERS[origin]
                 if (!u) return false
 
                 let data;
@@ -401,9 +401,10 @@ export class DatabaseBackend extends Service {
     async checkToNotify(user:UserObject,structs:any[]=[], mode=this.mode) {
 
         if(typeof user === 'string') {
-            this.controller.USERS.forEach((obj: UserObject) => {
+            for (let key in this.controller.USERS){
+                const obj = this.controller.USERS[key]
                 if (obj.id === (user as any)) user = obj;
-            });
+            }
         }
         if(typeof user === 'string' || typeof user === 'undefined') return false;
         let usersToNotify = {};

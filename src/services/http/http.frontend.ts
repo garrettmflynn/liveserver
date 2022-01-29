@@ -4,7 +4,7 @@ import { createRoute } from "../../common/general.utils";
 class HTTPClient extends SubscriptionService {
 
     name = 'http'
-    service = 'HTTPBackend'
+    service = 'http'
 
     constructor() {
         super()

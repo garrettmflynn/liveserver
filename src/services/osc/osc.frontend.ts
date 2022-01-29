@@ -5,6 +5,7 @@ import { Service } from '../../router/Service'
 export class OSCClient extends Service{
 
 	name = 'osc'
+	service = 'osc'
 	state = new StateManager();
 
 	// Responses to Monitor

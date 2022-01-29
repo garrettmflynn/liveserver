@@ -4,6 +4,7 @@ import styles from './examples.module.css';
 import MultipleExample from './components/multiple';
 import { useHistory } from 'react-router';
 import AllExample from './components/all';
+import WebRTCExample from './components/webrtc';
 
 export default function ExampleSelector({server, endpointIds, router}) {
    const history = useHistory();
@@ -27,6 +28,13 @@ export default function ExampleSelector({server, endpointIds, router}) {
             router={router}
             endpointIds={endpointIds}
             />
+
+          case 'webrtc':
+            return <WebRTCExample
+            server={server}
+            router={router}
+            endpointIds={endpointIds}
+            />
         }
       }
 
@@ -43,6 +51,9 @@ export default function ExampleSelector({server, endpointIds, router}) {
         </button>
         <button onClick={() => set('multiple')}>
           Multiple Remote Endpoints
+        </button>
+        <button onClick={() => set('webrtc')}>
+          WebRTC
         </button>
         </nav>
 

@@ -46,7 +46,6 @@ export class UsersClient extends Router {
         // console.log("getUser", res);
         let u;
         let newu = false;
-        console.log('data', data)
         if(!data.user?._id) { //no profile, create new one and push initial results
             // if(!userinfo._id) userinfo._id = userinfo._id;
             u = this.userStruct(userinfo,true);
@@ -57,11 +56,13 @@ export class UsersClient extends Router {
             if(structs?.length > 0) this.updateServerData(structs, (data)=>{
                 console.log('setData', data);
             });
+
             this.setAuthorizationsByGroup(u);
         }
         else {
             u = data.user;
             u._id = data._id; //replace the unique mongo id for the secondary profile struct with the id for the userinfo for temp lookup purposes
+            
             for(const prop in userinfo) { //checking that the token and user profile overlap correctly
                 let dummystruct = this.userStruct();
                 if(u[prop] && prop !== '_id') {

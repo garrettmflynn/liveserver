@@ -35,7 +35,7 @@ export class SessionsBackend extends Service {
             {
                 route:'updateUserStreamData',
                 callback:(self,args,origin) => {
-                    const user = self.USERS.get(origin)
+                    const user = self.USERS[origin]
                     if (!user) return false
                     return this.updateUserStreamData(user,args);
                 }
@@ -43,7 +43,7 @@ export class SessionsBackend extends Service {
             {
                 route:'createSession',
                 callback:(self,args,origin) => {
-                    const user = self.USERS.get(origin)
+                    const user = self.USERS[origin]
                     if (!user) return false
                     return this.createSession(user,args[0],args[1]);
                 }
@@ -51,9 +51,9 @@ export class SessionsBackend extends Service {
             {
                 route:'subscribeToSession',
                 callback:(self,args,origin) => {
-                    const user = self.USERS.get(origin)
+                    const user = self.USERS[origin]
                     if (!user) return false
-                    if(self.USERS.get(args[0]))
+                    if(self.USERS[args[0]])
                         return this.subscribeToUser(user,args[0],user.id,args[1],args[2]); //can input arguments according to the type of session you're subscribing to
                     else return this.subscribeToSession(user,args[0],args[1],args[2]);
                 }
@@ -62,7 +62,7 @@ export class SessionsBackend extends Service {
                 route:'unsubscribeFromSession',
                 aliases:['kickUser'],
                 callback:(self,args,origin) => {
-                    const user = self.USERS.get(origin)
+                    const user = self.USERS[origin]
                     if (!user) return false
                     if(!args[0]) return this.unsubscribeFromSession(user,user.id,args[1]);
                     return this.unsubscribeFromSession(user,args[0],args[1]);
@@ -77,7 +77,7 @@ export class SessionsBackend extends Service {
             {
                 route:'deleteSession',
                 callback:(self,args,origin) => {
-                    const user = self.USERS.get(origin)
+                    const user = self.USERS[origin]
                     if (!user) return false
                     return this.deleteSession(user,args[0]);
                 }
@@ -85,7 +85,7 @@ export class SessionsBackend extends Service {
             {
                 route:'makeHost',
                 callback:(self,args,origin) => {
-                    const user = self.USERS.get(origin)
+                    const user = self.USERS[origin]
                     if (!user) return false
                     return this.makeHost(user,args[0],args[1]);
                 }
@@ -93,7 +93,7 @@ export class SessionsBackend extends Service {
             {
                 route:'makeOwner',
                 callback:(self,args,origin) => {
-                    const user = self.USERS.get(origin)
+                    const user = self.USERS[origin]
                     if (!user) return false
                     return this.makeOwner(user,args[0],args[1]);
                 }
@@ -101,7 +101,7 @@ export class SessionsBackend extends Service {
             {
                 route:'makeAdmin',
                 callback:(self,args,origin) => {
-                    const user = self.USERS.get(origin)
+                    const user = self.USERS[origin]
                     if (!user) return false
                     return this.makeAdmin(user,args[0],args[1]);
                 }
@@ -109,7 +109,7 @@ export class SessionsBackend extends Service {
             {
                 route:'makeModerator',
                 callback:(self,args,origin) => {
-                    const user = self.USERS.get(origin)
+                    const user = self.USERS[origin]
                     if (!user) return false
                     return this.makeModerator(user,args[0],args[1]);
                 }
@@ -117,7 +117,7 @@ export class SessionsBackend extends Service {
             {
                 route:'removeAdmin',
                 callback:(self,args,origin) => {
-                    const user = self.USERS.get(origin)
+                    const user = self.USERS[origin]
                     if (!user) return false
                     return this.removeAdmin(user,args[0],args[1]);
                 }
@@ -125,7 +125,7 @@ export class SessionsBackend extends Service {
             {
                 route:'removeModerator',
                 callback:(self,args,origin) => {
-                    const user = self.USERS.get(origin)
+                    const user = self.USERS[origin]
                     if (!user) return false
                     return this.removeModerator(user,args[0],args[1]);
                 }
@@ -133,7 +133,7 @@ export class SessionsBackend extends Service {
             {
                 route:'banUser',
                 callback:(self,args,origin) => {
-                    const user = self.USERS.get(origin)
+                    const user = self.USERS[origin]
                     if (!user) return false
                     return this.banUser(user,args[0],args[1]);
                 }
@@ -141,7 +141,7 @@ export class SessionsBackend extends Service {
             {
                 route:'unbanUser',
                 callback:(self,args,origin) => {
-                    const user = self.USERS.get(origin)
+                    const user = self.USERS[origin]
                     if (!user) return false
                     return this.unbanUser(user,args[0],args[1]);
                 }
@@ -173,8 +173,8 @@ export class SessionsBackend extends Service {
         
         let u;
         if(data.id)
-            u = this.controller.USERS.get(data.id);
-        else u = this.controller.USERS.get(data.id);
+            u = this.controller.USERS[data.id];
+        else u = this.controller.USERS[data.id];
 
         if(!u) return undefined;
 
@@ -252,7 +252,7 @@ export class SessionsBackend extends Service {
             if(!userId && user.id) userId = user.id;
             
 
-            let newUser = this.controller.USERS.get(userId);
+            let newUser = this.controller.USERS[userId];
             if(!newUser) return undefined;
 
         
@@ -269,7 +269,7 @@ export class SessionsBackend extends Service {
 
                 if(session.host !== user.id || session.type !== 'hostedroom') { //get all the user data
                     session.users.forEach((id) => {
-                        let u = this.controller.USERS.get(id);
+                        let u = this.controller.USERS[id];
                         if(u) {
                             result.userData[id] = {};
                             session.propnames.forEach((p) => {
@@ -279,7 +279,7 @@ export class SessionsBackend extends Service {
                         }
                     });
                 } else { //only get the host's data in this case
-                    let u = this.controller.USERS.get(session.host);
+                    let u = this.controller.USERS[session.host];
                     if(u) {
                         result.hostData = {};
                         session.hostprops.forEach((p) => {
@@ -305,9 +305,9 @@ export class SessionsBackend extends Service {
         if(!sourceId) return undefined;
         if(!listenerId) listenerId = user.id;
 
-        let source = this.controller.USERS.get(sourceId);
+        let source = this.controller.USERS[sourceId];
 
-        let listener = this.controller.USERS.get(listenerId);
+        let listener = this.controller.USERS[listenerId];
         if(!listener) return undefined;
 
         if(propnames.length === 0) propnames = Array.from(Object.keys(source.props)); //stream ALL of the available props instead
@@ -333,7 +333,7 @@ export class SessionsBackend extends Service {
                     propnames.push(propname);
                 }
             }
-            let u = this.controller.USERS.get(listenerId);
+            let u = this.controller.USERS[listenerId];
             if(u !== undefined && source !== undefined) {
                 let obj = {
                     type:'user',
@@ -385,7 +385,7 @@ export class SessionsBackend extends Service {
             let idx = session.users.indexOf(userId);
             if(idx) {
                 session.users.splice(idx,1);
-                let u = this.controller.USERS.get(userId);
+                let u = this.controller.USERS[userId];
                 if(u) {
                     let i = u.sessions.indexOf(sessionId);
                     if(i > -1) { u.sessions.splice(i,1); }
@@ -466,11 +466,11 @@ export class SessionsBackend extends Service {
                 });
             }
             else {
-                let source = this.controller.USERS.get(sub.source);
+                let source = this.controller.USERS[sub.source];
                 let i1 = source.sessions.indexOf(sub.id);
                 if(i1 > -1) source.sessions.splice(i1,1);
                 
-                let listener = this.controller.USERS.get(sub.listener);
+                let listener = this.controller.USERS[sub.listener];
                 let i2 = listener.sessions.indexOf(sub.id);
                 if(i2 > -1) listener.sessions.splice(i2,1);
 
@@ -634,7 +634,7 @@ export class SessionsBackend extends Service {
 
             session.users.forEach((sourceId) => {
                 result.userData[sourceId] = {}
-                let source = this.controller.USERS.get(session.source);
+                let source = this.controller.USERS[session.source];
 
                 if(!source) this.removeUserToUserStream(undefined,session.id,undefined,true);
                 
@@ -657,7 +657,7 @@ export class SessionsBackend extends Service {
             session.users.forEach((id) => {
                 result.userData[id] = {};
                 for(const prop in session.propnames) {
-                    let u = this.controller.USERS.get(id);
+                    let u = this.controller.USERS[id];
                     if(u) {
                         if(!session.spectators.includes(id)) {
                             for(const prop in session.propnames) {
@@ -691,13 +691,13 @@ export class SessionsBackend extends Service {
         if(session.type === 'hostroom') {
 
             updateObj.hostData = {};
-            let host = this.controller.USERS.get(session.host);
+            let host = this.controller.USERS[session.host];
             if(!host && session.host) {
                 this.kickUser(undefined,session.host,session.id,true);
             } else {
                 session.host = session.users[0];
                 if(!session.host) return false; //no users to update, continue
-                else host = this.controller.USERS.get(session.host);
+                else host = this.controller.USERS[session.host];
             }
 
             session.hostprops.forEach((prop) => {
@@ -707,7 +707,7 @@ export class SessionsBackend extends Service {
             if(Object.keys(updateObj.hostData).length > 0) {
                 let toKick = [];
                 session.users.forEach((user) => {
-                    let u = this.controller.USERS.get(user);
+                    let u = this.controller.USERS[user];
                     if(!u) toKick.push(user);
                     else if (user !== session.host && u.send) u.send({route:'sessionData',message:updateObj})   
                     updatedUsers[user] = true;
@@ -722,7 +722,7 @@ export class SessionsBackend extends Service {
         updateObj.userData = {};
         let toKick = [];
         session.users.forEach((user) => {
-            let u = this.controller.USERS.get(user);
+            let u = this.controller.USERS[user];
             if(!u) toKick.push(user);
             else {
                 updateObj.userData[user] = {};
@@ -742,7 +742,7 @@ export class SessionsBackend extends Service {
 
         //now send the data out
         if(session.type === 'hostroom') {
-            let host = this.controller.USERS.get(session.host);
+            let host = this.controller.USERS[session.host];
             if(host) {
                 if (host.send) host.send({route:'sessionData',message:updateObj})   
                 updatedUsers[session.host] = true;
@@ -751,7 +751,7 @@ export class SessionsBackend extends Service {
         }   
         else {
             session.users.forEach((user) => {
-                let u = this.controller.USERS.get(user);
+                let u = this.controller.USERS[user];
                 if(u) {
                     if (u.send) u.send({route:'sessionData',message:updateObj})   
                     updatedUsers[user] = true;
@@ -772,8 +772,8 @@ export class SessionsBackend extends Service {
 
         let updateObj = JSON.parse(JSON.stringify(session));
 
-        let source = this.controller.USERS.get(session.source);
-        let listener = this.controller.USERS.get(session.listener);
+        let source = this.controller.USERS[session.source];
+        let listener = this.controller.USERS[session.listener];
         if(!source || !listener) {
             this.removeUserToUserStream(undefined,session.id,undefined,true);
             return undefined;
@@ -790,7 +790,7 @@ export class SessionsBackend extends Service {
         });
 
         if(Object.keys(updateObj.userData).length > 0) {
-            const u = this.controller.USERS.get(session.listenerId)
+            const u = this.controller.USERS[session.listenerId]
             if (u) {
                 if (u.send) u.send({route:'sessionData',message:updateObj})   
                 updatedUsers[u.id] = true;
@@ -822,7 +822,7 @@ export class SessionsBackend extends Service {
 
             //clear update flags
             for(const prop in updatedUsers) {
-                let u = this.controller.USERS.get(prop);
+                let u = this.controller.USERS[prop];
                 if(u) u.updatedPropNames = [];
             }
 

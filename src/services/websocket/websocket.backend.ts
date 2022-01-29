@@ -143,7 +143,6 @@ export class WebsocketBackend extends SubscriptionService {
     addSubscription = async (info: MessageObject, ws) => {
 
       const id = info.id
-      console.log(id)
       const routes = info.message?.[0]
       let u = this.subscribers.get(id)
 

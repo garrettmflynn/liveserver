@@ -45,6 +45,7 @@ export class EventsBackend extends SubscriptionService {
             this.subscribers.delete(tempId)
             u.id = id
             this.subscribers.set(id, u)
+            console.log('USER ADDED IN EVENTS', id)
             await this.notify({route: 'addUser', message: [{id, send: u.callback}]});
         }
 

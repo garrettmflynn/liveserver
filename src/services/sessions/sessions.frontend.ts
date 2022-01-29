@@ -6,6 +6,9 @@ import { Service } from '../../router/Service'
 //Joshua Brewster, Garrett Flynn AGPL v3.0
 export class SessionsClient extends Service {
 	
+	name = 'sessions'
+	service = 'sessions'
+	
 	user: any
 	state = new StateManager();
 	apps = new Map();

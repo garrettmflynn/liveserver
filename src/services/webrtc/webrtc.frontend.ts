@@ -13,7 +13,7 @@ import { UserObject, MessageObject } from '../../common/general.types';
 export class WebRTCClient extends SubscriptionService {
 
     name = 'webrtc'
-    service = 'WebRTCBackend'
+    service = 'webrtc'
 
     config: RTCConfiguration
     peers: Map<string,RTCPeerConnection> = new Map()
@@ -25,6 +25,15 @@ export class WebRTCClient extends SubscriptionService {
     hasResolved: {[x:string]: DataChannel} = {} // for tracking DataChannel callbacks
 
     routes = [
+
+        // // Initialization
+        // {
+        //     route: 'rooms',
+        //     callback: (message:any) => {
+        //              message.forEach((room) => {this.rooms.set(room.uuid, room)})
+        //             this.dispatchEvent(new CustomEvent('room', {detail: {rooms: message}}))
+        //     }
+        // },
 
         // Room Management
         {
@@ -388,11 +397,19 @@ export class WebRTCClient extends SubscriptionService {
     //     this.responses.set(name, f)
     // }
 
-    // send = async (o:MessageObject, options?: any):Promise<any> => {
-    //     throw 'Send not implemented'
-    // }
+    send = async (o:MessageObject, options?: any):Promise<any> => {
+        throw 'Send not implemented'
+    }
 
-    // add = (user:Partial<UserObject>, endpoint:string):Promise<any> => {
-    //     throw 'Add not implemented'
-    // }
+    add = async (user:Partial<UserObject>, endpoint:string):Promise<any> => {
+        
+        console.log('Do not need to do anything since the server will handle WebRTC subscriptions')
+        // console.log('ADDING', user, endpoint)
+
+        // return await this.notify({
+        //     route: 'webrtc/addUser',
+        //     message: [user]
+        // })
+        
+    }
 }

@@ -1,6 +1,6 @@
 //Allows you to stream outgoing data asynchronously with automatic buffering settings.
 
-import { Service } from 'liveserver-router/Service';
+import { Service } from '../../router/Service';
 import { UserObject } from "../../common/general.types";
 
 //This hooks in with functions on the session.service tool for creating two way sessions.
