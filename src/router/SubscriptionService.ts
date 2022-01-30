@@ -10,7 +10,6 @@ export class SubscriptionService extends Service {
     service?: string;
     reference?: any; // Networking object reference
     responses?: Map<string, Function> = new Map()
-    remote?: string
 
     // Message Handler
     subscribers: Map<string, any> = new Map()
@@ -33,10 +32,6 @@ export class SubscriptionService extends Service {
 
     add = (user:Partial<UserObject>, endpoint:string):Promise<any> => {
         throw 'Add not implemented'
-    }
-
-    setRemote = (remote) => {
-        this.remote = remote
     }
 
     addResponse = (name, f) => {

@@ -6,17 +6,17 @@ import { UserObject } from '../../common/general.types'
 export class Room {
 
     // Core Properties
-    uuid: string = randomId()
+    id: string = randomId()
     name: string = ''
     initiator: UserObject
     restrictions: any = {}
     peers: Map<string,UserObject> = new Map()
     empty:boolean = false
 
-    constructor(initiator: UserObject, settings:any = {name: null, restrictions: {}}){
+    constructor(initiator: UserObject, settings:RoomInterface = {name: null, restrictions: {}}){
 
         // Core Properties
-        this.name = settings.name ?? this.uuid
+        this.name = settings.name ?? this.id
         this.initiator = initiator
         this.restrictions = settings.restrictions
 
@@ -24,7 +24,7 @@ export class Room {
 
     export = () => {
         return {
-            uuid: this.uuid,
+            id: this.id,
             name: this.name,
             initiator: this.initiator?.id,
             restrictions: this.restrictions,
@@ -48,8 +48,9 @@ export class Room {
 
             // Request Peer Connections
             this.peers.forEach((peer) => {
-                o.send({route: "connect", message: {id:peer.id, info: peer}}) // initialize connections
-                peer.send({route: "connect", message: {id:o.id, info: peer}}) // extend connections
+                console.log('Notifying')
+                o.send({route: "webrtc/connect", message: [{id:peer.id, info: peer}]}) // initialize connections
+                peer.send({route: "webrtc/connect", message: [{id:o.id, info: o}]}) // extend connections
             })
 
             // Set in Room

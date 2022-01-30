@@ -330,8 +330,8 @@ export class Router {
     // 
     // -----------------------------------------------
     addRemote = (base:string|URL) => {
-      const id = randomId('endpoint')
       const url = (base instanceof URL) ? base : new URL(base)
+      const id = url.origin
 
       // Register User on the Server
       if (url) {
@@ -339,6 +339,7 @@ export class Router {
           this.ENDPOINTS.set(id, {
             remote: url,
           })
+
           this.getServices(id)
           this.login(url) // Login user to connect to new remote
       }
@@ -350,26 +351,28 @@ export class Router {
     this.ENDPOINTS.delete(id)
   }
 
-  getServices = async (id?) => {
+  getServices = async (remote?) => {
       let res = await this.send({
         route: 'services',
-        id
+        remote
       }).catch(async (e) => {
 
         // Fallback to WS
-        console.log('Falling back to Websocket protocol', id)
+        console.log('Falling back to Websocket protocol', remote)
         await this.subscribe(() => {
           console.log('unused ws callback')
-        }, {protocol: 'websocket', id, force: true})
-        return await this.send({route: 'services', id})
+        }, {protocol: 'websocket', remote, force: true})
+        return await this.send({route: 'services', remote})
 
       })
 
+      
       if (res) {
 
+        const routes = res[0]
           let serviceNames = []
-          for (let route in res){
-              const className = res[route]
+          for (let route in routes){
+              const className = routes[route]
               const name = className.replace('Backend', '').toLowerCase()
               this.SERVICES.client.available[name] = route
               serviceNames.push(name)
@@ -389,7 +392,6 @@ export class Router {
           // General Subscription Check
           this.SERVICES.client.subscribeQueue['undefined']?.forEach(f => f())
           this.SERVICES.client.subscribeQueue['undefined'] = []
-
       }
   }
 
@@ -419,11 +421,15 @@ export class Router {
 
           // NOTE: This is where you listen for service.notify()
           service.subscribe(async (o:MessageObject, _:MessageType) => {
+
               // Check if Service is Available
               const available = this.SERVICES.client.available[name];
-              
+
               if (available) {
-                return await this.send(`${available}/${o.route}`, ...o.message) // send automatically with extension
+                return await this.send({
+                  route: `${available}/${o.route}`,
+                  remote: service?.remote // If remote is bound to client
+                }, ...o.message) // send automatically with extension
               }
           })
 
@@ -469,9 +475,16 @@ export class Router {
 
 
   private _send = async (routeSpec:RouteSpec, method?: FetchMethods, ...args:any[]) => {
+    
+      let route;
+      if (typeof routeSpec === 'string') {
+        route = routeSpec 
+      } else {
+        route = routeSpec.route
+        if (routeSpec.remote && !(routeSpec.remote instanceof URL)) routeSpec.remote = new URL(routeSpec.remote)
+      } // Support object-based specs
 
-      const route = (typeof routeSpec === 'string') ? routeSpec : routeSpec.route // Support object-based specs
-      const endpoint = ((typeof routeSpec === 'string') ? this.ENDPOINTS.values().next().value : (routeSpec?.remote) ? {remote: routeSpec?.remote} : (this.ENDPOINTS.get(routeSpec?.id) ?? this.ENDPOINTS.values().next().value)) as EndpointType
+      const endpoint = ((typeof routeSpec === 'string') ? this.ENDPOINTS.values().next().value : (routeSpec?.remote) ? this.ENDPOINTS.get((routeSpec.remote as URL).origin) : this.ENDPOINTS.values().next().value) as EndpointType
       const remote = endpoint.remote
 
       if (remote && route){
@@ -494,7 +507,6 @@ export class Router {
           }
 
             if (toSend.method != 'GET') toSend.body = safeStringify({id: this.currentUser.id, message: args, suppress: !!endpoint.subscription})
-
               response = await fetch(createRoute(route, remote), toSend).then(async (res) => {
                   const json = await res.json()
                   if (!res.ok) throw json.message
@@ -505,10 +517,13 @@ export class Router {
           }
 
           // Activate Internal Routes if Relevant (currently blocking certain command chains)
-          if (!response.block) this.ROUTES[response?.route]?.callback(response.message) // TODO: Monitor what is outputted to chain calls?
+          if (!response.block) {
+            let route = this.ROUTES[response?.route]
+            if (route?.callback instanceof Function) route.callback(this, response.message, response.id) // TODO: Monitor what is outputted to chain calls?
+          }
 
           // Notify through Subscription (if not suppressed)
-          if (!response.suppress && endpoint.subscription) endpoint.subscription?.responses?.forEach(f => f(response))
+          if (!response.suppress && endpoint.subscription) endpoint.subscription?.responses?.forEach(f => f(Object.assign({route}, response))) // Include send route if none returned
           
           // Pass Back to the User
           return response?.message
@@ -526,10 +541,15 @@ export class Router {
                     if (options.force || this.SERVICES.client.available[client.service]) {
                       let subscriptionEndpoint = `${this.SERVICES.client?.available[client.service] ?? client.name.toLowerCase()}/subscribe`
                       let msg;
-                      const endpoint = (options.id ? this.ENDPOINTS.get(options.id) : ((options.remote) ? {remote: options.remote} : this.ENDPOINTS.values().next().value)) as EndpointType
+
+
+                    if (options.remote && !(options.remote instanceof URL)) options.remote = new URL(options.remote)
+                    const endpoint = ((options.remote) ? this.ENDPOINTS.get((options.remote as URL).origin) : this.ENDPOINTS.values().next().value) as EndpointType
+                            
+                      client.setRemote(endpoint.remote) // Bind Endpoint to Subscription Client
                       
+                      // TODO: Allow Multiple Endpoints per Subscription
                       if (!endpoint.subscription){
-                          client.setRemote(endpoint.remote)
                           const url = new URL(subscriptionEndpoint, endpoint.remote)
                           msg = await client.add(this.currentUser, url)
                           endpoint.subscription = client
@@ -559,7 +579,6 @@ export class Router {
   subscribe = async (callback: Function, options: {
       protocol?:string
       routes?: string[]
-      id?: string,
       remote?: string | URL,
       force?:boolean
   } = {}) => {
@@ -568,8 +587,8 @@ export class Router {
           return await this.createSubscription(options, (event) => {
               const data = (typeof event.data === 'string') ? JSON.parse(event.data) : event
               callback(data) // whole data object (including route)
-              const routeCallback = this.ROUTES[data?.route]?.callback
-              if (!data.block && routeCallback instanceof Function) routeCallback(data) // Run internal routes (if required)
+              const route = this.ROUTES[data?.route]
+              if (route?.callback instanceof Function && !data.block) route.callback(this, data.message, data.id) // Run internal routes (if required)
           })
           
       } else throw 'Remote is not specified'
@@ -638,7 +657,7 @@ export class Router {
             if (typeof dict !== 'object' || !('message' in dict)) dict = {
               message: dict
             }
-            if (!dict.route) dict.route = route
+            // if (!dict.route) dict.route = route // Only send back a route when you want to trigger inside the Router
             dict.callbackId = callbackId
 
             if (this.ROUTES[dict.route]) dict.block = true // Block infinite command chains... 
@@ -869,12 +888,18 @@ export class Router {
                   res = {route: route, message}
                 } else res = errorRes
               } else if (routeInfo?.callback) {
-                res  = await routeInfo?.callback(...[this, input, origin])
+                res  = await routeInfo?.callback(this, input, origin)
               } else res = errorRes
 
-              if (routeInfo.service && res?.route) res.route = `${routeInfo.service}/${res.route}` // Correct Route
-              // if (routeInfo.reference) state.setState(route, res.message)
-              if (routeInfo.headers) res.headers = routeInfo.headers // e.g. text/html for SSR
+              if (!(typeof res === 'object')) res = {message: res}
+
+              // if (res){
+                if (!Array.isArray(res.message)) res.message = [res.message]
+                if (routeInfo.service && res?.route) res.route = `${routeInfo.service}/${res.route}` // Correct Route
+                // if (routeInfo.reference) state.setState(route, res.message)
+                if (routeInfo.headers) res.headers = routeInfo.headers // e.g. text/html for SSR
+              // }
+
               resolve(res)
             } catch(e) {
               console.log('Callback Failed: ', e)

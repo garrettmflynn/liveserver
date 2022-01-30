@@ -171,6 +171,8 @@ export class WebsocketBackend extends SubscriptionService {
             u.routes[route] = true
         })
 
+        console.log(this.subscribers)
+
     }
 }
 

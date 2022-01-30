@@ -41,47 +41,51 @@ export class EventsBackend extends SubscriptionService {
         const routes = info.message?.[0]
         let u = this.subscribers.get(tempId ?? id)
 
+        console.log(this.subscribers)
         if (tempId && u) {
             this.subscribers.delete(tempId)
             u.id = id
             this.subscribers.set(id, u)
-            console.log('USER ADDED IN EVENTS', id)
             await this.notify({route: 'addUser', message: [{id, send: u.callback}]});
         }
 
-        if (!u){
-            u = {id, routes: {}}
+        if (!u) u = {id, routes: {}}
 
-            const headers = {
-                'Content-Type': 'text/event-stream',
-                'Connection': 'keep-alive',
-                'Cache-Control': 'no-cache'
-              };
+        // Refresh User Subscription Target
+        const headers = {
+            'Content-Type': 'text/event-stream',
+            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache'
+        };
+
+        response.writeHead(200, headers);
+                
+        u.callback = (data:any) => {
+            console.log('RETURNING', data)
+            if(data?.message && data?.route) {
+                response.write(`data: ${JSON.stringify(data)}\n\n`);
+            }
+        }
+
+        u.callback({route:'events/subscribe', message: id}) // send initial value
         
-              response.writeHead(200, headers);
-                        
-              u.callback = (data:any) => {
-                if(data?.message && data?.route) {
-                    response.write(`data: ${JSON.stringify(data)}\n\n`);
-                }
-              }
+        // Cancel Subscriptions
+        request.on('close', () => {
+            this.subscribers.delete(u.id)
+        });
 
-            u.callback({route:'events/subscribe', message: id}) // send initial value
-            
-            // Cancel Subscriptions
-            request.on('close', () => {
-                this.subscribers.delete(u.id)
-            });
+        this.subscribers.set(id, u)
 
-            this.subscribers.set(id, u)
-
-        } else {
+        
+        // else {
+        if (routes){
             routes.forEach(async route => {
-                let res = await this.notify({route, message: []}, true) // Getting current routes to pass along
-                u.callback(res)
+                // let res = await this.notify({route, message: []}, true) // Getting current routes to pass along
+                // u.callback(res)
                 u.routes[route] = true // TODO: Toggle off to cancel subscription
             })
         }
+        // }
 
         return id
     }

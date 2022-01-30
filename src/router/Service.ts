@@ -7,6 +7,7 @@ export class Service {
     id = randomId('service') // Unique Service ID
     name:string = 'service' // Service Name
     callbacks: Map<string, SubscriptionCallbackType >  = new Map() // Subscriber Callbacks
+    remote?: string
 
     // Service-Specific Routes
     routes: RouteConfig[] = [
@@ -54,6 +55,11 @@ export class Service {
 
         // Return First Valid Subscription Response
         return responses?.[0]
+    }
+
+    // Bind Route
+    setRemote = (remote) => {
+        this.remote = (remote instanceof URL) ? remote.href : remote
     }
 
     // Subscribe to Notifications

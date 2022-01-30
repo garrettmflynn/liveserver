@@ -30,24 +30,28 @@ export class WebRTCClient extends SubscriptionService {
         // {
         //     route: 'rooms',
         //     callback: (message:any) => {
-        //              message.forEach((room) => {this.rooms.set(room.uuid, room)})
+        //              message.forEach((room) => {this.rooms.set(room.id, room)})
         //             this.dispatchEvent(new CustomEvent('room', {detail: {rooms: message}}))
         //     }
         // },
 
         // Room Management
+        // {
+        //     route: 'info',
+        //     callback: (self, [peers, rooms]) => {
+        //             // rooms.forEach((room) => {this.rooms.set(room.id, room)})
+        //             // this.dispatchEvent(new CustomEvent('room', {detail: {rooms}}))
+
+        //             // peers.forEach((peer) => {this.peers.set(room.id, room)})
+        //             // this.dispatchEvent(new CustomEvent('peer', {detail: {peers}}))
+        //     }
+        // },
         {
-            route: 'rooms',
-            callback: (message:any) => {
-                     message.forEach((room) => {this.rooms.set(room.uuid, room)})
-                    this.dispatchEvent(new CustomEvent('room', {detail: {rooms: message}}))
-            }
-        },
-        {
-            route: 'roomadded',
-            callback: (message:any) => {
-                this.rooms.set(message.uuid, message)
-                this.dispatchEvent(new CustomEvent('room', {detail: {room: message, rooms: Array.from(this.rooms, ([_,value]) => value)}}))
+            route: 'room',
+            callback: (self, args) => {
+                const o = args[0]
+                this.rooms.set(o.id, o)
+                this.dispatchEvent(new CustomEvent('room', {detail: {room: o, rooms: Array.from(this.rooms, ([_,value]) => value)}}))
             }
         },
 
@@ -57,41 +61,42 @@ export class WebRTCClient extends SubscriptionService {
         // Default WebRTC Commands
         {
             route: 'answer',
-            callback: (message:any) => {
-                let peer = this.peers.get(message.id)
-                if (peer) peer.setRemoteDescription(message.msg);
+            callback: (self, args) => {
+                let peer = this.peers.get(args[0])
+                if (peer) peer.setRemoteDescription(args[1]);
             }
         },
         {
             route: 'candidate',
-            callback: (message:any) => {
-                let peer = this.peers.get(message.id)
-                let candidate = new RTCIceCandidate(message.msg)
+            callback: (self, args, id) => {
+                let peer = this.peers.get(args[0])
+                let candidate = new RTCIceCandidate(args[1])
                 if (peer)  peer.addIceCandidate(candidate).catch((e:Error) => console.error(e)); // thrown multiple times since initial candidates aren't usually appropriate
             }
         },
         {
             route: 'offer',
-            callback: (message:any, id) => {
-                console.log('MESSAGE', message)
-                this.onoffer(message, message.msg, id)
+            callback: (self, args, id) => {
+                this.onoffer(args[1], args[0])
             }
         },
 
         // Extra Commands
         {
             route: 'disconnectPeer',
-            callback: (message:any) => {
-                this.closeConnection(message, this.peers.get(message.id))
+            callback: (self, args) => {
+                const o = args[0]
+                this.closeConnection(o, this.peers.get(o.id))
             }
         },
         {
             route: 'connect',
-            callback: async (message:any) => {
-                this.createPeerConnection(message) // connect to peer
+            callback: async (self, args) => {
+                const o = args[0]
+                this.createPeerConnection(o) // connect to peer
                 for (let arr of this.sources) {
                     let dataTracks = arr[1].getDataTracks()
-                    await this.addDataTracks(message?.id, dataTracks) // add data tracks from all sources
+                    await this.addDataTracks(o?.id, dataTracks) // add data tracks from all sources
                 }            
             }
         }
@@ -130,7 +135,7 @@ export class WebRTCClient extends SubscriptionService {
 
         this.addEventListener('peerdisconnect', ((ev:CustomEvent) => { this.peers.delete(ev.detail.id)}) as EventListener )
         this.addEventListener('peerdisconnect', ((ev:CustomEvent) => { this.onpeerdisconnect(ev)}) as EventListener )
-        this.addEventListener('peerconnect', ((ev:CustomEvent) => { this.peers.set(ev.detail.id, ev.detail.peer) }) as EventListener )
+        this.addEventListener('peerconnect', ((ev:CustomEvent) => { this.peers.set(ev.detail.id, ev.detail.webrtc) }) as EventListener )
         this.addEventListener('peerconnect', ((ev:CustomEvent) => { this.onpeerconnect(ev)}) as EventListener )
         this.addEventListener('datachannel', ((ev:CustomEvent) => { this.ondatachannel(ev) }) as EventListener )
         this.addEventListener('room', ((ev:CustomEvent) => { this.onroom(ev)}) as EventListener )
@@ -170,12 +175,12 @@ export class WebRTCClient extends SubscriptionService {
 
 
     // Note: Will run on initial offer and subsequent renegotiations
-    onoffer = async (peerInfo:UserObject, sdp:RTCSessionDescriptionInit, peerId:string) => {
-        let myPeerConnection = await this.createPeerConnection(peerInfo, peerId)
+    onoffer = async (sdp:RTCSessionDescriptionInit, peerId:string) => {
+        let myPeerConnection = await this.createPeerConnection({id:peerId}, peerId)
         const description = new RTCSessionDescription(sdp);
         myPeerConnection.setRemoteDescription(description).then(() => myPeerConnection.createAnswer()).then(sdp => myPeerConnection.setLocalDescription(sdp))
         .then(() => {
-            this.notify({route: 'answer', message: [peerInfo.id, myPeerConnection.localDescription]})
+            this.notify({route: 'answer', message: [peerId, JSON.stringify(myPeerConnection.localDescription)]}) // Pre-stringify
         });
     }
 
@@ -183,12 +188,12 @@ export class WebRTCClient extends SubscriptionService {
         localConnection.createOffer()
         .then(sdp => localConnection.setLocalDescription(sdp))
         .then(() => {
-            this.notify({route: 'offer', message: [id, localConnection.localDescription]})
+            this.notify({route: 'offer', message: [id, JSON.stringify(localConnection.localDescription)]}) // Pre-stringify
         });
     }
 
     handleICECandidateEvent = (event: RTCPeerConnectionIceEvent, id: string) => {
-        if (event.candidate) this.notify({route: 'candidate', message: [id, event.candidate]})
+        if (event.candidate) this.notify({route: 'candidate', message: [id, JSON.stringify(event.candidate)]}) // Pre-stringify
     }
 
     handleTrackEvent = (event:RTCTrackEvent, id:string) => {
@@ -255,7 +260,7 @@ export class WebRTCClient extends SubscriptionService {
         if (peer) this.dispatchEvent(new CustomEvent('peerdisconnect', {detail: Object.assign(info, {peer})}))
     }
 
-    createPeerConnection = async (peerInfo:UserObject, peerId?:string) => {
+    createPeerConnection = async (peerInfo:any, peerId?:string) => {
 
         const localConnection = new RTCPeerConnection(this.config);  
 
@@ -274,6 +279,7 @@ export class WebRTCClient extends SubscriptionService {
 
         if (!peerId) this.dispatchEvent(new CustomEvent('peerconnect', {detail: peerInfo}))
         else {
+
             // Only respond to tracks from remote peers
             localConnection.ontrack = (e) => {
                 this.handleTrackEvent(e, peerId); 
@@ -318,11 +324,11 @@ export class WebRTCClient extends SubscriptionService {
         if (!(channel instanceof RTCDataChannel) && peer) {
             local = true
             let peerConnection = this.peers.get(peer)
-            console.error('Opening data channel')
             if (peerConnection) channel = peerConnection.createDataChannel(name ?? 'my-data-channel');
         }
 
-        return await this.useDataChannel(channel as RTCDataChannel, callback, local, reciprocated)
+        console.log('DATA CHJANNEL PEER', peer)
+        return await this._useDataChannel(channel as RTCDataChannel, callback, local, reciprocated, peer)
     }
 
     closeDataChannel = async (id:string) => {
@@ -331,15 +337,16 @@ export class WebRTCClient extends SubscriptionService {
         this.dataChannels.delete(id)
     }
 
-    useDataChannel = (dataChannel:RTCDataChannel, onMessage:any=()=>{}, local:boolean=false, reciprocated:boolean=true):Promise<DataChannel> => {
+    _useDataChannel = (dataChannel:RTCDataChannel, onMessage:any=()=>{}, local:boolean=false, reciprocated:boolean=false, peer?:string):Promise<DataChannel> => {
 
         return new Promise((resolve) => {
 
             // Assign Event Listeners on Open
-            dataChannel.addEventListener("open", () => {
+            if (dataChannel){
+            dataChannel.onopen = () => {
 
                 // Track DataChannel Instances
-                const dC = new DataChannel(dataChannel)
+                const dC = new DataChannel(dataChannel, peer)
                 if (local) this.dataChannels.set(dC.id, dC) // only save local
 
                 let toResolve = (channel:DataChannel) => {
@@ -350,7 +357,9 @@ export class WebRTCClient extends SubscriptionService {
                     })
                     
                     // Resolve to User
-                    channel.sendMessage = (message) => {this.sendMessage(message, channel.id, reciprocated)} // TODO: Make this internal to the DataChannel?
+                    channel.sendMessage = (message) => {
+                        this.sendMessage(message, channel.id, reciprocated)
+                    } // TODO: Make this internal to the DataChannel?
                     
                     resolve(channel)
                 }
@@ -366,9 +375,11 @@ export class WebRTCClient extends SubscriptionService {
                         delete this.hasResolved[dC.label]
                     } else this.toResolve[dC.label] = toResolve
                 }
-            });
+            }
 
-            dataChannel.addEventListener("close", () =>{console.error('Data channel closed', dataChannel)});
+            dataChannel.onclose = () => console.error('Data channel closed', dataChannel)
+        
+        } else console.log('DATA CHANNEL DOES NOT EXIST')
         });
     };
 
@@ -404,7 +415,6 @@ export class WebRTCClient extends SubscriptionService {
     add = async (user:Partial<UserObject>, endpoint:string):Promise<any> => {
         
         console.log('Do not need to do anything since the server will handle WebRTC subscriptions')
-        // console.log('ADDING', user, endpoint)
 
         // return await this.notify({
         //     route: 'webrtc/addUser',

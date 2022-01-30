@@ -7,27 +7,32 @@ export default function AllExample({server, endpointIds, router}) {
     const buttons = useRef(null);
     const output = useRef(null);
 
+    let buttonRef = buttons.current
+    let outputRef = output.current
+
     let vals = {
       'add': 0
     }
 
+    let divs = {}
+
     router.subscribe((o) => {
         console.log('Remote #1 Subscription', o)
         let data = o.message
-        if (o.route === 'routes') handleRoutes(o.message)
+        if (o.route === 'routes') handleRoutes(o.message[0])
         else {
         
         // Subscription Responses
-        if (!data?.error) output.current.innerHTML = JSON.stringify(vals[o.route] = data)
-        else output.current.innerHTML = data.error
+        if (!data?.error) if (outputRef) outputRef.innerHTML = JSON.stringify(vals[o.route] = data)
+        else if (outputRef) outputRef.innerHTML = data.error
 
       }
-    }, {protocol: 'http', routes: ['routes', 'osc'], id: endpointIds[0]})
+    }, {protocol: 'http', routes: ['routes', 'osc'], remote: endpointIds[0]})
 
     function handleRoutes(data){
 
-      let divs = {}
-      buttons.current.innerHTML = ''
+      divs = {}
+      if (buttonRef) buttonRef.innerHTML = ''
 
       for (let route in data){
         const o = data[route]
@@ -40,7 +45,7 @@ export default function AllExample({server, endpointIds, router}) {
           divs[service] = document.createElement('div')
           divs[service].innerHTML = `<h2>${service}</h2>`
           divs[service].style.padding = '20px'
-          buttons.current.insertAdjacentElement('beforeend', divs[service])
+          if (buttonRef) buttonRef.insertAdjacentElement('beforeend', divs[service])
         }
 
         
@@ -65,6 +70,9 @@ export default function AllExample({server, endpointIds, router}) {
     useEffect(async () => {
       console.log('ENDPOINT IDs', endpointIds)
 
+      buttonRef = buttons.current
+      outputRef = output.current
+
     });
 
     send('routes', 'get')
@@ -76,12 +84,12 @@ export default function AllExample({server, endpointIds, router}) {
 
         if (!res?.error) {
           console.log(res)
-          if (route === 'routes') handleRoutes(res)
-          output.current.innerHTML = JSON.stringify(vals[route] = res)
-        } else output.current.innerHTML = res.error
+          if (route === 'routes') handleRoutes(res[0])
+          if (outputRef) outputRef.innerHTML = JSON.stringify(vals[route] = res)
+        } else if (outputRef) outputRef.innerHTML = res.error
 
       }).catch(err => {
-        output.current.innerHTML = err.error
+        if (outputRef) outputRef.innerHTML = err.error
       })
 
     }

@@ -14,7 +14,7 @@ export class WebsocketClient extends SubscriptionService {
 
     subprotocols?: Partial<UserObject>
     connected = false;
-    sendQueue = [];
+    sendQueue: {[x:string]: Function[]} = {}
     streamUtils
     sockets: Map<string,any> = new Map()
 
@@ -55,9 +55,9 @@ export class WebsocketClient extends SubscriptionService {
     addSocket(url:string|URL=new URL('https://localhost:80'), subprotocolObject=this.subprotocols) {
         let socket;
 
-        console.error('adding socket')
         if (!(url instanceof URL)) url = new URL(url)
-        
+        const remote = url.origin
+
         try {
             if (url.protocol === 'http:') {
             
@@ -89,7 +89,8 @@ export class WebsocketClient extends SubscriptionService {
             console.log('websocket opened');
             this.connected = true;
             //this.streamUtils.info.connected = true;
-            this.sendQueue.forEach(f => f());
+            this.sendQueue[remote]?.forEach(f => f());
+            this.sendQueue[remote] = []
         };
 
         socket.onmessage = this.onmessage
@@ -101,7 +102,6 @@ export class WebsocketClient extends SubscriptionService {
 
         // let id = randomId('socket')
 
-        const remote = url.host
         this.sockets.set(remote, socket);
 
         return remote
@@ -111,9 +111,7 @@ export class WebsocketClient extends SubscriptionService {
     getSocket(remote?:string|URL) {
         if (typeof remote === 'string') remote = new URL(remote)
         if(!remote) return this.sockets.values().next().value;
-
-        return this.sockets.get(remote.host);
-
+        return this.sockets.get(remote.origin);
     }
 
     // //add a callback to a worker
@@ -178,14 +176,18 @@ export class WebsocketClient extends SubscriptionService {
             this.queue[callbackId] = {resolve, suppress: options}
 
             let socket;
-            socket = this.getSocket(options.remote)
+            const remote = new URL(options.remote)
+            socket = this.getSocket(remote)
             // message = JSON.stringifyWithCircularRefs(message)
 
             if(!socket) return;
 
             let toSend = () => socket.send(safeStringify(message), resolver);
             if (socket.readyState === socket.OPEN) toSend();
-            else this.sendQueue.push(toSend);
+            else {
+                if (!this.sendQueue[remote.origin]) this.sendQueue[remote.origin] = []
+                this.sendQueue[remote.origin].push(toSend);
+            }
         });
     }
 
@@ -206,8 +208,9 @@ export class WebsocketClient extends SubscriptionService {
         const callbackId = res.callbackId
         if (callbackId) {
             delete res.callbackId
-            this.queue[callbackId].resolve(res) // Run callback
-            if (!this.queue[callbackId].suppress) runResponses()
+            const item = this.queue[callbackId]
+            if (item?.resolve) item.resolve(res) // Run callback
+            if (!item?.suppress) runResponses()
             // runResponses() 
             delete this.queue[callbackId];
         } else {

@@ -1,11 +1,11 @@
 
 export interface RoomInterface {
-    uuid: string;
+    id?: string;
     name: string,
-    initiator: string, // reduced from UserType
-    restrictions: {
-        users: string[]
-        max: number
+    initiator?: string, // reduced from UserType
+    restrictions?: {
+        users?: string[]
+        max?: number
     },
-    peers: string[]
+    peers?: string[]
 }

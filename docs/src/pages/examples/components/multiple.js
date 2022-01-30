@@ -12,7 +12,7 @@ export default function MultipleExample({server, endpointIds, router}) {
       ping1.current.onclick = () => {
         router.get({
           route: 'services',
-          id: endpointIds[0]
+          remote: endpointIds[0]
         }).then(res => {
           if (!res?.error) output.current.innerHTML = JSON.stringify(res)
           else output.current.innerHTML = res.error
@@ -25,7 +25,7 @@ export default function MultipleExample({server, endpointIds, router}) {
       ping2.current.onclick = () => {
         router.get({
           route: 'services',
-          id: endpointIds[1]
+          remote: endpointIds[1]
         }).then(res => {
           if (!res?.error) output.current.innerHTML = JSON.stringify(res)
           else output.current.innerHTML = res.error

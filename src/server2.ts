@@ -1,4 +1,5 @@
 import main from './main'
 main('81', {
-  websocket: true
+  websocket: true,
+  webrtc: true
 })

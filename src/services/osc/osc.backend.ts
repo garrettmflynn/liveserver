@@ -94,12 +94,12 @@ export class OSCBackend extends SubscriptionService {
 
             port.on("ready", () => {
                 this.ports.push(port)
-                resolve({route: 'oscInfo', message: port.options})
+                resolve({route: 'oscInfo', message: [port.options]})
             });
 
             port.on("error", (error) => {
-                resolve({route: 'oscError', message:  error.message})
-                this.notify({route: 'oscError', message: error.message}, true) // reach subscribers
+                resolve({route: 'oscError', message:  [error.message]})
+                this.notify({route: 'oscError', message: [error.message]}, true) // reach subscribers
             });
 
             port.on("message", (o) => {
@@ -118,7 +118,7 @@ export class OSCBackend extends SubscriptionService {
             });
 
             port.on("close", (message) => {
-                this.notify({route: 'oscClosed', message}, true) // reach subscribers
+                this.notify({route: 'oscClosed', message: [message]}, true) // reach subscribers
             })
             
             port.open();

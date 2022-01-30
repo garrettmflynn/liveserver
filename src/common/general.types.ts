@@ -1,5 +1,7 @@
+import { Router } from '../router/Router'
 
 export type RouteConfig = {
+    route: string, // Route Name
     id?: string, // Basic identifier for Clients
     private?: boolean, // Hide Route from Router 'routes' function (TODO: can still be called from knowledgeable clients...)
     // method?: 'GET' | 'POST', // Method constraints
@@ -7,14 +9,13 @@ export type RouteConfig = {
         object: any,
         transform: (o) => any
     }, // Reference to an object that notifies subscribers on change
-    route: string, // Route Name
     aliases?: string[], // Name aliases
     protocols?: ProtocolObject // Networking constraints
     headers?: any // Specify headers
     service?: string, // Service name
 
     args?: string[] // Derived argument names
-    callback: (...args:any[]) => any
+    callback?: (self: Router, args: any[], id: string) => any
 }
 
 export type EndpointType = {
@@ -25,8 +26,8 @@ export type EndpointType = {
 
 export type RouteSpec = string | {
     route: string,
-    remote?: string | URL,
-    id?: string // id
+    remote?: string | URL // === id
+    // id?: string // id
 }
 
 export type SubscriptionCallbackType = (o:MessageObject, name?: MessageType, origin?:string|number|undefined) => any 
