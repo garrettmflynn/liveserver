@@ -40,10 +40,8 @@ export class OSCClient extends Service{
 			}
 		]
 
-	constructor() {
-
-		super()
-
+	constructor(router) {
+		super(router)
 	}
 
 	async startOSC(

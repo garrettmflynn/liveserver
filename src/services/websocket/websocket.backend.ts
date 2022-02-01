@@ -19,8 +19,8 @@ export class WebsocketBackend extends SubscriptionService {
   //   }
   // ]
 
-    constructor(httpServer){
-      super()
+    constructor(router, httpServer){
+      super(router)
 
       this.server = httpServer
 
@@ -74,7 +74,7 @@ export class WebsocketBackend extends SubscriptionService {
 
             const msg = await this.notify({route: 'addUser', message: [Object.assign(subprotocols, {send: (data) => {
               if(ws.readyState === 1) ws.send(JSON.stringify(data))
-            }})]}); // TODO: Ensure users actually added to the session with a send() callback
+            }})]});
 
             ws.on('message', (json="") => {
               
@@ -123,9 +123,9 @@ export class WebsocketBackend extends SubscriptionService {
     // console.log(o)
     this.defaultCallback(ws, o)
     let res = await this.notify(o);
-    res.callbackId = o.callbackId
-    if (res instanceof Error) ws.send(JSON.stringify(res, Object.getOwnPropertyNames(res))) 
-    else if (res != null) ws.send(JSON.stringify(res)) // send back  
+      if (typeof res === 'object') res.callbackId = o.callbackId
+      if (res instanceof Error) ws.send(JSON.stringify(res, Object.getOwnPropertyNames(res))) 
+      else if (res != null) ws.send(JSON.stringify(res)) // send back  
   }
 
   defaultCallback = async (ws, o) => {
@@ -149,9 +149,9 @@ export class WebsocketBackend extends SubscriptionService {
       if (!u){
           u = {id, routes: {}}
                       
-            u.callback = (data:any) => {
-              if(data.message && data.route) {
-                  ws.send(JSON.stringify(data))
+            u.callback = (o:any) => {
+              if(o.message && o.route) {
+                  ws.send(JSON.stringify(o))
               }
             }
 
@@ -162,16 +162,13 @@ export class WebsocketBackend extends SubscriptionService {
 
           // u.id = id
           this.subscribers.set(id, u)
-
       } 
 
         routes?.forEach(async route => {
-            let res = await this.notify({route, message: []}, true) // Getting current routes to pass along
-            u.callback(res)
+            // let res = await this.notify({route, message: []}, true) // Getting current routes to pass along
+            // u.callback(res)
             u.routes[route] = true
         })
-
-        console.log(this.subscribers)
 
     }
 }

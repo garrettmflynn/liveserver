@@ -16,8 +16,8 @@ export class DataStreaming extends Service {
 	STREAMLATEST = 0;
 	STREAMALLLATEST = 1;
 
-	constructor(userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}) {
-		super()
+	constructor(router, userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}) {
+		super(router)
 
 		this.user = userinfo;
 

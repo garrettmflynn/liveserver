@@ -14,20 +14,23 @@ export class SubscriptionService extends Service {
     // Message Handler
     subscribers: Map<string, any> = new Map()
     updateSubscribers?: (router: Router, o: MessageObject) => any = (self, o) => {
+
         this.subscribers.forEach(u => {
             let possibilities = getRouteMatches(o.route)
             possibilities.forEach(route => {
                 if (u.routes[route]) {
                     u = self.USERS[u.id]
-                    if (u?.send) u.send(o)
+                    if (u?.send) {
+                        u.send(self.format(o))
+                    }
                 }
             })
         })
     }
     
     
-    constructor() {
-        super()
+    constructor(router) {
+        super(router)
     }
 
     add = (user:Partial<UserObject>, endpoint:string):Promise<any> => {
@@ -36,6 +39,10 @@ export class SubscriptionService extends Service {
 
     addResponse = (name, f) => {
         this.responses.set(name, f)
+    }
+
+    removeResponse = (name) => {
+        this.responses.delete(name)
     }
 
     send = async (o:MessageObject, options?: any):Promise<any> => {

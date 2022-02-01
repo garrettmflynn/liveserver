@@ -33,10 +33,9 @@ export class DatabaseBackend extends Service {
         mode?: 'local' | 'mongodb' | string,
         instance?: any
     }, debug=true) {
-        super()
+        super(Router)
 
         // if(!Router) { console.error('Requires a Router instance.'); return; }
-        this.controller = Router;
         this.db = dbOptions?.instance;
         this.collections = new Map();
         this.mode = (this.db) ? ((dbOptions.mode) ? dbOptions.mode : 'local') : 'local'
@@ -401,8 +400,8 @@ export class DatabaseBackend extends Service {
     async checkToNotify(user:UserObject,structs:any[]=[], mode=this.mode) {
 
         if(typeof user === 'string') {
-            for (let key in this.controller.USERS){
-                const obj = this.controller.USERS[key]
+            for (let key in this.router.USERS){
+                const obj = this.router.USERS[key]
                 if (obj.id === (user as any)) user = obj;
             }
         }
@@ -471,7 +470,7 @@ export class DatabaseBackend extends Service {
             }
             // console.log(usersToNotify);
             for(const uid in usersToNotify) {
-                this.controller.sendMsg(uid, 'notifications', true);
+                this.router.sendMsg(uid, 'notifications', true);
             }
 
             return true;
@@ -628,7 +627,7 @@ export class DatabaseBackend extends Service {
             let copy = JSON.parse(JSON.stringify(struct));
             if(copy._id) delete copy._id;
 
-            if(this.controller.DEBUG) console.log('RETURNS PROFILE', struct)
+            if(this.router.DEBUG) console.log('RETURNS PROFILE', struct)
             if(struct._id.includes('defaultId')) {
                 await this.db.collection(struct.structType).insertOne(copy);
             }
@@ -1019,11 +1018,11 @@ export class DatabaseBackend extends Service {
                 //delete any associated notifications, too
                 if(struct.users) {
                     struct.users.forEach((uid)=> {
-                        if(uid !== user.id && uid !== struct.ownerId) this.controller.sendMsg(uid,'deleted',struct._id);
+                        if(uid !== user.id && uid !== struct.ownerId) this.router.sendMsg(uid,'deleted',struct._id);
                     });
                 }
                 if(struct.ownerId !== user.id) {
-                    this.controller.sendMsg(struct.ownerId,'deleted',struct._id);
+                    this.router.sendMsg(struct.ownerId,'deleted',struct._id);
                 }
             }
         }));
@@ -1042,7 +1041,7 @@ export class DatabaseBackend extends Service {
 
         await this.db.collection('users').deleteOne({ id: userId });
 
-        if(user.id !== userId) this.controller.sendMsg(userId,'deleted',userId);
+        if(user.id !== userId) this.router.sendMsg(userId,'deleted',userId);
 
         //now delete their authorizations and data too (optional?)
         return true; 
@@ -1056,7 +1055,7 @@ export class DatabaseBackend extends Service {
                 if(!passed) return false;
             }
             if(s.users) {
-                s.users.forEach((u) => { this.controller.sendMsg(s.authorizerId,'deleted',s._id); });
+                s.users.forEach((u) => { this.router.sendMsg(s.authorizerId,'deleted',s._id); });
             }
             await this.db.collection('group').deleteOne({ _id:ObjectID(groupId) });
             return true;
@@ -1072,10 +1071,10 @@ export class DatabaseBackend extends Service {
                 if(!passed) return false;
             }
             if(s.associatedAuthId) {
-                if(this.controller.DEBUG) console.log(s);
+                if(this.router.DEBUG) console.log(s);
                 await this.db.collection('authorization').deleteOne({ _id: ObjectID(s.associatedAuthId) }); //remove the other auth too 
-                if(s.authorizerId !== user.id) this.controller.sendMsg(s.authorizerId,'deleted',s._id);
-                else if (s.authorizedId !== user.id) this.controller.sendMsg(s.authorizedId,'deleted',s._id);
+                if(s.authorizerId !== user.id) this.router.sendMsg(s.authorizerId,'deleted',s._id);
+                else if (s.authorizedId !== user.id) this.router.sendMsg(s.authorizedId,'deleted',s._id);
             }
             await this.db.collection('authorization').deleteOne({ _id: ObjectID(authId) });
             return true;

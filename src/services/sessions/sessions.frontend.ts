@@ -17,9 +17,9 @@ export class SessionsClient extends Service {
 		websocket: true
 	}
 
-	constructor(userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}) {
+	constructor(router, userinfo={_id:'user'+Math.floor(Math.random()*10000000000)}) {
 		
-		super()
+		super(router)
 		
 		this.user = userinfo;
 		
@@ -33,9 +33,9 @@ export class SessionsClient extends Service {
 		// Add Routes to Listen For
 		this.routes.push({
 			route: 'sessionData',
-			callback: (o: MessageObject)=>{
-				if(o.message?.id) {
-					this.state.setState(o.message.id,o.message);
+			callback: (self, args)=>{
+				if(args[0]) {
+					this.state.setState(args[0],args[1]); // id, message
 				}
 			},
 		})

@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import styles from '../examples.module.css'
 
-export default function AllExample({server, endpointIds, router}) {
+export default function AllExample({server, endpoints, router}) {
   
     const buttons = useRef(null);
     const output = useRef(null);
@@ -27,7 +27,7 @@ export default function AllExample({server, endpointIds, router}) {
         else if (outputRef) outputRef.innerHTML = data.error
 
       }
-    }, {protocol: 'http', routes: ['routes', 'osc'], remote: endpointIds[0]})
+    }, {protocol: 'http', routes: ['routes', 'osc'], endpoint: endpoints[0]})
 
     function handleRoutes(data){
 
@@ -56,7 +56,7 @@ export default function AllExample({server, endpointIds, router}) {
         button.onclick = ( ) => {
           let args = []
           if (o.route === 'unsafe/addfunc') args = ['add', (_, [a, b=1]) => a + b]
-          else if (o.route === 'add') args = [vals['add']]
+          else if (o.route === 'add') args = [vals['add']?.[0]]
           else if (o.route === 'ssr/add') args = ['/arbitrary/route', '<p>Just some arbitrary HTML</p>']
 
           // Sending Over HTTP Response
@@ -68,7 +68,7 @@ export default function AllExample({server, endpointIds, router}) {
     }
 
     useEffect(async () => {
-      console.log('ENDPOINT IDs', endpointIds)
+      console.log('ENDPOINT IDs', endpoints)
 
       buttonRef = buttons.current
       outputRef = output.current
@@ -78,7 +78,10 @@ export default function AllExample({server, endpointIds, router}) {
     send('routes', 'get')
 
     async function send(route, method, ...args){
-      return await router[method](route, ...args).then(res => {
+      return await router[method]({
+        route,
+        endpoint: endpoints[0]
+      }, ...args).then(res => {
 
         console.log('Direct response', res)
 

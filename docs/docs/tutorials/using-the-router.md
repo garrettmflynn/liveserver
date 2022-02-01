@@ -30,9 +30,9 @@ In your frontend code, load specify the remote endpoints your Router will listen
 const SERVER_URI = (window.location.href.includes('localhost')) ? 'http://localhost:80' : 'http://localhost:80' // Replace with production server URI
 const SERVER_URI_2 = (window.location.href.includes('localhost')) ? 'http://localhost:81' : 'http://localhost:81' // Replace with production server URI
 
-const endpointIds = []
-endpointIds.push(router.addRemote(SERVER_URI))
-endpointIds.push(router.addRemote(SERVER_URI_2))
+const endpoints = []
+endpoints.push(router.addEndpoint(SERVER_URI))
+endpoints.push(router.addEndpoint(SERVER_URI_2))
 ```
 
 Then load any services you'll want the Router to use:
@@ -51,7 +51,7 @@ let services = [
 //   new UnsafeClient()
 ]
 
-services.forEach(service => router.connect(service).then(() => console.log('Service connected!', service)))
+services.forEach(service => router.load(service).then(() => console.log('Service connected!', service)))
 ```
 
 At this point, your project should be able to send HTTP and WebSocket messages to supported servers.

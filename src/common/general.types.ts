@@ -1,4 +1,6 @@
 import { Router } from '../router/Router'
+import { Endpoint } from 'src/router/Endpoint'
+export type RouterInterface = Partial<Router>
 
 export type RouteConfig = {
     route: string, // Route Name
@@ -18,15 +20,15 @@ export type RouteConfig = {
     callback?: (self: Router, args: any[], id: string) => any
 }
 
-export type EndpointType = {
-    remote: URL,
-    subscription?: any
-    type?: string
+export type EndpointConfig = string | URL | {
+    type: 'server' | 'webrtc'
+    target?: string|URL,
+    link?: Endpoint
   }
 
 export type RouteSpec = string | {
     route: string,
-    remote?: string | URL // === id
+    endpoint?: Endpoint // === id
     // id?: string // id
 }
 
@@ -68,7 +70,7 @@ export type SettingsObject = {
     }
 }
 
-export type MessageType = undefined | boolean
+export type MessageType = 'local' | 'remote' | 'subscribers'
 
 export type FetchMethods = 'GET' | 'POST' | 'DELETE'
 

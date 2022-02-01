@@ -29,9 +29,8 @@ export class EventsBackend extends SubscriptionService {
     //     }
     // ]
 
-    constructor() {
-        super()
-
+    constructor(router) {
+        super(router)
     }
 
     addUser = async (info:any, request: Request, response: Response) => {
@@ -41,11 +40,10 @@ export class EventsBackend extends SubscriptionService {
         const routes = info.message?.[0]
         let u = this.subscribers.get(tempId ?? id)
 
-        console.log(this.subscribers)
         if (tempId && u) {
-            this.subscribers.delete(tempId)
             u.id = id
             this.subscribers.set(id, u)
+            this.subscribers.delete(tempId)
             await this.notify({route: 'addUser', message: [{id, send: u.callback}]});
         }
 
@@ -61,7 +59,6 @@ export class EventsBackend extends SubscriptionService {
         response.writeHead(200, headers);
                 
         u.callback = (data:any) => {
-            console.log('RETURNING', data)
             if(data?.message && data?.route) {
                 response.write(`data: ${JSON.stringify(data)}\n\n`);
             }
@@ -75,7 +72,6 @@ export class EventsBackend extends SubscriptionService {
         });
 
         this.subscribers.set(id, u)
-
         
         // else {
         if (routes){
@@ -86,6 +82,8 @@ export class EventsBackend extends SubscriptionService {
             })
         }
         // }
+
+        console.log(this.subscribers, u, routes)
 
         return id
     }

@@ -36,6 +36,7 @@ export const safeStringify = (input:any, stringify=true):any => {
     for (let key in input){
         if (input[key] instanceof Function) input[key] = input[key].toString()
         if (input[key] instanceof Object) {
+          // console.log(key, input[key])
             input[key] = safeStringify(input[key], false)
         }
     }

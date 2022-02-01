@@ -9,8 +9,8 @@ export class OSCBackend extends SubscriptionService {
 
     ports = []   
 
-    constructor(){
-        super()
+    constructor(router){
+        super(router)
 
         this.routes = [
             { 

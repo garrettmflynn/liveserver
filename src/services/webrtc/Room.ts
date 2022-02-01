@@ -48,7 +48,6 @@ export class Room {
 
             // Request Peer Connections
             this.peers.forEach((peer) => {
-                console.log('Notifying')
                 o.send({route: "webrtc/connect", message: [{id:peer.id, info: peer}]}) // initialize connections
                 peer.send({route: "webrtc/connect", message: [{id:o.id, info: o}]}) // extend connections
             })

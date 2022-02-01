@@ -23,10 +23,11 @@ export class WebsocketClient extends SubscriptionService {
     origin = `client${Math.floor(Math.random()*10000000000000)}`; //randomid you can use
 
     constructor(
+        router,
         subprotocols:Partial<UserObject>={},
         url?:URL|string
     ) {
-        super()
+        super(router)
 
         if (!subprotocols._id) subprotocols._id = randomId()
         this.subprotocols = subprotocols;
@@ -108,6 +109,21 @@ export class WebsocketClient extends SubscriptionService {
 
     }
 
+    // websocket.binaryType = "arraybuffer";
+    // TODO: Make everything into streams
+    // function makeReadableWebSocketStream(url, protocols) {
+    //     let websocket = new WebSocket(url, protocols);
+    //     websocket.binaryType = "arraybuffer";
+      
+    //     return new ReadableStream({
+    //       start(controller) {
+    //         websocket.onmessage = event => controller.enqueue(event.data);
+    //         websocket.onclose = () => controller.close();
+    //         websocket.onerror = () => controller.error(new Error("The WebSocket errored"));
+    //       }
+    //     });
+    //   }
+
     getSocket(remote?:string|URL) {
         if (typeof remote === 'string') remote = new URL(remote)
         if(!remote) return this.sockets.values().next().value;
@@ -157,10 +173,12 @@ export class WebsocketClient extends SubscriptionService {
 
     send = (message:MessageObject, options: {
         callback?:Function
-        remote?: string
-        suppress?: boolean
+        id?: string
     } = {}) => {
+        
         return new Promise((resolve)=>{//console.log(message);
+
+
             const resolver = (res) => 
             {    
                 if (options.callback) options.callback(res);
@@ -173,10 +191,10 @@ export class WebsocketClient extends SubscriptionService {
                 else message.callbackId = callbackId; // add callbackId key
             } // TODO: Handle string-encoded messsages
 
-            this.queue[callbackId] = {resolve, suppress: options}
+            this.queue[callbackId] = {resolve, suppress: message.suppress}
 
             let socket;
-            const remote = new URL(options.remote)
+            const remote = new URL(options.id)
             socket = this.getSocket(remote)
             // message = JSON.stringifyWithCircularRefs(message)
 
@@ -201,7 +219,9 @@ export class WebsocketClient extends SubscriptionService {
         //this.streamUtils.processSocketMessage(res);
     
         let runResponses = () => {
-            this.responses.forEach((foo,i) => foo(res));
+            this.responses.forEach((foo,i) => {
+                foo(res)
+            });
         }
 
 

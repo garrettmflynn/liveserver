@@ -17,24 +17,24 @@ const SERVER_URI = (window.location.href.includes('localhost')) ? 'http://localh
 const SERVER_URI_2 = (window.location.href.includes('localhost')) ? 'http://localhost:81' : 'http://localhost:81' // Replace with production server URI
 
 let services = [
-  new SessionsClient(), 
-  new OSCClient(), 
-  new WebsocketClient(), 
-  new WebRTCClient(), 
-  new HTTPClient(),
-  new DatabaseClient(),
-  new UnsafeClient()
+  new SessionsClient(router), 
+  new OSCClient(router), 
+  new WebsocketClient(router), 
+  new WebRTCClient(router), 
+  new HTTPClient(router),
+  new DatabaseClient(router),
+  new UnsafeClient(router)
 ]
 
 services.forEach(service => {
-  router.connect(service).then(() => {
-    console.log('Service connected!', service)
+  router.load(service).then(() => {
+    console.log(`${service.constructor.name} connected!`)
   })
 })
 
-const endpointIds = []
-endpointIds.push(router.addRemote(SERVER_URI))
-endpointIds.push(router.addRemote(SERVER_URI_2))
+const endpoints = []
+endpoints.push(router.connect(SERVER_URI))
+endpoints.push(router.connect(SERVER_URI_2))
 
 export default function Examples() {
   const {siteConfig} = useDocusaurusContext();
@@ -44,7 +44,7 @@ export default function Examples() {
       description={`Examples for ${siteConfig.title}.`}>
       <ExampleSelector 
         server={SERVER_URI}
-        endpointIds={endpointIds}
+        endpoints={endpoints}
         router={router}
       />
     </Layout>

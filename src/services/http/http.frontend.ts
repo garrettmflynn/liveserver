@@ -6,8 +6,8 @@ class HTTPClient extends SubscriptionService {
     name = 'http'
     service = 'http'
 
-    constructor() {
-        super()
+    constructor(router) {
+        super(router)
     }
 
     add = (user, endpoint) => {
@@ -33,8 +33,8 @@ class HTTPClient extends SubscriptionService {
 }
 
 
-let http = new HTTPClient()
+// let http = new HTTPClient()
 
 // Export Instantiated Session
 export {HTTPClient}
-export default http
+// export default http

@@ -61,7 +61,7 @@ mongoose
 
     // Enable HTTP Messages
     if (services.http){
-      let http = new api.HTTPBackend();
+      let http = new api.HTTPBackend(controller);
 
       app.get("**", http.controller);
       app.post("**", http.controller);
@@ -70,17 +70,17 @@ mongoose
 
     // Enable WebSocket Messages
     if (services.websocket){
-      let websocket = new api.WebsocketBackend(server);
+      let websocket = new api.WebsocketBackend(controller, server);
       controller.load(websocket)
     }
 
     if (services.osc){
-      let osc = new OSCBackend();
+      let osc = new OSCBackend(controller);
       controller.load(osc)
     }
 
     if (services.webrtc){
-      let webrtc = new WebRTCBackend();
+      let webrtc = new WebRTCBackend(controller);
       controller.load(webrtc)
     }
 
@@ -95,7 +95,7 @@ mongoose
     }
 
     if (services.unsafe){
-      let unsafe = new UnsafeBackend()
+      let unsafe = new UnsafeBackend(controller)
       controller.load(unsafe)
     }
   }

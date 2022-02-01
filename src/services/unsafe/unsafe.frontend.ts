@@ -8,10 +8,8 @@ export class UnsafeClient extends Service{
 
 	routes = []
 
-	constructor() {
-
-		super()
-
+	constructor(router) {
+		super(router)
 	}
 
 }

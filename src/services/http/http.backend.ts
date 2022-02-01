@@ -4,6 +4,7 @@ import { safeParse } from "../../common/parse.utils";
 import { Service } from "../../router/Service";
 import { randomId } from "../..//common/id.utils";
 import EventsService from "./events.backend";
+import { SubscriptionService } from 'src/router';
 
 // var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
 // var ARGUMENT_NAMES = /([^\s,]+)/g;
@@ -15,12 +16,12 @@ import EventsService from "./events.backend";
 //   return result;
 // }
 
-export class HTTPBackend extends Service {
+export class HTTPBackend extends SubscriptionService {
 
     name = 'http'
     id: string = randomId('http')
     services = {
-        events: new EventsService()
+        events: null // new EventsService()
     }
 
     routes = [
@@ -48,13 +49,14 @@ export class HTTPBackend extends Service {
         }
     ]
 
-    subscribers = this.services.events.subscribers
-    updateSubscribers = this.services.events.updateSubscribers
+    constructor(router) {
+        super(router)
 
-    constructor() {
-        super()
 
+        this.services.events = new EventsService(router)
         this.services.events.subscribe(this.notify) // Pass out to the Router
+        this.updateSubscribers = this.services.events.updateSubscribers
+        this.subscribers = this.services.events.subscribers
 
         // this.addRoute(transform(k, {
         //     route: `/${(name) ? `${name}/` : ''}` + k,

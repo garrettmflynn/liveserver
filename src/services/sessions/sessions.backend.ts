@@ -20,12 +20,8 @@ export class SessionsBackend extends Service {
      LOOPING: boolean = true
      delay = 10; //ms loop timer delay
 
-     controller: any;
-
     constructor(Router, running=true) {
-        super()
-        // if(!Router) { console.error('Requires a Router instance.'); return; }
-        this.controller = Router;
+        super(Router)
         this.LOOPING = running;
 
         if(Router) this.delay = Router.INTERVAL;
@@ -37,7 +33,7 @@ export class SessionsBackend extends Service {
                 callback:(self,args,origin) => {
                     const user = self.USERS[origin]
                     if (!user) return false
-                    return this.updateUserStreamData(user,args);
+                    return this.updateUserStreamData(user,args[0]); // TODO: The second argument is probably wrong
                 }
             },
             {
@@ -173,8 +169,8 @@ export class SessionsBackend extends Service {
         
         let u;
         if(data.id)
-            u = this.controller.USERS[data.id];
-        else u = this.controller.USERS[data.id];
+            u = this.router.USERS[data.id];
+        else u = this.router.USERS[data.id];
 
         if(!u) return undefined;
 
@@ -252,7 +248,7 @@ export class SessionsBackend extends Service {
             if(!userId && user.id) userId = user.id;
             
 
-            let newUser = this.controller.USERS[userId];
+            let newUser = this.router.USERS[userId];
             if(!newUser) return undefined;
 
         
@@ -269,7 +265,7 @@ export class SessionsBackend extends Service {
 
                 if(session.host !== user.id || session.type !== 'hostedroom') { //get all the user data
                     session.users.forEach((id) => {
-                        let u = this.controller.USERS[id];
+                        let u = this.router.USERS[id];
                         if(u) {
                             result.userData[id] = {};
                             session.propnames.forEach((p) => {
@@ -279,7 +275,7 @@ export class SessionsBackend extends Service {
                         }
                     });
                 } else { //only get the host's data in this case
-                    let u = this.controller.USERS[session.host];
+                    let u = this.router.USERS[session.host];
                     if(u) {
                         result.hostData = {};
                         session.hostprops.forEach((p) => {
@@ -305,9 +301,9 @@ export class SessionsBackend extends Service {
         if(!sourceId) return undefined;
         if(!listenerId) listenerId = user.id;
 
-        let source = this.controller.USERS[sourceId];
+        let source = this.router.USERS[sourceId];
 
-        let listener = this.controller.USERS[listenerId];
+        let listener = this.router.USERS[listenerId];
         if(!listener) return undefined;
 
         if(propnames.length === 0) propnames = Array.from(Object.keys(source.props)); //stream ALL of the available props instead
@@ -315,7 +311,7 @@ export class SessionsBackend extends Service {
         if(user.id !== listenerId && user.id !== sourceId && override === false) return undefined;
         if(!source || source.blocked.includes(listenerId) || source.blocked.includes(user.id)) return undefined; //blocked users can't make one-on-one streams
 
-        if(this.controller.DEBUG) console.log(listenerId, sourceId)
+        if(this.router.DEBUG) console.log(listenerId, sourceId)
         
         let sub = undefined;
         for(const prop in this.userSubs) {
@@ -333,7 +329,7 @@ export class SessionsBackend extends Service {
                     propnames.push(propname);
                 }
             }
-            let u = this.controller.USERS[listenerId];
+            let u = this.router.USERS[listenerId];
             if(u !== undefined && source !== undefined) {
                 let obj = {
                     type:'user',
@@ -385,7 +381,7 @@ export class SessionsBackend extends Service {
             let idx = session.users.indexOf(userId);
             if(idx) {
                 session.users.splice(idx,1);
-                let u = this.controller.USERS[userId];
+                let u = this.router.USERS[userId];
                 if(u) {
                     let i = u.sessions.indexOf(sessionId);
                     if(i > -1) { u.sessions.splice(i,1); }
@@ -466,11 +462,11 @@ export class SessionsBackend extends Service {
                 });
             }
             else {
-                let source = this.controller.USERS[sub.source];
+                let source = this.router.USERS[sub.source];
                 let i1 = source.sessions.indexOf(sub.id);
                 if(i1 > -1) source.sessions.splice(i1,1);
                 
-                let listener = this.controller.USERS[sub.listener];
+                let listener = this.router.USERS[sub.listener];
                 let i2 = listener.sessions.indexOf(sub.id);
                 if(i2 > -1) listener.sessions.splice(i2,1);
 
@@ -634,7 +630,7 @@ export class SessionsBackend extends Service {
 
             session.users.forEach((sourceId) => {
                 result.userData[sourceId] = {}
-                let source = this.controller.USERS[session.source];
+                let source = this.router.USERS[session.source];
 
                 if(!source) this.removeUserToUserStream(undefined,session.id,undefined,true);
                 
@@ -657,7 +653,7 @@ export class SessionsBackend extends Service {
             session.users.forEach((id) => {
                 result.userData[id] = {};
                 for(const prop in session.propnames) {
-                    let u = this.controller.USERS[id];
+                    let u = this.router.USERS[id];
                     if(u) {
                         if(!session.spectators.includes(id)) {
                             for(const prop in session.propnames) {
@@ -691,13 +687,13 @@ export class SessionsBackend extends Service {
         if(session.type === 'hostroom') {
 
             updateObj.hostData = {};
-            let host = this.controller.USERS[session.host];
+            let host = this.router.USERS[session.host];
             if(!host && session.host) {
                 this.kickUser(undefined,session.host,session.id,true);
             } else {
                 session.host = session.users[0];
                 if(!session.host) return false; //no users to update, continue
-                else host = this.controller.USERS[session.host];
+                else host = this.router.USERS[session.host];
             }
 
             session.hostprops.forEach((prop) => {
@@ -707,7 +703,7 @@ export class SessionsBackend extends Service {
             if(Object.keys(updateObj.hostData).length > 0) {
                 let toKick = [];
                 session.users.forEach((user) => {
-                    let u = this.controller.USERS[user];
+                    let u = this.router.USERS[user];
                     if(!u) toKick.push(user);
                     else if (user !== session.host && u.send) u.send({route:'sessionData',message:updateObj})   
                     updatedUsers[user] = true;
@@ -722,7 +718,7 @@ export class SessionsBackend extends Service {
         updateObj.userData = {};
         let toKick = [];
         session.users.forEach((user) => {
-            let u = this.controller.USERS[user];
+            let u = this.router.USERS[user];
             if(!u) toKick.push(user);
             else {
                 updateObj.userData[user] = {};
@@ -742,7 +738,7 @@ export class SessionsBackend extends Service {
 
         //now send the data out
         if(session.type === 'hostroom') {
-            let host = this.controller.USERS[session.host];
+            let host = this.router.USERS[session.host];
             if(host) {
                 if (host.send) host.send({route:'sessionData',message:updateObj})   
                 updatedUsers[session.host] = true;
@@ -751,7 +747,7 @@ export class SessionsBackend extends Service {
         }   
         else {
             session.users.forEach((user) => {
-                let u = this.controller.USERS[user];
+                let u = this.router.USERS[user];
                 if(u) {
                     if (u.send) u.send({route:'sessionData',message:updateObj})   
                     updatedUsers[user] = true;
@@ -772,8 +768,8 @@ export class SessionsBackend extends Service {
 
         let updateObj = JSON.parse(JSON.stringify(session));
 
-        let source = this.controller.USERS[session.source];
-        let listener = this.controller.USERS[session.listener];
+        let source = this.router.USERS[session.source];
+        let listener = this.router.USERS[session.listener];
         if(!source || !listener) {
             this.removeUserToUserStream(undefined,session.id,undefined,true);
             return undefined;
@@ -790,7 +786,7 @@ export class SessionsBackend extends Service {
         });
 
         if(Object.keys(updateObj.userData).length > 0) {
-            const u = this.controller.USERS[session.listenerId]
+            const u = this.router.USERS[session.listenerId]
             if (u) {
                 if (u.send) u.send({route:'sessionData',message:updateObj})   
                 updatedUsers[u.id] = true;
@@ -822,7 +818,7 @@ export class SessionsBackend extends Service {
 
             //clear update flags
             for(const prop in updatedUsers) {
-                let u = this.controller.USERS[prop];
+                let u = this.router.USERS[prop];
                 if(u) u.updatedPropNames = [];
             }
 

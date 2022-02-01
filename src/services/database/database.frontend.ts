@@ -7,9 +7,9 @@ export class DatabaseClient extends Service{
 	service = 'database'
 	routes = []
 
-	constructor() {
+	constructor(router) {
 
-		super()
+		super(router)
 
 	}
 

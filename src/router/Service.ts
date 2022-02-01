@@ -1,5 +1,6 @@
 import { randomId } from "../common/id.utils"
-import { MessageObject, ProtocolObject, RouteConfig, SubscriptionCallbackType } from "../common/general.types"
+import { RouterInterface, MessageObject, ProtocolObject, RouteConfig, SubscriptionCallbackType, MessageType } from "../common/general.types"
+import { Endpoint } from './Endpoint'
 
 // Browser and Node-Compatible Service Class
 export class Service {
@@ -7,7 +8,11 @@ export class Service {
     id = randomId('service') // Unique Service ID
     name:string = 'service' // Service Name
     callbacks: Map<string, SubscriptionCallbackType >  = new Map() // Subscriber Callbacks
-    remote?: string
+    endpoint?: Endpoint
+    route?: string; // Expected server name (added in router)
+    status: boolean = false // Is connected with server (set externally by router)
+
+    router: RouterInterface
 
     // Service-Specific Routes
     routes: RouteConfig[] = [
@@ -20,8 +25,8 @@ export class Service {
     protocols: ProtocolObject = {} // Compatible Communication Protocols (unused in Node)
     services: {[x: string]: any} = {} // Object of nested services
     
-    constructor() {
-
+    constructor(router:RouterInterface) {
+        this.router = router
     }
 
 
@@ -38,11 +43,15 @@ export class Service {
         return this.delegate?.removeEventListener.apply(this.delegate, args);
     }
 
+    setEndpointRoute = (name) => {
+        this.route = name
+    }
+
 
     // Notify subscribers (e.g. Router / UsersClient ) of a New Message
     notify = async (
         o: MessageObject, // defines the route to activate
-        type?: boolean|undefined, // specifies whether the notification is internal (true) OR from a client (false / default). Internal notifications will be only forwarded to route subscribers.
+        type?: MessageType, // specifies whether the notification is internal (true) OR from a client (false / default). Internal notifications will be only forwarded to route subscribers.
         origin?: string|number|undefined //origin of the call
      ) => {
         let responses = [];
@@ -57,9 +66,9 @@ export class Service {
         return responses?.[0]
     }
 
-    // Bind Route
-    setRemote = (remote) => {
-        this.remote = (remote instanceof URL) ? remote.href : remote
+    // Bind Endpoint
+    setEndpoint = (endpoint) => {
+        this.endpoint = endpoint
     }
 
     // Subscribe to Notifications

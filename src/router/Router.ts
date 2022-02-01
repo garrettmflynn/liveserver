@@ -1,11 +1,12 @@
 import StateManager from 'anotherstatemanager'
-import { createRoute, getRouteMatches } from '../common/general.utils'
+import { getRouteMatches } from '../common/general.utils'
 import { randomId,  } from '../common/id.utils'
-import { AllMessageFormats, EndpointType, FetchMethods, MessageObject, MessageType, RouteConfig, RouteSpec, UserObject } from '../common/general.types';
+import { AllMessageFormats, EndpointConfig, FetchMethods, MessageObject, MessageType, RouteConfig, RouteSpec, UserObject } from '../common/general.types';
 import { Service } from './Service';
-import { safeStringify, getParamNames } from '../common/parse.utils';
+import { getParamNames } from '../common/parse.utils';
 import { SubscriptionService } from './SubscriptionService';
 import errorPage from '../services/http/404'
+import { Endpoint } from './Endpoint';
 
 export const DONOTSEND = 'DONOTSEND';
 export let NODE = false
@@ -44,30 +45,9 @@ export class Router {
   CONNECTIONS: Map<string,{}> = new Map(); //threads or other servers
   SUBSCRIPTIONS: Function[] = [] // an array of handlers (from services)
   DEBUG: boolean;
-  ENDPOINTS: Map<string, EndpointType> = new Map()
+  ENDPOINTS: Map<string, Endpoint> = new Map()
 
-  // TODO: Detect changes and subscribe to them
-  SERVICES: {
-    client: {
-      available: {[x:string]: string},
-      clients: {[x:string]: any},
-      connecting: {[x:string]: Function},
-      subscribeQueue: {
-        [x:string]: Function[]
-      },
-      subscriptions: string[]
-  }, // TODO: Detect changes and subscribe to them
-    server: {[x:string] : any}
-  } = {
-    client: {
-      available: {},
-      clients: {},
-      connecting: {},
-      subscribeQueue: {},
-      subscriptions: []
-    }, 
-    server: {}
-  }
+  SERVICES: {[x:string] : any} = {}
 
   ROUTES: {[x: string] : RouteConfig} = {} // Internal Routes Object
   INTERVAL=10;
@@ -83,7 +63,7 @@ export class Router {
   { //return a list of services available on the server
     route: 'services', 
     reference: {
-      object: this.SERVICES.server,
+      object: this.SERVICES,
       transform: (reference) => {
         let dict = {};
         for (let k in reference){
@@ -329,130 +309,97 @@ export class Router {
     // Frontend Methods (OG)
     // 
     // -----------------------------------------------
-    addRemote = (base:string|URL) => {
-      const url = (base instanceof URL) ? base : new URL(base)
-      const id = url.origin
+    connect = (config:EndpointConfig) => {
 
-      // Register User on the Server
-      if (url) {
+      let endpoint = new Endpoint(config, this.SERVICES, this)
 
-          this.ENDPOINTS.set(id, {
-            remote: url,
-          })
+      // Register User and Get Available Functions
+      this.ENDPOINTS.set(endpoint.id, endpoint)
 
-          this.getServices(id)
-          this.login(url) // Login user to connect to new remote
-      }
-      return id
+      endpoint.check().then(res => {
+          this.login(endpoint) // Login user to connect to new remote
+      })
+
+      return endpoint
   }
 
-  removeRemote = async (id) => {
+  disconnect = async (id) => {
     this.logout(this.ENDPOINTS.get(id))
     this.ENDPOINTS.delete(id)
   }
 
-  getServices = async (remote?) => {
-      let res = await this.send({
-        route: 'services',
-        remote
-      }).catch(async (e) => {
-
-        // Fallback to WS
-        console.log('Falling back to Websocket protocol', remote)
-        await this.subscribe(() => {
-          console.log('unused ws callback')
-        }, {protocol: 'websocket', remote, force: true})
-        return await this.send({route: 'services', remote})
-
-      })
-
-      
-      if (res) {
-
-        const routes = res[0]
-          let serviceNames = []
-          for (let route in routes){
-              const className = routes[route]
-              const name = className.replace('Backend', '').toLowerCase()
-              this.SERVICES.client.available[name] = route
-              serviceNames.push(name)
-  
-              // Resolve Load Promises
-              if (this.SERVICES.client.connecting[name]){
-                  this.SERVICES.client.connecting[name](route)
-                  delete this.SERVICES.client.connecting[name]
-              }
-
-              if (this.SERVICES.client.clients[name] instanceof SubscriptionService){
-                  this.SERVICES.client.subscribeQueue[name]?.forEach(f => f())
-                  this.SERVICES.client.subscribeQueue[name] = []
-              }
-          }
-
-          // General Subscription Check
-          this.SERVICES.client.subscribeQueue['undefined']?.forEach(f => f())
-          this.SERVICES.client.subscribeQueue['undefined'] = []
-      }
-  }
-
-  connect = (service: Service, name=service?.name) => {
+  loadClient = (service: Service, _=service?.name) => {
 
       return new Promise(resolve => {
 
-        const name = service.constructor.name.replace('Client', '').toLowerCase(); //redundant?
-
-          this.SERVICES.client.clients[name] = service
+        
+        const name = service.constructor.name.replace('Client', '').toLowerCase();
+        this.SERVICES[name] = service // Load Client Handler
+        
           const toResolve = (route) => {
+            this.SERVICES[name].status = true
+
+            service.setEndpointRoute(route)
 
               // Expect Certain Callbacks from the Service
               service.routes.forEach(o => {
                   this.ROUTES[`${route}/${o.route}`] = o
               })
+              
               resolve(service)
           }
 
           // Auto-Resolve if Already Available
-          const available = this.SERVICES.client.available[name]
-          if (available) toResolve(available)
-          else this.SERVICES.client.connecting[name] = toResolve;
+          if (this.SERVICES[name].status === true) toResolve(this.SERVICES[name])
+          else this.SERVICES[name].status = toResolve;
 
           // let worker = false;
           // if(name.includes('worker')) worker = true;
 
           // NOTE: This is where you listen for service.notify()
-          service.subscribe(async (o:MessageObject, _:MessageType) => {
+          service.subscribe(async (o:MessageObject, type:MessageType) => {
 
               // Check if Service is Available
-              const available = this.SERVICES.client.available[name];
+              const client = this.SERVICES[name]
+              const available = client.status === true
 
-              if (available) {
-                return await this.send({
-                  route: `${available}/${o.route}`,
-                  remote: service?.remote // If remote is bound to client
-                }, ...o.message) // send automatically with extension
+              let res;
+                if (type === 'local'){
+
+                  res = await this.handleLocalRoute(o)
+
+                } else if (available) {
+
+                  res = await this.send({
+                    route: `${client.route}/${o.route}`,
+                    endpoint: service?.endpoint // If remote is bound to client
+                  }, ...o.message) // send automatically with extension
+
               }
+
+              return res
           })
 
       })
 
   }
 
-    async login(remote?, callback=(result)=>{}) {
+    async login(endpoint?, callback=(result)=>{}) {
       if(this.currentUser) {
           let res = await this.send({
             route: 'login',
-            remote
+            endpoint
           }, this.currentUser)
           callback(res)
           return res
       }
   }
 
-  async logout(remote?, callback=(result)=>{}) {
+  async logout(endpoint?, callback=(result)=>{}) {
       if(this.currentUser) {
           let res = await this.send({
             route: 'logout',
-            remote
+            endpoint
           })
           callback(res)
           return res
@@ -476,124 +423,59 @@ export class Router {
 
   private _send = async (routeSpec:RouteSpec, method?: FetchMethods, ...args:any[]) => {
     
-      let route;
-      if (typeof routeSpec === 'string') {
-        route = routeSpec 
+      let endpoint;
+      if (typeof routeSpec === 'string'){
+        endpoint = this.ENDPOINTS.values().next().value
       } else {
-        route = routeSpec.route
-        if (routeSpec.remote && !(routeSpec.remote instanceof URL)) routeSpec.remote = new URL(routeSpec.remote)
-      } // Support object-based specs
+         endpoint = routeSpec?.endpoint
+      }
 
-      const endpoint = ((typeof routeSpec === 'string') ? this.ENDPOINTS.values().next().value : (routeSpec?.remote) ? this.ENDPOINTS.get((routeSpec.remote as URL).origin) : this.ENDPOINTS.values().next().value) as EndpointType
-      const remote = endpoint.remote
+      // const endpoint = (typeof routeSpec === 'string') ? this.ENDPOINTS.values().next().value : (routeSpec?.remote) ? this.ENDPOINTS.get((routeSpec.remote as URL).origin) : this.ENDPOINTS.values().next().value
 
-      if (remote && route){
-          let response;
-          if (!method) method = (args.length > 0) ? 'POST' : 'GET'
+      let response;      
+      response = await endpoint.send(routeSpec, {id: this.currentUser.id, message: args, method, suppress: !!endpoint.subscription})
+      if (response) this.handleLocalRoute(response, endpoint)
 
-          // Send over Websockets if Active
-          if (endpoint.type === 'websocket'){
-              response = await endpoint.subscription.send({id: this.currentUser.id, route, message: args, method}, {suppress: true, remote}) // NOTE: Will handle response in the subscription too
-          } 
-          
-          // Default to HTTP
-          else {
-            const toSend: any= {
-              method: method.toUpperCase(),
-              mode: 'cors', // no-cors, *cors, same-origin
-              headers: {
-                  'Content-Type': 'application/json',
-              },
-          }
+      // Pass Back to the User
+      return response?.message
 
-            if (toSend.method != 'GET') toSend.body = safeStringify({id: this.currentUser.id, message: args, suppress: !!endpoint.subscription})
-              response = await fetch(createRoute(route, remote), toSend).then(async (res) => {
-                  const json = await res.json()
-                  if (!res.ok) throw json.message
-                  else return json
-              }).catch((err) => {
-                  throw err.message
-              })
-          }
-
-          // Activate Internal Routes if Relevant (currently blocking certain command chains)
-          if (!response.block) {
-            let route = this.ROUTES[response?.route]
-            if (route?.callback instanceof Function) route.callback(this, response.message, response.id) // TODO: Monitor what is outputted to chain calls?
-          }
-
-          // Notify through Subscription (if not suppressed)
-          if (!response.suppress && endpoint.subscription) endpoint.subscription?.responses?.forEach(f => f(Object.assign({route}, response))) // Include send route if none returned
-          
-          // Pass Back to the User
-          return response?.message
-
-      } else throw 'Remote is not specified'
   }
 
-  createSubscription = async (options:any = {}, onmessage:any) => {
-          let toResolve =  (): Promise<any> => {
-              return new Promise(async resolve => {
-                let servicesToCheck = (options.protocol) ? [this.SERVICES.client.clients[options.protocol]] : Object.values(this.SERVICES.client.clients)
-
-                servicesToCheck.forEach(async client => {
-
-                    if (options.force || this.SERVICES.client.available[client.service]) {
-                      let subscriptionEndpoint = `${this.SERVICES.client?.available[client.service] ?? client.name.toLowerCase()}/subscribe`
-                      let msg;
+  // NOTE: Client can call itself. Server cannot.
+  handleLocalRoute = async (o:MessageObject, endpoint?: Endpoint, route?: string) =>{
 
 
-                    if (options.remote && !(options.remote instanceof URL)) options.remote = new URL(options.remote)
-                    const endpoint = ((options.remote) ? this.ENDPOINTS.get((options.remote as URL).origin) : this.ENDPOINTS.values().next().value) as EndpointType
-                            
-                      client.setRemote(endpoint.remote) // Bind Endpoint to Subscription Client
-                      
-                      // TODO: Allow Multiple Endpoints per Subscription
-                      if (!endpoint.subscription){
-                          const url = new URL(subscriptionEndpoint, endpoint.remote)
-                          msg = await client.add(this.currentUser, url)
-                          endpoint.subscription = client
-                          endpoint.subscription.addResponse('sub', onmessage)
-                          endpoint.type = client.name
-                      } 
+    // Notify through Subscription (if not suppressed)
+    if (endpoint && route && !o.suppress && endpoint.subscription) endpoint.subscription?.service?.responses?.forEach(f => f(Object.assign({route}, o))) // Include send route if none returned
 
-                      this.send(Object.assign(options, {
-                        route: subscriptionEndpoint
-                      }), options.routes, msg) // Second argument specified by add callback
-
-                      resolve(endpoint.subscription)
-                      return
-                    }
-                  })
-
-                  if (!this.SERVICES.client.subscribeQueue[options.protocol]) this.SERVICES.client.subscribeQueue[options.protocol] = []
-                  this.SERVICES.client.subscribeQueue[options.protocol].push(async () => {
-                      let res = await toResolve()
-                      resolve(res)
-                  })
-              })
-              }
-          return await toResolve()
+    // Activate Internal Routes if Relevant (currently blocking certain command chains)
+    if (!o.block) {
+      let route = this.ROUTES[o?.route]
+      if (route?.callback instanceof Function) return route.callback(this, o.message, o.id)
+    }
   }
 
   subscribe = async (callback: Function, options: {
       protocol?:string
       routes?: string[]
-      remote?: string | URL,
+      endpoint?: Endpoint,
       force?:boolean
   } = {}) => {
 
-      if (this.ENDPOINTS.size > 0 || options?.remote) {
-          return await this.createSubscription(options, (event) => {
-              const data = (typeof event.data === 'string') ? JSON.parse(event.data) : event
-              callback(data) // whole data object (including route)
-              const route = this.ROUTES[data?.route]
-              if (route?.callback instanceof Function && !data.block) route.callback(this, data.message, data.id) // Run internal routes (if required)
-          })
+      if (this.ENDPOINTS.size > 0 || options?.endpoint) {
+
+          if (!options.endpoint) options.endpoint = this.ENDPOINTS.values().next().value
+
+          return await options.endpoint.subscribe((event) => {
+                const data = (typeof event.data === 'string') ? JSON.parse(event.data) : event
+                callback(data) // whole data object (including route)
+                // this.handleLocalRoute(data) // SET IN ENDPOINT INSTEAD
+          }, options)
           
       } else throw 'Remote is not specified'
 
   }
+
 
   unsubscribe = (id, route?) => {
       if (id){
@@ -608,9 +490,16 @@ export class Router {
     // -----------------------------------------------
 
 
-    load(service:any, name:string = service.name) {
+    async load(service:any, name:string = service.name) {
+
+      let isClient = service.constructor.name.includes('Client')
+
+      if (isClient){
+        return await this.loadClient(service)
+      } else {
       
-      this.SERVICES.server[name] = service
+      this.SERVICES[name] = service
+      this.SERVICES[name].status = true
 
         service.routes?.forEach(o => {
           // const cases = [o.route, ...(o.aliases) ? o.aliases : []]
@@ -625,8 +514,8 @@ export class Router {
 
 
       if (service.subscribe) {
-        service.subscribe(async (o:MessageObject, updateSubscribers?:MessageType, origin?:string|undefined) => {
-          let res = this.handleMessage(o, updateSubscribers);
+        service.subscribe(async (o:MessageObject, type?:MessageType, origin?:string|undefined) => {
+          let res = this.handleMessage(o, type);
           if(origin?.includes('worker')) { 
             res = await res; //await the promise to resolve it
             if(res !== null && service[origin]) service[origin].postMessage({route:'worker/workerPost', message:res, origin:service.id, callbackId:o.callbackId})
@@ -636,10 +525,29 @@ export class Router {
         })
       }
 
-      if (service.updateSubscribers) {
+      if (service.updateSubscribers instanceof Function) {
           this.SUBSCRIPTIONS.push(service.updateSubscribers)
       }
 
+      return service
+    }
+    }
+
+    format(o:any, info: {
+      service?: string,
+      headers?: {[x:string]:string}
+    } = {}) {
+      if (o !== undefined){ // Can pass false and null
+
+        if (!(typeof o === 'object')) o = {message: o}
+
+          if (!Array.isArray(o.message)) o.message = [o.message]
+          if (info.service && o?.route) o.route = `${info.service}/${o.route}` // Correct Route
+          // if (routeInfo.reference) state.setState(route, res.message)
+          if (info.headers) o.headers = info.headers // e.g. text/html for SSR
+      }
+
+      return o
     }
 
 
@@ -654,18 +562,21 @@ export class Router {
           return await this.runCallback(route, (args as any), origin, method).then((dict:MessageObject|any) => {
             
             // Convert Output to Message Object
-            if (typeof dict !== 'object' || !('message' in dict)) dict = {
-              message: dict
+            if (dict === undefined) return
+            else {
+              if (typeof dict !== 'object' || !('message' in dict)) dict = {
+                message: dict
+              }
+              // if (!dict.route) dict.route = route // Only send back a route when you want to trigger inside the Router
+              dict.callbackId = callbackId
+
+              if (this.ROUTES[dict.route]) dict.block = true // Block infinite command chains... 
+
+              // Pass Out
+
+              if(dict.message === DONOTSEND) return;
+              return dict;
             }
-            // if (!dict.route) dict.route = route // Only send back a route when you want to trigger inside the Router
-            dict.callbackId = callbackId
-
-            if (this.ROUTES[dict.route]) dict.block = true // Block infinite command chains... 
-
-            // Pass Out
-
-            if(dict.message === DONOTSEND) return;
-            return dict;
           }).catch(console.error)
       } catch (e) {
         return new Error(`Route failed...`)
@@ -703,7 +614,7 @@ export class Router {
       lastTransmit:0,
       latency:0,
       routes: new Map(),
-    } ;
+    };
 
     Object.assign(newuser,userinfo); //assign any supplied info to the base
 
@@ -712,10 +623,12 @@ export class Router {
     this.USERS[id] =  newuser
 
     //add any additional properties sent. remote.service has more functions for using these
-    for (let key in this.SERVICES.server){
-        const s = this.SERVICES.server[key]
-        const route = s.name + '/addUser'
-        if (this.ROUTES[route]) this.runRoute(route, 'POST', [userinfo], id) 
+    for (let key in this.SERVICES){
+          const s = this.SERVICES[key]
+          if (s.status === true){
+            const route = s.name + '/addUser'
+            if (this.ROUTES[route]) this.runRoute(route, 'POST', [userinfo], id) 
+          }
     }
 
     return newuser; //returns the generated id so you can look up
@@ -727,9 +640,11 @@ export class Router {
     if(u) {
 
       
-        this.SERVICES.server.forEach(s => {
-          const route = s.name + '/removeUser'
-          if (this.ROUTES[route]) this.runRoute(route, 'DELETE', [u], u.id) // TODO: Fix WebRTC
+        this.SERVICES.forEach(s => {
+          if (s.status === true){
+            const route = s.name + '/removeUser'
+            if (this.ROUTES[route]) this.runRoute(route, 'DELETE', [u], u.id) // TODO: Fix WebRTC
+          }
         })
 
         delete u.id
@@ -753,7 +668,7 @@ export class Router {
     return this.SUBSCRIPTIONS.forEach(o => o(this, msg))
   }
      
-  handleMessage = async (msg:AllMessageFormats, updateSubscribers?:MessageType) => {
+  handleMessage = async (msg:AllMessageFormats, type?:MessageType) => {
 
     let o:Partial<MessageObject> = {}
 
@@ -783,12 +698,17 @@ export class Router {
 
         console.log('runRoute', o.route)
         // Handle Subscription Updates based on updateSubscribers Notifications
-        if (updateSubscribers) this.triggerSubscriptions(o as MessageObject)
+        // if (type === 'subscribers') this.triggerSubscriptions(o as MessageObject)
 
-        let res = await this.runRoute(o.route, o.method, o.message, u?.id ?? o.id, o.callbackId);
-        if (o.suppress) res.suppress = o.suppress // only suppress when handling messages here
-
-        // Handle Subscription Updates based on Internal Notifications
+        // TODO: Allow Server to Target Remote too
+        // let res
+        // if (type === 'local'){
+        //   res = await this.runRoute(o.route, o.method, o.message, u?.id ?? o.id, o.callbackId);
+        //   if (o.suppress) res.suppress = o.suppress // only suppress when handling messages here
+        // } else {
+          const res = await this.runRoute(o.route, o.method, o.message, u?.id ?? o.id, o.callbackId);
+          if (res && o.suppress) res.suppress = o.suppress // only suppress when handling messages here
+        // }
         
         return res;
       }
@@ -837,10 +757,12 @@ export class Router {
               // TODO: Drill subscriptions automatically...
               this.STATE.subscribe(route, (data) => {
                 const message = (o.reference?.transform) ? o.reference.transform(data) : data
+                
                 this.SUBSCRIPTIONS.forEach(o => o(this, {
                   route, 
                   message
                 }))
+
               })
             }
         })
@@ -891,16 +813,9 @@ export class Router {
                 res  = await routeInfo?.callback(this, input, origin)
               } else res = errorRes
 
-              if (!(typeof res === 'object')) res = {message: res}
 
-              // if (res){
-                if (!Array.isArray(res.message)) res.message = [res.message]
-                if (routeInfo.service && res?.route) res.route = `${routeInfo.service}/${res.route}` // Correct Route
-                // if (routeInfo.reference) state.setState(route, res.message)
-                if (routeInfo.headers) res.headers = routeInfo.headers // e.g. text/html for SSR
-              // }
+              resolve(this.format(res))
 
-              resolve(res)
             } catch(e) {
               console.log('Callback Failed: ', e)
             }

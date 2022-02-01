@@ -1,26 +1,42 @@
 import { DataStreamTrack } from "datastreams-api"
 import { randomId } from '../../common/id.utils'
+import { MessageObject } from 'src/common/general.types'
 
 // Data Channels Behave Just Like Tracks
 export default class DataChannel extends DataStreamTrack {
 
     id: string = ''
     label: string = ''
-    parent: RTCDataChannel
+    output: RTCDataChannel
+    input?: RTCDataChannel
     peer?: string
 
-    constructor(parent: RTCDataChannel, peer?:string){
+    constructor(output: RTCDataChannel, peer?:string){
         super()
-        this.id = parent.id?.toString() ?? randomId()
-        this.label = parent.label
-        this.parent = parent 
+        this.id = output.id?.toString() ?? randomId()
+        this.label = output.label
+        this.output = output 
+        this.input = null 
+
         this.peer = peer 
 
     }
+    
+    send = (o:MessageObject, options?: any) => {
+        let data = JSON.stringify(o)
 
+        // Ensure Message Sends to Both Channel Instances
+        // let check = () => {
+            // let dC =  this.dataChannels.get(options.id)
+            // if (dC) {
+                if (this.output.readyState === 'open') this.output.send(data); // send on open instead
+                else this.output.addEventListener('open', () => {this.output.send(data);}) // send on open instead
+            // } else if (options.reciprocated) setTimeout(check, 500)
+        // }
+        // check()
+    }
 
-    send = (data:any):void => this.parent.send(data)
-    sendMessage = (_:any):any => {
-        console.log('trying tosend')
+    setInput = (input: RTCDataChannel) => {
+        this.input = input 
     }
 }

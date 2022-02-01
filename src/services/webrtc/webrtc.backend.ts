@@ -36,6 +36,7 @@ export class WebRTCBackend extends Service {
                             room = this.createRoom({name: route})
                             this.connect(room,id)
                         }
+                        
                     } else {
                         if (split[0] !== 'users') route = split[0] // base user
                         const user = this.peers[route]
@@ -142,8 +143,8 @@ export class WebRTCBackend extends Service {
         },
     ]
 
-    constructor() {
-        super()
+    constructor(router) {
+        super(router)
     }
 
     getRoomsByAuth = (auth:string) => this.getRooms((r) => r.restrictions?.users == null || r.restrictions.users.includes(auth))

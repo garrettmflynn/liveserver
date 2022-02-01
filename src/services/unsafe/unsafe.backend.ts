@@ -94,8 +94,8 @@ export class UnsafeBackend extends Service {
         }
         ]
 
-    constructor(){
-        super()
+    constructor(router){
+        super(router)
     }
 
 }
