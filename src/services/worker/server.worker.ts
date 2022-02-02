@@ -4,14 +4,14 @@
 //if on frontend, the workers can't run backend env-required APIs like mongodb or http/socket/event routers
 //if on backend, the workers can't run DOM-related or rendering APIs like canvas or threejs
 
-import { SessionsBackend } from"../sessions/sessions.service";
+import { SessionsService  } from"../sessions/sessions.service";
 import { UnsafeService   } from "../unsafe/unsafe.service";
-import { DatabaseBackend } from "../database/database.service";
+import { DatabaseService } from "../database/database.service";
 //can import all
 
 let services = {
-    SessionsBackend,
-    DatabaseBackend,
+    SessionsService ,
+    DatabaseService ,
     UnsafeService
 };
 
@@ -26,13 +26,11 @@ import { parseFunctionFromText, } from "../../common/parse.utils";
 try {
     if(typeof process === 'object') { //indicates node
         // NODE = true;
-        const SSRBackend = require("src/backend/ssr/ssr.service").default;
         const WebsocketBackend = require("src/backend/websocket/websocket.service").default;
         const HTTPBackend = require('src/backend/http/http.service').default;
         const EventsService = require('src/backend/http/events.service').default;
         const OSCBackend = require('src/backend/osc/osc.service').default;
         const WebRTCBackend = require('src/backend/webrtc/webrtc.backend').default;
-        services['SSRBackend'] = SSRBackend;
         services['WebsocketBackend'] = WebsocketBackend;
         services['HTTPBackend'] = HTTPBackend;
         services['EventsService'] = EventsService;
@@ -145,8 +143,8 @@ export class ServerWorker extends Service {
         }
     ]
 
-    constructor() {
-        super()
+    constructor(Router?:Router) {
+        super(Router)
     }
 
         //automated responses

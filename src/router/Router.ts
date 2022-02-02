@@ -35,7 +35,7 @@ export class Router {
   CONNECTIONS: Map<string,{}> = new Map(); //threads or other servers
   SUBSCRIPTIONS: Function[] = [] // an array of handlers (from services)
   DEBUG: boolean;
-  ENDPOINTS: Map<string, Endpoint> = new Map()
+  ENDPOINTS: {[x:string]:Endpoint} = {}
 
   SERVICES: {[x:string] : any} = {}
 
@@ -282,7 +282,8 @@ export class Router {
         // Browser-Only
         if ('onbeforeunload' in globalThis){
           globalThis.onbeforeunload = () => {
-            this.ENDPOINTS.forEach(e => {if (e.type != 'webrtc') this.logout(e)}) // TODO: Make generic. Currently excludes WebRTC
+
+            Object.values(this.ENDPOINTS).forEach(e => {if (e.type != 'webrtc') this.logout(e)}) // TODO: Make generic. Currently excludes WebRTC
           }
         }
 
@@ -304,7 +305,7 @@ export class Router {
       let endpoint = new Endpoint(config, this.SERVICES, this)
 
       // Register User and Get Available Functions
-      this.ENDPOINTS.set(endpoint.id, endpoint)
+      this.ENDPOINTS[endpoint.id] = endpoint
 
       endpoint.check().then(res => {
           if (callback && res) {
@@ -317,8 +318,8 @@ export class Router {
   }
 
   disconnect = async (id) => {
-    this.logout(this.ENDPOINTS.get(id))
-    this.ENDPOINTS.delete(id)
+    this.logout(this.ENDPOINTS[id])
+    delete this.ENDPOINTS[id]
   }
 
 
@@ -449,13 +450,9 @@ export class Router {
   private _send = async (routeSpec:RouteSpec, method?: FetchMethods, ...args:any[]) => {
     
       let endpoint;
-      if (typeof routeSpec === 'string'){
-        endpoint = this.ENDPOINTS.values().next().value
-      } else {
-         endpoint = routeSpec?.endpoint
-      }
-
-      // const endpoint = (typeof routeSpec === 'string') ? this.ENDPOINTS.values().next().value : (routeSpec?.remote) ? this.ENDPOINTS.get((routeSpec.remote as URL).origin) : this.ENDPOINTS.values().next().value
+      if (typeof routeSpec === 'string' || routeSpec?.endpoint == null) endpoint = Object.values(this.ENDPOINTS)[0]
+      else endpoint = routeSpec.endpoint
+      
 
       let response;      
       response = await endpoint.send(routeSpec, {id: this.currentUser.id, message: args, method, suppress: !!endpoint.subscription})
@@ -472,7 +469,7 @@ export class Router {
 
 
     // Notify through Subscription (if not suppressed)
-    if (endpoint && route && !o.suppress && endpoint.subscription) endpoint.subscription?.service?.responses?.forEach(f => f(Object.assign({route}, o))) // Include send route if none returned
+    if (endpoint && route && !o.suppress && endpoint.connection) endpoint.connection?.service?.responses?.forEach(f => f(Object.assign({route}, o))) // Include send route if none returned
 
     // Activate Internal Routes if Relevant (currently blocking certain command chains)
     if (!o.block) {
@@ -488,25 +485,14 @@ export class Router {
       force?:boolean
   } = {}) => {
 
-      if (this.ENDPOINTS.size > 0 || options?.endpoint) {
+      if (Object.keys(this.ENDPOINTS).length > 0 || options?.endpoint) {
 
-          if (!options.endpoint) options.endpoint = this.ENDPOINTS.values().next().value
+          if (!options.endpoint) options.endpoint = Object.values(this.ENDPOINTS)[0]
 
-          return await options.endpoint.subscribe((event) => {
-                const data = (typeof event.data === 'string') ? JSON.parse(event.data) : event
-                callback(data) // whole data object (including route)
-                // this.handleLocalRoute(data) // SET IN ENDPOINT INSTEAD
-          }, options)
+          return await options.endpoint._subscribe(options).then(res => options.endpoint.subscribe(callback))
           
       } else throw 'Remote is not specified'
 
-  }
-
-
-  unsubscribe = (id, route?) => {
-      if (id){
-          throw 'Unsubscribe not implemented'
-      }
   }
 
     // -----------------------------------------------

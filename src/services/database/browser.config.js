@@ -54,19 +54,20 @@ var config = {
   devtool: 'source-map',
   module: {
     rules: [
-        { test: /\.tsx?$/, loader: "ts-loader" },
-        {
-          test: /\.m?js$/,
-          exclude: /(node_modules|bower_components)/,
-          use: {
-            loader: 'babel-loader',
-            // options: {
-            //   presets: ['@babel/preset-env'],
-            //   plugins: [ "transform-class-properties" ]
-            // }
-          }
+        { 
+          test: /\.(ts|js)x?$/,
+          exclude: /(node_modules|bower_components|dist)/,
+          use: [
+            {
+              loader: 'babel-loader',
+              options: {
+                cacheDirectory: true,
+              },
+            },
+            {loader: 'ts-loader'}
+          ]
         }
-      ],
+      ]
   },
   // plugins: [
   //   new WorkerPlugin()

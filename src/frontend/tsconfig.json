@@ -5,5 +5,4 @@
         "outDir": "./dist",
         "module": "es2015", /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', or 'ESNext'. */
     },
-    "include": ["./"],
 }

@@ -4,7 +4,7 @@ import { safeParse } from "../../common/parse.utils";
 import { Service } from "../../router/Service";
 import { randomId } from "../..//common/id.utils";
 import EventsService from "./events.backend";
-import { SubscriptionService } from 'src/router';
+import { SubscriptionService } from '../../router/SubscriptionService';
 
 // var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
 // var ARGUMENT_NAMES = /([^\s,]+)/g;

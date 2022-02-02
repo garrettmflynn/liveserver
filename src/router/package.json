@@ -1,6 +1,6 @@
 {
   "name": "liveserver-router",
-  "version": "0.0.5",
+  "version": "0.0.7",
   "main": "./dist/index.js",
   "module": "./dist/module.js",
   "types": "./dist/router/index.d.ts",

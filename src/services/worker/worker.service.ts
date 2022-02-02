@@ -80,7 +80,7 @@ export class WorkerService extends Service {
     ];
 
     constructor(Router:Router, url:string|URL, nThreads:number=0) {
-        super();
+        super(Router);
 
         this.Router = Router;
         this.threads = nThreads; 

@@ -430,4 +430,17 @@ export class WebRTCClient extends SubscriptionService {
     }
 
     add = async (_:Partial<UserObject>, __:string):Promise<any> => {}
+
+     //copy data from another host into the local services and toggle necessary flags to be the lead sender/receiver of data
+     becomeHost() {
+        //copy data from other host (which could be the main server offloading a portion of data to the webrtc host)
+
+        //set flags so that other peers in the room will stream their data to you instead of the previous host
+    }
+
+    //migrate to another user by passing all of the hosted data over to your service instances
+    //OR if need be, migrate back to the dedicated server by updating the data the normal way (decentralize <---> recentralize on the fly?)
+    migrateHost() {
+
+    }
 }

@@ -99,7 +99,7 @@ export class OSCBackend extends SubscriptionService {
 
             port.on("error", (error) => {
                 resolve({route: 'oscError', message:  [error.message]})
-                this.notify({route: 'oscError', message: [error.message]}, true) // reach subscribers
+                this.notify({route: 'oscError', message: [error.message]}) // reach subscribers
             });
 
             port.on("message", (o) => {
@@ -110,15 +110,15 @@ export class OSCBackend extends SubscriptionService {
                         parsed[o.args[i]] = o.args[i+1]
                     }
                     parsed.message = (parsed.method) ? o.args.slice(4) : o.args.slice(2)
-                    let res = this.notify(parsed, true) // reach subscribers and run a route
+                    let res = this.notify(parsed) // reach subscribers and run a route
                     this.sendOverOSC(res, port)
                 }
-                else this.notify({route: this.name + o.address, message: o.args}, true) // reach subscribers and run a route
-                this.notify({route: this.name + o.address, message: o.args}, true) // reach subscribers and run a route
+                else this.notify({route: this.name + o.address, message: o.args}) // reach subscribers and run a route
+                this.notify({route: this.name + o.address, message: o.args}) // reach subscribers and run a route
             });
 
             port.on("close", (message) => {
-                this.notify({route: 'oscClosed', message: [message]}, true) // reach subscribers
+                this.notify({route: 'oscClosed', message: [message]}) // reach subscribers
             })
             
             port.open();

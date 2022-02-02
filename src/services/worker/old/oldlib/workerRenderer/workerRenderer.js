@@ -6,9 +6,8 @@ import { parseFunctionFromText, dynamicImport } from '../utils/Parsing';
 export class workerRenderer {
     constructor(callbackManager) {
 
-
         this.callbackManager = callbackManager;
-        callbackManager.canvas = new OffscreenCanvas(512, 512); //can add fnctions and refer to this.offscreen 
+        // callbackManager.canvas = new OffscreenCanvas(512, 512); //can add fnctions and refer to this.offscreen 
         callbackManager.ANIMATION = undefined;
         callbackManager.ANIMATIONFUNC = undefined;
         callbackManager.ANIMATING = false;

@@ -1,4 +1,4 @@
-import { DS, DataTablet } from 'brainsatplay-data'
+import { DataTablet, DS } from 'brainsatplay-data'
 import { UserObject } from '../../common/general.types';
 import { Router } from '../../router/Router'
 import { randomId } from '../../common/id.utils';
@@ -171,6 +171,8 @@ export class UsersClient extends Router {
 
     //default socket response for the platform
     baseServerCallback = (data) => {
+
+        if (Array.isArray(data)) data = data[0] // account for passing as arguments
 
         let structs = data;
         if(typeof data === 'object' && data?.structType) structs = [data];

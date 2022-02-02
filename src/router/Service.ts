@@ -25,7 +25,7 @@ export class Service {
     protocols: ProtocolObject = {} // Compatible Communication Protocols (unused in Node)
     services: {[x: string]: any} = {} // Object of nested services
     
-    constructor(router:RouterInterface) {
+    constructor(router?:RouterInterface) {
         this.router = router
     }
 

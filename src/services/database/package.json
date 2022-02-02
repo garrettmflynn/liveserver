@@ -1,6 +1,6 @@
 {
   "name": "liveserver-database",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "main": "./dist/index.js",
   "module": "./dist/module.js",
   "types": "./dist/services/database/index.d.ts",
@@ -15,7 +15,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "bson-objectid": "^2.0.2",
-    "brainsatplay-data": "^0.0.14"
+    "brainsatplay-data": "^0.0.14",
+    "bson-objectid": "^2.0.2"
   }
 }
