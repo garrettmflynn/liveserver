@@ -17,18 +17,6 @@ export class EventsBackend extends SubscriptionService {
     name = 'events'
     id: string = randomId('events')
 
-    // TODO: Add method to parse events to listen to from the Router...
-
-    // routes = [
-    //     {
-    //         route: '**',
-    //         callback: async (self,[route, request, response]) => {
-    //             route = route.replace(this.name + '/', '')
-    //             return await this.add(route, request, response)
-    //         }
-    //     }
-    // ]
-
     constructor(router) {
         super(router)
     }
@@ -73,17 +61,11 @@ export class EventsBackend extends SubscriptionService {
 
         this.subscribers.set(id, u)
         
-        // else {
         if (routes){
             routes.forEach(async route => {
-                // let res = await this.notify({route, message: []}, true) // Getting current routes to pass along
-                // u.callback(res)
                 u.routes[route] = true // TODO: Toggle off to cancel subscription
             })
         }
-        // }
-
-        console.log(this.subscribers, u, routes)
 
         return id
     }

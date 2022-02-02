@@ -2,11 +2,12 @@ import React from 'react';
 import Layout from '@theme/Layout';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import ExampleSelector from './selector';
+import { SessionsService } from './../../../../src/services/sessions/sessions.service';
+import { DatabaseService } from './../../../../src/services/database/database.service';
+import { UnsafeService } from './../../../../src/services/unsafe/unsafe.service';
+
 import { OSCClient } from './../../../../src/services/osc/osc.frontend';
-import { SessionsClient} from './../../../../src/services/sessions/sessions.frontend';
 import { WebRTCClient } from './../../../../src/services/webrtc/webrtc.frontend';
-import { DatabaseClient } from './../../../../src/services/database/database.frontend';
-import { UnsafeClient } from './../../../../src/services/unsafe/unsafe.frontend';
 import { HTTPClient } from './../../../../src/services/http/http.frontend';
 import { WebsocketClient } from './../../../../src/services/websocket/websocket.frontend';
 import { Router } from './../../../../src/router/Router';
@@ -17,13 +18,14 @@ const SERVER_URI = (window.location.href.includes('localhost')) ? 'http://localh
 const SERVER_URI_2 = (window.location.href.includes('localhost')) ? 'http://localhost:81' : 'http://localhost:81' // Replace with production server URI
 
 let services = [
-  new SessionsClient(router), 
+  new SessionsService(router), 
+  new UnsafeService(router),
+  new DatabaseService(router),
+
   new OSCClient(router), 
   new WebsocketClient(router), 
   new WebRTCClient(router), 
   new HTTPClient(router),
-  new DatabaseClient(router),
-  new UnsafeClient(router)
 ]
 
 services.forEach(service => {

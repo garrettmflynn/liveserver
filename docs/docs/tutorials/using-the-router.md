@@ -56,6 +56,9 @@ services.forEach(service => router.load(service).then(() => console.log('Service
 
 At this point, your project should be able to send HTTP and WebSocket messages to supported servers.
 
+
+> **Note:** Services can be strongly or weakly linked to FE / BE. Weakly linked Services can run on either FE or BE. For this case, specify backend methods with an underscore (e.g. _backendMethod) so that all frontend methods are easily referenced by an end-user.
+
 ### Adding the Backend
 
 In your backend code, create an Express application and link this to your Router with an HTTP Service. Here we will instantiate the Router class ourselves to enable auto-debugging:

@@ -10,7 +10,7 @@ export class Room {
     name: string = ''
     initiator: UserObject
     restrictions: any = {}
-    peers: Map<string,UserObject> = new Map()
+    peers: {[x:string]:UserObject} = {}
     empty:boolean = false
 
     constructor(initiator: UserObject, settings:RoomInterface = {name: null, restrictions: {}}){
@@ -28,14 +28,14 @@ export class Room {
             name: this.name,
             initiator: this.initiator?.id,
             restrictions: this.restrictions,
-            peers: Array.from(this.peers, ([,peer]) => peer.id)
+            peers: Object.values(this.peers).map(p => p.id)
         } as RoomInterface
     }
 
     addPeer = (o: UserObject) => {
 
         // Check User Existence
-        if (this.peers.has(o.id)) console.error('User already added to room.')
+        if (this.peers[o.id]) console.error('User already added to room.')
 
         // Check User Authorization (if required) | Currently just a specified id
         // TODO: Fix
@@ -44,16 +44,16 @@ export class Room {
         // Otherwise Let Join
         else {
             
-            if (!this.restrictions?.max || this.restrictions.max > this.peers.size) {
+            if (!this.restrictions?.max || this.restrictions.max > Object.keys(this.peers).length) {
 
             // Request Peer Connections
-            this.peers.forEach((peer) => {
+            Object.values(this.peers).forEach((peer) => {
                 o.send({route: "webrtc/connect", message: [{id:peer.id, info: peer}]}) // initialize connections
                 peer.send({route: "webrtc/connect", message: [{id:o.id, info: o}]}) // extend connections
             })
 
             // Set in Room
-            this.peers.set(o.id, o)
+            this.peers[o.id] = o
 
         } else console.error('Room is full')
     }
@@ -61,10 +61,9 @@ export class Room {
     }
 
     removePeer = (origin: string) => {
-        let peer = this.peers.get(origin)
-        this.peers.delete(origin)
-        // TODO: Fix
-        this.peers.forEach(p => p.send({route: "disconnectPeer", message: [{id: peer.id, info: peer}], id: origin})) // remove from peers
-        if (this.peers.size === 0) this.empty = true
+        let peer = this.peers[origin]
+        delete this.peers[origin]
+        Object.values(this.peers).forEach(p => p.send({route: "webrtc/disconnectPeer", message: [peer.id]})) // remove from peers
+        if (Object.keys(this.peers).length === 0) this.empty = true
     }
 }

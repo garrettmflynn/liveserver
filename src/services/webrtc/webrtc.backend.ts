@@ -8,6 +8,7 @@ export class WebRTCBackend extends Service {
     name = 'webrtc'
     peers: {[x:string]:UserObject} = {}
     rooms: {[x:string]:any} = {}
+    pairs: {[x:string]:any} = {}
 
     routes = [
 
@@ -36,7 +37,7 @@ export class WebRTCBackend extends Service {
                             room = this.createRoom({name: route})
                             this.connect(room,id)
                         }
-                        
+
                     } else {
                         if (split[0] !== 'users') route = split[0] // base user
                         const user = this.peers[route]
@@ -45,26 +46,14 @@ export class WebRTCBackend extends Service {
                         } else console.log('User not found.')
                     }
                 })
+
                 return {route:'info', message: [this.getPeers(), rooms]} // TODO: Limit viewable rooms and users
             }
         },
         {
             route: 'unsubscribe',
             callback: (self, args, id) => {
-                delete this.peers.delete[id]
-                for (let room in this.rooms){
-                    const r = this.rooms[room]
-                    if (r.peers[id]){
-                        r.removePeer(id)
-                    }
-                }
-                return;
-            }
-        },
-        {
-            route: 'removeUser',
-            callback: (self, args, id) => {
-                console.log('REMOVING USER IN WEBRTC', args)
+                console.log('MUST IMPLEMENT UNSUBSCRIBE')
                 return;
             }
         },
@@ -128,16 +117,10 @@ export class WebRTCBackend extends Service {
         // },
 
         {
-            route: 'connect',
-            callback: (self, args, id) => {
-                return this.connect(args[0], id)
-            }
-        },
-
-        {
             route: 'disconnect',
+            aliases: ['removeUser'],
             callback: (self, args, id) => {
-                return this.disconnect(args[0], id)
+                return this.disconnect(id)
 
             }
         },
@@ -168,6 +151,13 @@ export class WebRTCBackend extends Service {
         if (peer) {
             u.send({route: "webrtc/connect", message: [{id:peer.id, info: peer}]}) // initialize connections
             peer.send({route: "webrtc/connect", message: [{id: u.id, info: u}]}) // extend connections
+            
+            // Register Pair
+            if (!this.pairs[u.id]) this.pairs[u.id] ={}
+            if (!this.pairs[peer.id]) this.pairs[peer.id] ={}
+            this.pairs[u.id][peer.id] = true
+            this.pairs[peer.id][u.id] = true
+            
             return peer
         } 
         
@@ -193,17 +183,22 @@ export class WebRTCBackend extends Service {
         return data
     }
 
-    disconnect = (roomId: string, origin: string) => {
+    disconnect = (id: string) => {
 
-        if (roomId) this.removePeerFromRoom(this.rooms[roomId], origin) // Remove from specified room
-        else {
-            for (let room in this.rooms){
-                const r = this.rooms[room]
-                this.removePeerFromRoom(r,origin)
+        for (let room in this.rooms){
+            const r = this.rooms[room]
+            if (r.peers[id]){
+                this.removePeerFromRoom(r,id)
+            }
 
+            if (this.pairs[id]){
+                Object.keys(this.pairs[id]).forEach(name => {
+                    this.peers[id].send({route: "webrtc/disconnectPeer", message: [id]}) // remove from peers
+                })
             }
         }
-        return {cmd: 'roomclosed'}
+
+        delete this.peers[id]
     }
 
     removePeerFromRoom = (room: Room, origin: string) => {

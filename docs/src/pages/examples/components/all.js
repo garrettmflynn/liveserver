@@ -1,9 +1,12 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import styles from '../examples.module.css'
+import RouteDisplay from '../routeDisplay';
 
 export default function AllExample({server, endpoints, router}) {
-  
+
+  const [routes, setRoutes] = useState({});
+
     const buttons = useRef(null);
     const output = useRef(null);
 
@@ -19,7 +22,7 @@ export default function AllExample({server, endpoints, router}) {
     router.subscribe((o) => {
         console.log('Remote #1 Subscription', o)
         let data = o.message
-        if (o.route === 'routes') handleRoutes(o.message[0])
+        if (o.route === 'routes') setRoutes(o.message[0])
         else {
         
         // Subscription Responses
@@ -29,69 +32,30 @@ export default function AllExample({server, endpoints, router}) {
       }
     }, {protocol: 'http', routes: ['routes', 'osc'], endpoint: endpoints[0]})
 
-    function handleRoutes(data){
-
-      divs = {}
-      if (buttonRef) buttonRef.innerHTML = ''
-
-      for (let route in data){
-        const o = data[route]
-
-        let test = o.route.split('/')
-        let service = (test.length < 2) ? 'Base' : test[0]
-        let name = (test.length < 2) ? test[0] : test[1]
-
-        if (!divs[service]){
-          divs[service] = document.createElement('div')
-          divs[service].innerHTML = `<h2>${service}</h2>`
-          divs[service].style.padding = '20px'
-          if (buttonRef) buttonRef.insertAdjacentElement('beforeend', divs[service])
-        }
-
-        
-        // o = {route: string, arguments: []}
-        let button = document.createElement('button')
-        button.className = 'button button--secondary button--lg'
-        button.innerHTML = name
-        button.onclick = ( ) => {
-          let args = []
-          if (o.route === 'unsafe/addfunc') args = ['add', (_, [a, b=1]) => a + b]
-          else if (o.route === 'add') args = [vals['add']?.[0]]
-          else if (o.route === 'ssr/add') args = ['/arbitrary/route', '<p>Just some arbitrary HTML</p>']
-
-          // Sending Over HTTP Response
-          send(o.route, 'post', ...args)
-        }
-
-        divs[service].insertAdjacentElement('beforeend', button)
-      }
-    }
-
     useEffect(async () => {
-      console.log('ENDPOINT IDs', endpoints)
-
       buttonRef = buttons.current
       outputRef = output.current
-
     });
 
-    send('routes', 'get')
+    useEffect(() => {
+      send('routes', 'get')
+    }, [])
 
     async function send(route, method, ...args){
+
       return await router[method]({
         route,
         endpoint: endpoints[0]
       }, ...args).then(res => {
 
-        console.log('Direct response', res)
-
         if (!res?.error) {
-          console.log(res)
-          if (route === 'routes') handleRoutes(res[0])
+          if (res && route === 'routes') setRoutes(res[0])
           if (outputRef) outputRef.innerHTML = JSON.stringify(vals[route] = res)
         } else if (outputRef) outputRef.innerHTML = res.error
 
       }).catch(err => {
+        console.log('err', err)
+
         if (outputRef) outputRef.innerHTML = err.error
       })
 
@@ -102,8 +66,7 @@ export default function AllExample({server, endpoints, router}) {
         <div className="container">
           <h1 className="hero__title">All Routes</h1>
           <div className={styles.terminal}><span ref={output}></span></div>
-          <div ref={buttons}>
-          </div>
+          <RouteDisplay routes={routes} sendCallback={send}/>
         </div>
       </header>
     );

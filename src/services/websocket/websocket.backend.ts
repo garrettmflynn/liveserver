@@ -121,23 +121,32 @@ export class WebsocketBackend extends SubscriptionService {
 
   process = async (ws, o) => {
     // console.log(o)
+
     this.defaultCallback(ws, o)
-    let res = await this.notify(o);
+    // Check to Add Subscribers (only ws)
+    let query = `${this.name}/subscribe`
+    if (o.route.slice(0,query.length) === query){
+        return await this.addSubscription(o, ws)
+    } 
+    
+    // Otherwise Try Command Elsewhere
+    else {
+      let res = await this.notify(o);
       if (typeof res === 'object') res.callbackId = o.callbackId
       if (res instanceof Error) ws.send(JSON.stringify(res, Object.getOwnPropertyNames(res))) 
       else if (res != null) ws.send(JSON.stringify(res)) // send back  
+    }
   }
 
   defaultCallback = async (ws, o) => {
 
       // Check to Add Subscribers (only ws)
       let query = `${this.name}/subscribe`
-    if (o.route.slice(0,query.length) === query){
-        return await this.addSubscription(o, ws)
-    }
+      if (o.route.slice(0,query.length) === query){
+          return await this.addSubscription(o, ws)
+      }
 
   } 
-
 
     // Subscribe to Any Arbitrary Route Event
     addSubscription = async (info: MessageObject, ws) => {

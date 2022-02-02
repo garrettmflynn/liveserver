@@ -17,6 +17,7 @@ export class WebRTCClient extends SubscriptionService {
 
     config: RTCConfiguration
     peers: {[x:string]:{
+        id: string,
         connection: RTCPeerConnection,
         channel: {
             controller?: DataChannel,
@@ -79,7 +80,7 @@ export class WebRTCClient extends SubscriptionService {
             callback: (self, args, id) => {
                 let peer = this.peers[args[0]]
                 let candidate = new RTCIceCandidate(args[1])
-                if (peer)  peer.connection.addIceCandidate(candidate).catch((e:Error) => console.error(e)); // thrown multiple times since initial candidates aren't usually appropriate
+                if (peer)  peer.connection.addIceCandidate(candidate).catch(() => {}); // silent, first candidates usually aren't appropriate
             }
         },
         {
@@ -88,13 +89,12 @@ export class WebRTCClient extends SubscriptionService {
                 if (args) this.onoffer(args[1], args[0])
             }
         },
-
+ 
         // Extra Commands
         {
             route: 'disconnectPeer',
             callback: (self, args) => {
-                const o = args[0]
-                this.closeConnection(o, this.peers[o.id].connection)
+                this.closeConnection(this.peers[args[0]])
             }
         },
         {
@@ -144,6 +144,7 @@ export class WebRTCClient extends SubscriptionService {
         this.addEventListener('peerdisconnect', ((ev:CustomEvent) => { delete this.peers[ev.detail.id]}) as EventListener )
         this.addEventListener('peerdisconnect', ((ev:CustomEvent) => { this.onpeerdisconnect(ev)}) as EventListener )
         this.addEventListener('peerconnect', ((ev:CustomEvent) => { this.peers[ev.detail.id] = {
+            id: ev.detail.id,
             connection: ev.detail.webrtc,
             channel: null
         }}) as EventListener )
@@ -167,7 +168,7 @@ export class WebRTCClient extends SubscriptionService {
     addDataTracks = async (id:string, tracks:any[]) => {
         for (let track of tracks) {
             await this.openDataChannel({name: `DataStreamTrack${this.dataChannelQueueLength}`, peer:id, reciprocated: false}).then((o: DataChannel) => track.subscribe((message) => {
-                o.send({route:'webrtc/stream', message})
+                o.send({message})
             })) // stream over data channel
         }
     }
@@ -235,6 +236,7 @@ export class WebRTCClient extends SubscriptionService {
                 }
             // this.peers[peerId].channel = o // keep track of channels already resolved
             this.dispatchEvent(new CustomEvent('datachannel', {detail: o}))
+
         }
 
     }
@@ -253,7 +255,7 @@ export class WebRTCClient extends SubscriptionService {
         switch(peer?.connection?.iceConnectionState) {
             case "closed":
             case "failed":
-            this.closeConnection(info, peer.connection);
+            this.closeConnection(peer);
               break;
           }
     }
@@ -264,13 +266,13 @@ export class WebRTCClient extends SubscriptionService {
         const peer = this.peers[info.id]
         switch(peer?.connection?.signalingState) {
             case "closed":
-            this.closeConnection(info, peer.connection);
+            this.closeConnection(peer);
             break;
         }
     }
 
-    closeConnection = (info:UserObject, peer?:RTCPeerConnection) => {
-        if (peer) this.dispatchEvent(new CustomEvent('peerdisconnect', {detail: Object.assign(info, {peer})}))
+    closeConnection = (peer:any) => {
+        if (peer) this.dispatchEvent(new CustomEvent('peerdisconnect', {detail: peer}))
     }
 
     createPeerConnection = async (peerInfo:any, peerId?:string) => {
@@ -345,12 +347,16 @@ export class WebRTCClient extends SubscriptionService {
     }
 
     closeDataChannel = async (peer:string) => {
-        let dC = this.peers[peer].channel
-        if (dC) {
-            // dC.local.close()
-            // dC.remote.close()
+
+        const peerObj = this.peers[peer]
+        if (peerObj){
+            let dC = peerObj?.channel
+            if (dC) {
+                dC.local.close()
+                dC.remote.close()
+            }
+            delete this.peers[peer]?.channel
         }
-        delete this.peers[peer].channel
     }
 
     // ASSUME RECIPROCATION
@@ -373,12 +379,14 @@ export class WebRTCClient extends SubscriptionService {
                     // Set OnMessage Callback
                     dataChannel.addEventListener("message", async (event) => {
                         const o = JSON.parse(event.data)
-                        let res = await this.notify(o, 'local')
+                        if (!o.id) o.id = peer // Set Peer ID
+                        this.responses.forEach((foo) => foo(o)) // Bubble up to Endpoint subscriptions
+                        let res = await this.notify(o, 'local') // Notify Router
                         const controller =this.peers[peer].channel.controller as any
-                        controller.addData(o) // Add data to Channel = DataTrack
+                        if (controller.addData) controller.addData(o) // Add data to Channel = DataTrack
 
                         // Send Response Back to Peer
-                        if (res) this.peers[peer].channel.controller.send({route: 'webrtc/stream', message: res}) // TODO: Associate route
+                        if (res) this.peers[peer].channel.controller.send({message: res}) // TODO: Associate route
                     })
 
                 } else this.peers[peer].channel.local = dataChannel
@@ -394,7 +402,7 @@ export class WebRTCClient extends SubscriptionService {
                 }
             }
 
-            dataChannel.onclose = () => console.error('Data channel closed', dataChannel)
+            dataChannel.onclose = () => this.closeDataChannel(peer)
         
         } else console.log('DATA CHANNEL DOES NOT EXIST')
         });
@@ -406,27 +414,20 @@ export class WebRTCClient extends SubscriptionService {
 
         // Ensure Message Sends to Both Channel Instances
         let check = () => {
-            let dC =  this.dataChannels.get(options.peer)
-            if (dC) {
-                if (dC.output.readyState === 'open') dC.send(o); // send on open instead
-                else dC.output.addEventListener('open', () => {dC.send(o);}) // send on open instead
-            } else if (options.reciprocated) setTimeout(check, 500)
+            let channels =  (options.peer) ? [this.peers[options.peer].channel.controller] : Object.values(this.peers).map(p => p?.channel?.controller)
+
+            channels.forEach(dC => {
+                if (dC) {
+                    if (dC.output.readyState === 'open') dC.send(o); // send on open instead
+                    else dC.output.addEventListener('open', () => {dC.send(o);}) // send on open instead
+                } 
+                // else if (options.reciprocated) setTimeout(check, 500)
+            })
+
         }
         check()
         return undefined
     }
 
-
-    // Clientside Subscription Service Methods
-    // setRemote = (remote) => {
-    //     this.remote = remote
-    // }
-
-    // addResponse = (name, f) => {
-    //     this.responses.set(name, f)
-    // }
-
-    add = async (user:Partial<UserObject>, endpoint:string):Promise<any> => {
-        console.log('Server will handle WebRTC subscriptions')
-    }
+    add = async (_:Partial<UserObject>, __:string):Promise<any> => {}
 }

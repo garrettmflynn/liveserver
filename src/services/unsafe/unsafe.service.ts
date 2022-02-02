@@ -2,7 +2,7 @@ import { parseFunctionFromText } from "../../common/parse.utils";
 import { Service } from "../../router/Service";
 
 // Garrett Flynn and Joshua Brewster, AGPL v3.0
-export class UnsafeBackend extends Service {
+export class UnsafeService extends Service {
     name = 'unsafe'
     routes = [
         { //add a local function, can implement whole algorithm pipelines on-the-fly
@@ -100,4 +100,4 @@ export class UnsafeBackend extends Service {
 
 }
 
-export default UnsafeBackend
+export default UnsafeService

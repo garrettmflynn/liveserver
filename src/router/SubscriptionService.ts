@@ -42,7 +42,8 @@ export class SubscriptionService extends Service {
     }
 
     removeResponse = (name) => {
-        this.responses.delete(name)
+        if (name) this.responses.delete(name)
+        else this.responses = new Map()
     }
 
     send = async (o:MessageObject, options?: any):Promise<any> => {

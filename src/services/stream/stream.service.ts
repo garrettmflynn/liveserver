@@ -4,7 +4,7 @@ import { Service } from '../../router/Service';
 import { UserObject } from "../../common/general.types";
 
 //This hooks in with functions on the session.service tool for creating two way sessions.
-export class DataStreaming extends Service {
+export class StreamService extends Service {
 
 	user: Partial<UserObject>;
 	LOOPING = true;ss
@@ -236,6 +236,8 @@ export class DataStreaming extends Service {
 	}
 
 }
+
+export default StreamService
 
 
 

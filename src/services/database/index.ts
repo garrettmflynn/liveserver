@@ -1,3 +1,2 @@
-export * from './database.frontend'
-export * from './database.backend'
-export * from './users.frontend'
+export * from './database.service'
+export * from './users.router'

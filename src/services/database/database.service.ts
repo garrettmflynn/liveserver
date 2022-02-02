@@ -2,12 +2,12 @@
 //Users, user data, notifications, access controls
 // Joshua Brewster, Garrett Flynn, AGPL v3.0
 import ObjectID from "bson-objectid"
-import { RouteConfig, UserObject } from '../../common/general.types';
+import { UserObject } from '../../common/general.types';
 import { Router } from "../../router/Router";
 import { Service } from "../../router/Service";
 import { randomId } from '../../common/id.utils';
 
-export class DatabaseBackend extends Service {
+export class DatabaseService extends Service {
     
     name = 'database'
     controller: Router;
@@ -1391,4 +1391,4 @@ export class DatabaseBackend extends Service {
 
 }
 
-export default DatabaseBackend
+export default DatabaseService

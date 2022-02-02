@@ -6,6 +6,17 @@ import Router from './Router';
 // import { Service } from './Service';
 import { randomId } from '../common/id.utils';
 
+// Load Node Polyfills
+try {
+    if(typeof process === 'object') { //indicates node
+        // NODE = true
+        const polyFetch = require('node-fetch-polyfill')
+        if (typeof fetch !== 'function') {
+          globalThis.fetch = polyFetch
+        }
+    }
+} catch (err) {}
+
 export class Endpoint{
 
     id: string = null
@@ -13,11 +24,10 @@ export class Endpoint{
     type: string = null
     link: Endpoint = null
 
-    subscription: {
+    connection?: {
         service: SubscriptionService,
         id: string, // Idenfitier (e.g. for which WebSocket / Worker in service)
         protocol: string;
-        responses: string[]
     } = null
 
     services: {
@@ -37,6 +47,7 @@ export class Endpoint{
     clients: {[x:string]: any} = {} // really resolve Functions OR Service instances
     user: string = randomId('user') // Random User Identifier
     status: boolean = false
+    responses: {[x:string]: Function} = {}
 
 
     // Interface for Sending / Receiving Information
@@ -52,7 +63,7 @@ export class Endpoint{
 
             // Use Link to Communicate with an Additional Endpoint Dependency
             // if (this.link) {
-            //     this.link?.subscription?.service?.addResponse(this.id,(res) => {
+            //     this.link?.connection?.service?.addResponse(this.id,(res) => {
             //         console.log('Listen to the Link',res)
             //     })
             // }
@@ -86,16 +97,11 @@ export class Endpoint{
             //     console.log('no link', this.link)
             // }
 
-            await this.subscribe((data) => {
-                console.log('Dummy WebRTC Callback',data)
-            }, {
-                protocol: 'webrtc', 
-            }).then(res => {
+            await this._subscribe({ protocol: 'webrtc', force: true }).then(res => {
                 this.status = true
-            }).catch(e => {
-                console.log(e, `Link doesn't have WebRTC enabled.`)
-            })
+            }).catch(e => console.log(`Link doesn't have WebRTC enabled.`, e))
         }
+        
 
         let res = await this.send('services').then(res => {
             this.status = true
@@ -105,10 +111,7 @@ export class Endpoint{
             // Fallback to WS (server types only)
             if (this.type === 'server'){
                 console.log('Falling back to websockets')
-                await this.subscribe(
-                    null, 
-                    {protocol: 'websocket', force: true}
-                ).then(res => {
+                await this._subscribe({protocol: 'websocket', force: true}).then(res => {
                         this.status = true
                         return res
                     })
@@ -124,7 +127,7 @@ export class Endpoint{
 
               for (let route in routes){
                   const className = routes[route]
-                  const name = className.replace('Backend', '').toLowerCase()
+                  const name = className.replace(/Backend|Service/, '').toLowerCase()
                   this.services.available[name] = route
                   serviceNames.push(name)
 
@@ -146,7 +149,7 @@ export class Endpoint{
     }
 
     // Send Message to Endpoint (mirror linked Endpoint if necessary)
-    send = async (route:RouteSpec, o: Partial<MessageObject> = {}) => {
+    send = async (route:RouteSpec, o: Partial<MessageObject> = {}, endpoint:Endpoint = this) => {
 
 
         // Support String -> Object Specification
@@ -161,16 +164,18 @@ export class Endpoint{
         // create separate options object
         const opts = {
             suppress: o.suppress,
-            id: this.link.subscription?.id
+            id: endpoint.link.connection?.id
         }
 
-        o.id = this.link.router?.currentUser?.id ?? this.link.user
+        o.id = endpoint.link.router?.currentUser?.id ?? endpoint.link.user
 
         // WS
-        if (this.subscription?.protocol === 'websocket') response = await this.link.subscription.service.send(o as MessageObject, opts) // NOTE: Will handle response in the subscription too
+        if (endpoint.connection?.protocol === 'websocket') {
+            response = await endpoint.link.connection.service.send(o as MessageObject, opts) // NOTE: Will handle response in the subscription too
+        }
 
-        // WebRTC
-        else if (this?.subscription?.protocol === 'webrtc') response = await this.subscription.service.send(o as MessageObject, opts) // NOTE: Will handle response in the subscription too
+        // WebRTC (direct = no link)
+        else if (endpoint?.connection?.protocol === 'webrtc') response = await endpoint.connection.service.send(o as MessageObject, opts) // NOTE: Will handle response in the subscription too
         
         // HTTP
         else {
@@ -187,11 +192,11 @@ export class Endpoint{
   
               if (toSend.method != 'GET') toSend.body = safeStringify(o)
 
-              response = await fetch(createRoute(o.route, this.link.target), toSend).then(async (res) => {
+              response = await fetch(createRoute(o.route, endpoint.link.target), toSend).then(async (res) => {
                     return await res.json().then(json => {
                       if (!res.ok) throw json.message
                       else return json
-                    }).catch(async ()  => {
+                    }).catch(async (err)  => {
                       throw 'Invalid JSON'
                     })
                 }).catch((err) => {
@@ -199,11 +204,15 @@ export class Endpoint{
                 })
         }
 
-        if (response && !response?.route) response.route = o.route // Add send route if none provided
+        if (response && !response?.route) {
+            response.route = o.route // Add send route if none provided
+            response.block = true // Block if added
+        }
+
         return response
     }
 
-    subscribe = async (callback, opts:any={}) => {
+    _subscribe = async (opts:any={}) => {
             let toResolve =  (): Promise<any> => {
                 return new Promise(async resolve => {
 
@@ -224,7 +233,7 @@ export class Endpoint{
                         client.setEndpoint(this.link) // Bind Endpoint to Subscription Client
                     
                         // Note: Only One Subscription per Endpoint
-                        if (!this.subscription){
+                        if (!this.connection){
                             const target = (this.type === 'server') ? new URL(subscriptionEndpoint, this.target) : this.target
                             
                             const id = await client.add(this.router?.currentUser, target.href) // Pass full target string
@@ -232,41 +241,35 @@ export class Endpoint{
                             // Always Have the Router Listen
                             if (this.router){
                                 client.addResponse('router', (o) => {
-                                    const data = (typeof o === 'string') ? JSON.parse(o) : o                        
+                                    const data = (typeof o === 'string') ? JSON.parse(o) : o 
+                                    Object.values(this.responses).forEach(f => {
+                                        f(data)
+                                    })
                                     if (this.router) this.router.handleLocalRoute(data)
                                 })
                             }
 
-                            this.subscription = {
+                            this.connection = {
                                 service: client,
                                 id,
                                 protocol: client.name,
-                                responses: []
                             }
                         }
-
-                        // Apply Callback if Supplied
-                        if (callback) {
-                            let id = randomId('response')
-                            this.subscription.responses.push(id)
-                            client.addResponse(id, callback)
-                        }
-
   
                         // Filter Options to get Message Object
                         if (this.type === 'webrtc') {
                             opts.routes = [this.target] // Connect to Target Room / User only
                         }
 
-                        this.link.send(subscriptionEndpoint, Object.assign({
+                        this.send(subscriptionEndpoint, Object.assign({
                             route: opts.route,
                             message: opts.message,
                             protocol: opts.protocol,
                         }, {
-                          message: [opts.routes, this.subscription.id] // Routes to Subscribe + Reference ID
-                        }))
+                          message: [opts.routes, this.connection.id] // Routes to Subscribe + Reference ID
+                        }), this.link)
 
-                        resolve(this.subscription)
+                        resolve(this.connection)
                         return
                       }
                     })
@@ -282,8 +285,16 @@ export class Endpoint{
 
     }
 
+    subscribe = (callback) => {
+        if (callback){
+            let id = randomId('response')
+            this.responses[id] = callback
+            return id
+        }
+    }
+
     unsubscribe = (id) => {
-        this.subscription.service.removeResponse(id)
-        delete this.subscription
+        if (id) delete this.responses[id]
+        else this.responses = {}
     }
 }

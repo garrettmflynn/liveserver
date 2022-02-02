@@ -15,9 +15,10 @@ import {Router} from './router/Router'
 // import { Router } from 'liveserver-router'
 import { OSCBackend } from './services/osc/osc.backend'
 import { WebRTCBackend } from './services/webrtc/webrtc.backend'
-import { SessionsBackend } from './services/sessions/sessions.backend'
-import { DatabaseBackend } from './services/database/database.backend'
-import { UnsafeBackend } from './services/unsafe/unsafe.backend'
+
+import { SessionsService } from './services/sessions/sessions.service'
+import { DatabaseService } from './services/database/database.service'
+import { UnsafeService } from './services/unsafe/unsafe.service'
 config({ path: resolve(__dirname, `../.env`) });
 config({ path: resolve(__dirname, `../.key`) });
 
@@ -85,17 +86,17 @@ mongoose
     }
 
     if (services.sessions){
-      let sessions = new SessionsBackend(controller);
+      let sessions = new SessionsService(controller);
       controller.load(sessions)
     }
 
     if (services.database){
-      let database = new DatabaseBackend(controller, { mode: "mongdb", instance });
+      let database = new DatabaseService(controller, { mode: "mongdb", instance });
       controller.load(database)
     }
 
     if (services.unsafe){
-      let unsafe = new UnsafeBackend(controller)
+      let unsafe = new UnsafeService(controller)
       controller.load(unsafe)
     }
   }

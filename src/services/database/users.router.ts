@@ -2,7 +2,7 @@ import { DS, DataTablet } from 'brainsatplay-data'
 import { UserObject } from '../../common/general.types';
 import { Router } from '../../router/Router'
 import { randomId } from '../../common/id.utils';
-import { DatabaseClient } from './database.frontend';
+import { DatabaseService } from './database.service';
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 //
 // Description
@@ -23,8 +23,8 @@ export class UsersClient extends Router {
         this.currentUser = userinfo;
         if (this.currentUser?.id) this.currentUser._id = this.currentUser.id // Add a persistent ID
        
-        // Auto-Connect Database Client
-        this.connect(new DatabaseClient())
+        // Auto-Connect Database Client Service
+        this.load(new DatabaseService(this))
     }
 
     //TODO: make this able to be awaited to return the currentUser

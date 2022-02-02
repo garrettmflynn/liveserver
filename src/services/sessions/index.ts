@@ -1,2 +1,1 @@
-export * from './sessions.backend'
-export * from './sessions.frontend'
+export * from './sessions.service'

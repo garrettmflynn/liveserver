@@ -1,1 +1,1 @@
-export * from './stream.frontend'
+export * from './stream.service'

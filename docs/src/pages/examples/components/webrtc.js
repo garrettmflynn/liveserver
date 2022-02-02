@@ -29,75 +29,55 @@ export default function WebRTCExample({server, endpoints, router}) {
 
     peerDiv.current.insertAdjacentElement('beforeend', peers[id].element)
 
-    console.log('Opening Data Channel')
     webrtcClient.openDataChannel({
       peer: id, // Peer ID
-    }).then(o => {
-
-          console.log('Data Channel Opened', o)
-
-          channels.set(o.peer, o) // Sending End
-          o.subscribe((dict) => {
-              peers[o.peer].readout.innerHTML += dict.message
-          })
-
-      })
+    })
+    // .then(o => {
+    //       // Manually track channels and subscribe
+    //       channels.set(o.peer, o) // Sending End
+    //       o.subscribe((dict) => {
+    //         console.log('wirks!')
+    //           peers[o.peer].readout.innerHTML += dict.message ?? dict.route
+    //       })
+    //   })
   }
 
   webrtcClient.onpeerdisconnect = (ev) => {
-
-    console.log('Disconnect from peer')
     peers[ev.detail.id].element.remove()
-    channels.delete(ev.detail.id)
     delete peers[ev.detail.id]
   }
-  
-  // Redundant: Can catch with openDataChannel
-  webrtcClient.ondatachannel = async (ev) => {}
-    
 
-  let peerReference;
+  let endpoint;
 
     useEffect(() => {
+      
       connect.current.onclick = () => {
 
         // Can be Room or Peer
-        peerReference = router.connect({
+        endpoint = router.connect({
           type: 'webrtc',
           target: 'rooms/myroom', // e.g. 'rooms/myroom', 'peers/test'
           link: endpoints[1]
         })
         
-        peerReference.subscribe((res) => {
+        endpoint.subscribe((res) => {
           console.log('Peer message...', res); 
 
-          if (!res?.error) output.current.innerHTML = JSON.stringify(res)
-          else output.current.innerHTML = res.error 
+          if (!res?.error) {
+            
+            // Print to Terminal and Peer Readout
+            output.current.innerHTML = JSON.stringify(res)
+            if (peers[res.id]) peers[res.id].readout.innerHTML += res.message ?? res.route
 
-        }).then(res => {
-          if (!res?.error) output.current.innerHTML = 'Connected!'
-          else output.current.innerHTML = res.error
+          } else output.current.innerHTML = res.error 
 
-          return res
-        }).catch(err => {
-          output.current.innerHTML = err.error
         })
       }
 
       send.current.onclick = () => {
-
-
         let route = 'ping'
         meReadout.current.innerHTML += route
-        console.log(peerReference)
-        // peerReference.send({})
-        // channels.forEach(o => o.send({route:'webrtc/stream', message})) // type to the peer!
-
-        channels.forEach(o => o.send({route}))
-
-        // peerReference.send('ping').then(res => {
-        //   console.log(res)
-        // })
+        endpoint.send({route})
       }
 
       disconnect.current.onclick = () => {

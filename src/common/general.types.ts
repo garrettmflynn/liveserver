@@ -43,12 +43,13 @@ export type ProtocolObject = {
 export type AllMessageFormats = MessageObject | string | any[] 
 
 export type MessageObject = {
+    // NOTE: Most have route OR message
     id?: string;
     _id?: string;
-    route: string; // what to do at the endpoint
+    route?: string; // what to do at the endpoint
     method?: FetchMethods, // Method constraints
     callbackId?: string; // unique id for the request (stored client-side)
-    message: [] | any // data passed,
+    message?: [] | any // data passed,
     suppress?: boolean,
     headers?: {[x: string] : string}
     block?: boolean

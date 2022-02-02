@@ -4,15 +4,15 @@
 //if on frontend, the workers can't run backend env-required APIs like mongodb or http/socket/event routers
 //if on backend, the workers can't run DOM-related or rendering APIs like canvas or threejs
 
-import { SessionsBackend } from"../sessions/sessions.backend";
-import { UnsafeBackend   } from "../unsafe/unsafe.backend";
-import { DatabaseBackend } from "../database/database.backend";
+import { SessionsBackend } from"../sessions/sessions.service";
+import { UnsafeService   } from "../unsafe/unsafe.service";
+import { DatabaseBackend } from "../database/database.service";
 //can import all
 
 let services = {
     SessionsBackend,
     DatabaseBackend,
-    UnsafeBackend
+    UnsafeService
 };
 
 import { Router } from "../../router/Router";
@@ -22,10 +22,10 @@ import { parseFunctionFromText, } from "../../common/parse.utils";
 
 
 //check if in node ENV (enables backend)
-let NODE = false;
+// let NODE = false;
 try {
     if(typeof process === 'object') { //indicates node
-        NODE = true;
+        // NODE = true;
         const SSRBackend = require("src/backend/ssr/ssr.service").default;
         const WebsocketBackend = require("src/backend/websocket/websocket.service").default;
         const HTTPBackend = require('src/backend/http/http.service').default;
