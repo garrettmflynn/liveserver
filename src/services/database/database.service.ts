@@ -177,16 +177,22 @@ export class DatabaseService extends Service {
                     data = await this.getMongoProfile(u,args[0]);
                 } else {
                     let struct = this.getLocalData('profile',{_id:args[0]});
-                    if(!struct) data = {user:{}};
+                    if(!struct) data = {};
                     else {
                         let passed = await this.checkAuthorization(u,struct);
                         if(passed) {
                             let groups = this.getLocalData('group',{ownerId:args[0]});
                             let auths = this.getLocalData('authorization',{ownerId:args[0]});
-                            data = {user:struct,groups:groups,authorizations:auths};
-                        } else data = {user:{}};
+                            
+                            // Fold Groups and Authorizations into the User
+                            // TODO: Generalize the addition of keys to a database entry
+                            struct.groups = groups
+                            struct.authorizations = auths
+                            data = struct
+                        } else data = {};
                     }
                 }
+
                 return data;
             }
         },
@@ -204,7 +210,7 @@ export class DatabaseService extends Service {
                     if(passed) this.setLocalData(args[0]);
                     return true;
                 }
-                return data;
+                return !!data
             }
         },
         {
@@ -628,9 +634,6 @@ export class DatabaseService extends Service {
             if(copy._id) delete copy._id;
 
             if(this.router.DEBUG) console.log('RETURNS PROFILE', struct)
-            if(struct._id.includes('defaultId')) {
-                await this.db.collection(struct.structType).insertOne(copy);
-            }
             else await this.db.collection('profile').updateOne({ _id: ObjectID(struct._id) }, {$set: copy}, {upsert: true}); 
 
             user = await this.db.collection('profile').findOne({ _id: ObjectID(struct._id) });
@@ -665,7 +668,7 @@ export class DatabaseService extends Service {
             let users = [];
             let ids = [];
             if(mode === 'mongo') {
-                let cursor = this.db.collection('users').find({ $or: allusers }); //encryption references
+                let cursor = this.db.collection('profile').find({ $or: allusers }); //encryption references
                 if( await cursor.count() > 0) {
                     await cursor.forEach((user) => {
                         users.push(user);
@@ -730,18 +733,14 @@ export class DatabaseService extends Service {
     }
 
     //
-    async getMongoProfile(user:UserObject,info='', bypassAuth=false): Promise<{
-        user: Partial<UserObject>
-        authorizations?: any[]
-        groups?: any[]
-    }>  {
+    async getMongoProfile(user:UserObject,info='', bypassAuth=false): Promise<Partial<UserObject>>  {
         return new Promise(async resolve => {
             const query:any[] = [{email: info},{id: info},{username:info}]
             try {query.push({_id: ObjectID(info)})} catch (e) {}
 
-            let u = await this.db.collection('users').findOne({$or: query}); //encryption references
+            let u = await this.db.collection('profile').findOne({$or: query}); //encryption references
             
-            if(!u || u == null) resolve({user:{}});
+            if(!u || u == null) resolve({});
             else {
                 if (!u.id && u._id) u.id = u._id.toString()
                 if (!u.ownerId) u.ownerId = u.id
@@ -763,8 +762,10 @@ export class DatabaseService extends Service {
                         await gs.forEach(d => groups.push(d));
                     }
                     
-                    resolve({user:u, authorizations:authorizations, groups:groups});
-                } else resolve({user:u});
+                    u.authorizations = authorizations
+                    u.groups = groups
+                    resolve(u);
+                } else resolve(u);
             }
         });   
     }
@@ -778,7 +779,7 @@ export class DatabaseService extends Service {
 
         let found = [];
         if (usrs.length > 0){
-            let users = this.db.collection('users').find({$or:usrs});
+            let users = this.db.collection('profile').find({$or:usrs});
             if(await users.count() > 0) {
                 await users.forEach((u) => {
                     found.push(u);
@@ -791,7 +792,7 @@ export class DatabaseService extends Service {
 
     //safely returns the profile id, username, and email and other basic info based on the user role set applied
     async getMongoProfilesByRoles(user={},userRoles=[]) {
-        let users = this.db.collection('users').find({
+        let users = this.db.collection('profile').find({
             userRoles:{$all: userRoles}
         });
         let found = [];
@@ -1034,12 +1035,12 @@ export class DatabaseService extends Service {
     async deleteMongoProfile(user:UserObject,userId) {
         
         if(user.id !== userId) {
-            let u = await this.db.collection('users').findOne({ id: userId });
+            let u = await this.db.collection('profile').findOne({ id: userId });
             let passed = await this.checkAuthorization(user,u);
             if(!passed) return false;
         }
 
-        await this.db.collection('users').deleteOne({ id: userId });
+        await this.db.collection('profile').deleteOne({ id: userId });
 
         if(user.id !== userId) this.router.sendMsg(userId,'deleted',userId);
 
@@ -1101,8 +1102,8 @@ export class DatabaseService extends Service {
 
         let u1, u2;
         if(mode === 'mongo') {
-            u1 = (await this.getMongoProfile(user, authStruct.authorizedId, true))?.user; //can authorize via email, id, or username
-            u2 = (await this.getMongoProfile(user, authStruct.authorizerId, true))?.user;
+            u1 = await this.getMongoProfile(user, authStruct.authorizedId, true); //can authorize via email, id, or username
+            u2 = await this.getMongoProfile(user, authStruct.authorizerId, true);
         } else {
             u1 = this.getLocalData('profile',{'_id':authStruct.authorizedId});
             u2 = this.getLocalData('profile',{'_id':authStruct.authorizedId});

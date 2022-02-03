@@ -28,10 +28,7 @@ export class WebsocketClient extends SubscriptionService {
         url?:URL|string
     ) {
         super(router)
-
-        if (!subprotocols._id) subprotocols._id = randomId()
         this.subprotocols = subprotocols;
-        
         if(url) this.addSocket(url, subprotocols)
     }
 
@@ -45,7 +42,8 @@ export class WebsocketClient extends SubscriptionService {
         }
 
         Object.keys(dict).forEach((str) => subprotocol.push(`brainsatplay.com/${str}/${dict[str]}?arr=` + Array.isArray(dict[str])))
-        return encodeURIComponent(subprotocol.join(';'));
+        let res = encodeURIComponent(subprotocol.join(';'));
+        return res || undefined
 
     }
 

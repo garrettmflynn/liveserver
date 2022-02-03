@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import styles from '../examples.module.css'
+import { randomId } from '../../../../../src/common/id.utils';
 
-export default function WebRTCExample({server, endpoints, router}) {
+export default function WebRTCExample({server, endpoints, router, id}) {
   
     const send = useRef(null);
     const connect = useRef(null);
@@ -14,7 +15,6 @@ export default function WebRTCExample({server, endpoints, router}) {
     const peers = {}
 
 
-  const channels = new Map()
   const webrtcClient = router.SERVICES['webrtc']
   webrtcClient.onpeerconnect = async (ev) => {
 
@@ -53,11 +53,13 @@ export default function WebRTCExample({server, endpoints, router}) {
       
       connect.current.onclick = () => {
 
+
         // Can be Room or Peer
         endpoint = router.connect({
           type: 'webrtc',
           target: 'rooms/myroom', // e.g. 'rooms/myroom', 'peers/test'
-          link: endpoints[1]
+          link: endpoints[1],
+          credentials: {id, _id:id}
         })
         
         endpoint.subscribe((res) => {

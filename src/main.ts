@@ -48,14 +48,16 @@ mongoose.connection.on("open", () => console.log("DB Connected!"));
 
 mongoose
   .connect(process.env.DB_URI ?? "")
-  .then(init)
+  .then(() => {
+    init(mongoose.connections[0].db)
+  })
   .catch(() => {
     console.error("Error: MongoDB not initialized...");
     init();
   });
 
   // ----------------- Initialize API ------------------
-  function init(instance?:any) {
+  function init(db?:any) {
 
     // Instantiate the Router class to handle services
     let controller = new Router({ debug: false });
@@ -91,7 +93,7 @@ mongoose
     }
 
     if (services.database){
-      let database = new DatabaseService(controller, { mode: "mongdb", instance });
+      let database = new DatabaseService(controller, { mode: "mongdb", db });
       controller.load(database)
     }
 

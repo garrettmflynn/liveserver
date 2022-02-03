@@ -20,10 +20,18 @@ export type RouteConfig = {
     callback?: (self: Router, args: any[], id: string) => any
 }
 
+export type RouterOptions = {
+    endpoints?: EndpointConfig[]
+    debug?:boolean 
+    safe?:boolean
+    interval?:number
+  }
+
 export type EndpointConfig = string | URL | {
-    type: 'server' | 'webrtc'
+    type?: 'server' | 'webrtc'
     target?: string|URL,
     link?: Endpoint
+    credentials: Partial<UserObject>
   }
 
 export type RouteSpec = string | {

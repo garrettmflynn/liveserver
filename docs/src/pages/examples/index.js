@@ -11,6 +11,7 @@ import { WebRTCClient } from './../../../../src/services/webrtc/webrtc.frontend'
 import { HTTPClient } from './../../../../src/services/http/http.frontend';
 import { WebsocketClient } from './../../../../src/services/websocket/websocket.frontend';
 import { Router } from './../../../../src/router/Router';
+import { randomId } from '../../../../src/common/id.utils';
 
 let router = new Router()
 
@@ -34,9 +35,17 @@ services.forEach(service => {
   })
 })
 
+const id = randomId()
+
 const endpoints = []
-endpoints.push(router.connect(SERVER_URI))
-endpoints.push(router.connect(SERVER_URI_2))
+endpoints.push(router.connect({
+  target: SERVER_URI,
+  credentials: {id, _id: id}
+})) // Anonymous Connection
+endpoints.push(router.connect({
+  target: SERVER_URI_2,
+  credentials: {id, _id: id}
+})) // Anonymous Connection
 
 export default function Examples() {
   const {siteConfig} = useDocusaurusContext();
@@ -48,6 +57,7 @@ export default function Examples() {
         server={SERVER_URI}
         endpoints={endpoints}
         router={router}
+        id={id}
       />
     </Layout>
   );

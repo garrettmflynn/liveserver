@@ -6,7 +6,7 @@ import { useHistory } from 'react-router';
 import AllExample from './components/all';
 import WebRTCExample from './components/webrtc';
 
-export default function ExampleSelector({server, endpoints, router}) {
+export default function ExampleSelector({server, endpoints, router, id}) {
    const history = useHistory();
     var url = window.location;
     var name = new URLSearchParams(url.search).get('name');
@@ -34,6 +34,7 @@ export default function ExampleSelector({server, endpoints, router}) {
             server={server}
             router={router}
             endpoints={endpoints}
+            id={id}
             />
         }
       }

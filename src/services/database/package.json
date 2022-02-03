@@ -1,6 +1,6 @@
 {
   "name": "liveserver-database",
-  "version": "0.0.3",
+  "version": "0.0.8",
   "main": "./dist/index.js",
   "module": "./dist/module.js",
   "types": "./dist/services/database/index.d.ts",

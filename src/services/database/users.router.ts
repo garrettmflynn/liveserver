@@ -1,5 +1,5 @@
 import { DataTablet, DS } from 'brainsatplay-data'
-import { UserObject } from '../../common/general.types';
+import { UserObject, RouterOptions } from '../../common/general.types';
 import { Router } from '../../router/Router'
 import { randomId } from '../../common/id.utils';
 import { DatabaseService } from './database.service';
@@ -18,10 +18,10 @@ export class UsersClient extends Router {
     
     id: string = randomId()
 
-    constructor (userInfo:Partial<UserObject>) {
-        super()
+    constructor (userInfo:Partial<UserObject>={}, options?:RouterOptions) {
+        super(options)
 
-        if (userInfo) this.setupUser(userInfo) // Declares currentUser
+        if (userInfo instanceof Object && Object.keys(userInfo).length > 0) this.setupUser(userInfo) // Declares currentUser
        
         // Auto-Connect Database Client Service
         this.load(new DatabaseService(this))
@@ -46,12 +46,12 @@ export class UsersClient extends Router {
         // console.log("getUser", user);
         let u;
         let newu = false;
-        if(!user?._id) { //no profile, create new one and push initial results
+        if (!user) return false
+        else if(!user._id) { //no profile, create new one and push initial results
             // if(!userinfo._id) userinfo._id = userinfo._id;
             u = this.userStruct(userinfo,true);
             newu = true;
-            let newdata = await this.setUser(u);
-            console.log('setProfile', newdata);
+            let wasSet = await this.setUser(u);
             let structs = this.getLocalData(undefined,{'ownerId': u._id});
             if(structs?.length > 0) this.updateServerData(structs, (data)=>{
                 console.log('setData', data);
@@ -60,8 +60,8 @@ export class UsersClient extends Router {
             this.setAuthorizationsByGroup(u);
         }
         else {
-            u = user;
-            u._id = user._id; //replace the unique mongo id for the secondary profile struct with the id for the userinfo for temp lookup purposes
+            u = user.user;
+            // u._id = user._id; //replace the unique mongo id for the secondary profile struct with the id for the userinfo for temp lookup purposes
             
             for(const prop in userinfo) { //checking that the token and user profile overlap correctly
                 let dummystruct = this.userStruct();

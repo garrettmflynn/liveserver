@@ -2,7 +2,7 @@
 import { WebSocketServer } from 'ws'
 import { SubscriptionService } from '../../router/SubscriptionService'
 import { MessageObject } from '../../common/general.types';
-import { pseudoObjectId } from 'src/common/id.utils';
+import { pseudoObjectId } from '../../common/id.utils';
 
 // Create WS Server Instance
 export class WebsocketBackend extends SubscriptionService {
@@ -46,24 +46,23 @@ export class WebsocketBackend extends SubscriptionService {
           const subprotocols:{[x:string]: any} = {}
           let subArr = decodeURIComponent(ws.protocol).split(';')
           subArr.forEach((str) => {
-            let subSplit = str.split('/')
-            let [val, query] = subSplit[2].split('?')
+            if (str){
+              let subSplit = str.split('/')
+              let [val, query] = subSplit[2].split('?')
 
-            const queries: {
-              [x: string]: any
-              arr?: string
-            } = {}
+              const queries: {
+                [x: string]: any
+                arr?: string
+              } = {}
 
-            query.split('&').forEach(str => {
-              const [key,val] = str.split('=')
-              queries[key] = val
-            })
+              query.split('&').forEach(str => {
+                const [key,val] = str.split('=')
+                queries[key] = val
+              })
 
-            subprotocols[subSplit[1]] = (queries.arr === 'true') ? val.split(',') : val
-
+              subprotocols[subSplit[1]] = (queries.arr === 'true') ? val.split(',') : val
+            }
           })
-
-          const id = subprotocols?.id
 
             // subprotocols should look like:
             /*
@@ -82,11 +81,11 @@ export class WebsocketBackend extends SubscriptionService {
               let parsed = JSON.parse(json);
               if(Array.isArray(parsed)) { //push arrays of requests instead of single objects (more optimal potentially, though fat requests can lock up servers)
                   parsed.forEach((obj) => {
-                    if (!obj.id) obj.id = msg.id
+                    // if (!obj.id) obj.id = msg.id // DO NOT ALLOW FOR TRACKING
                     this.process(ws, obj);
                   })
               } else {
-                if (!parsed.id) parsed.id = msg.id
+                // if (!parsed.id) parsed.id = msg.id
                 this.process(ws, parsed)
               }
           });

@@ -1,4 +1,4 @@
-import { EndpointConfig, RouteSpec, RouteConfig, MessageType, MessageObject } from '../common/general.types';
+import { EndpointConfig, RouteSpec, RouteConfig, MessageType, MessageObject, UserObject } from '../common/general.types';
 import { SubscriptionService } from './SubscriptionService';
 import { safeStringify } from '../common/parse.utils';
 import { createRoute } from '../common/general.utils';
@@ -23,6 +23,8 @@ export class Endpoint{
     target: URL = null
     type: string = null
     link: Endpoint = null
+
+    credentials: Partial<UserObject> = {}
 
     connection?: {
         service: SubscriptionService,
@@ -60,6 +62,7 @@ export class Endpoint{
             target = config.target
             type = config.type
             this.link = config.link 
+            this.setCredentials(config.credentials)
 
             // Use Link to Communicate with an Additional Endpoint Dependency
             // if (this.link) {
@@ -86,6 +89,15 @@ export class Endpoint{
 
         this.router = router
         if (clients) this.clients = clients
+    }
+
+    setCredentials = (o?:Partial<UserObject>) => {
+
+        // Fill in the details if enough is provided
+        if (o && (o._id || o.id)) this.credentials = {
+            _id: o._id ?? pseudoObjectId(),
+            id: o.id || o._id
+        }
     }
 
     check = async () => {
@@ -151,11 +163,14 @@ export class Endpoint{
     send = async (route:RouteSpec, o: Partial<MessageObject> = {}, endpoint:Endpoint = this) => {
 
 
+
         // Support String -> Object Specification
         if (typeof route === 'string')  o.route = route
         else {
             o.route = route.route
         } 
+
+        o.suppress = !!this.connection
 
         // Get Response
         let response;
@@ -165,20 +180,22 @@ export class Endpoint{
             suppress: o.suppress,
             id: endpoint.link.connection?.id
         }
-
-        o.id = endpoint.link.router?.user?.id
-
+        
         // WS
         if (endpoint.connection?.protocol === 'websocket') {
-            response = await endpoint.link.connection.service.send(o as MessageObject, opts) // NOTE: Will handle response in the subscription too
+            o.id = endpoint.link.credentials?.id // Link ID
+            response = await endpoint.link.connection.service.send(o as MessageObject, opts)
         }
 
         // WebRTC (direct = no link)
-        else if (endpoint?.connection?.protocol === 'webrtc') response = await endpoint.connection.service.send(o as MessageObject, opts) // NOTE: Will handle response in the subscription too
-        
+        else if (endpoint?.connection?.protocol === 'webrtc') {
+            o.id = endpoint.credentials?.id || endpoint.link.credentials?.id // This ID / Link ID
+            response = await endpoint.connection.service.send(o as MessageObject, opts) 
+        }
+
         // HTTP
         else {
-
+            o.id = endpoint.link.credentials?.id // Link ID
             if (!o.method) o.method = (o.message?.length > 0) ? 'POST' : 'GET'
 
             const toSend: any = {
@@ -235,7 +252,7 @@ export class Endpoint{
                         if (!this.connection){
                             const target = (this.type === 'server') ? new URL(subscriptionEndpoint, this.target) : this.target
                             
-                            const id = await client.add(this.router?.user, target.href) // Pass full target string
+                            const id = await client.add(this.credentials, target.href) // Pass full target string
 
                             // Always Have the Router Listen
                             if (this.router){
@@ -259,8 +276,6 @@ export class Endpoint{
                         if (this.type === 'webrtc') {
                             opts.routes = [this.target] // Connect to Target Room / User only
                         }
-
-                        console.log('SENDING SUB')
                         const res = await this.send(subscriptionEndpoint, Object.assign({
                             route: opts.route,
                             message: opts.message,
@@ -268,9 +283,6 @@ export class Endpoint{
                         }, {
                           message: [opts.routes, this.connection.id] // Routes to Subscribe + Reference ID
                         }), this.link)
-
-                        console.log('RETURNING', res)
-
 
                         resolve(this.connection)
                         return

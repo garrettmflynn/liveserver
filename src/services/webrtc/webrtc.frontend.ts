@@ -340,7 +340,7 @@ export class WebRTCClient extends SubscriptionService {
             local = true
             let peerConnection = this.peers[peer].connection
 
-            if (peerConnection) channel = peerConnection.createDataChannel(`${name ?? 'datachannel'}:${peer ?? this.router.user.id}`); // Append peer id or personal id
+            if (peerConnection) channel = peerConnection.createDataChannel(`${name ?? 'datachannel'}${(peer) ? `:${peer}` : ''}`); // Append peer id or no id
         }
 
         return await this._useDataChannel(channel as RTCDataChannel, callback, local, reciprocated, peer)

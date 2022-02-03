@@ -15,10 +15,9 @@ export class WebRTCBackend extends Service {
         {
             route: 'subscribe',
             callback: (self, args, id) => {
-                let u = self.USERS[id]
-                if (u && !this.peers[id]) {
-                    this.peers[id] = u
-                }
+
+                let u = self.USERS[id] // NOTE: Requires being registered in the global server
+                if (u && !this.peers[id]) this.peers[id] = u
 
                 // Subscribe or Create Room
                 const rooms = this.getRooms()
@@ -120,6 +119,7 @@ export class WebRTCBackend extends Service {
             route: 'disconnect',
             aliases: ['removeUser'],
             callback: (self, args, id) => {
+                console.log('DIScONNECTING FROM WEBRTC', args, id, this.peers)
                 return this.disconnect(id)
 
             }
