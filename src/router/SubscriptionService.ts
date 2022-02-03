@@ -19,7 +19,8 @@ export class SubscriptionService extends Service {
             let possibilities = getRouteMatches(o.route)
             possibilities.forEach(route => {
                 if (u.routes[route]) {
-                    u = self.USERS[u.id]
+                    // Allow subscribers that aren't logged in
+                    // u = self.USERS[u.id]
                     if (u?.send) {
                         u.send(self.format(o))
                     }

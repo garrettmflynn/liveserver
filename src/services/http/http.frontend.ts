@@ -18,14 +18,8 @@ class HTTPClient extends SubscriptionService {
                 this.reference.onmessage = (event) => {
                 let data = JSON.parse(event.data)
 
-                // Ensure IDs are Linked
-                if (data.route === 'events/subscribe'){
-                    this.reference.onmessage = (event) => {
-                        this.responses.forEach(f => f(event))
-                    }
-                    resolve(data.message)
-                    // onopen(this.reference)
-                }
+                if (data.route === 'events/subscribe') resolve(data.message[0]) // Ensure IDs are Linked
+                this.responses.forEach(f => f(data)) // Always trigger responses
             }
         }
     })

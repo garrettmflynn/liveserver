@@ -4,7 +4,7 @@ import { safeStringify } from '../common/parse.utils';
 import { createRoute } from '../common/general.utils';
 import Router from './Router';
 // import { Service } from './Service';
-import { randomId } from '../common/id.utils';
+import { randomId , pseudoObjectId} from '../common/id.utils';
 
 // Load Node Polyfills
 try {
@@ -45,7 +45,7 @@ export class Endpoint{
 
     router: Router = null
     clients: {[x:string]: any} = {} // really resolve Functions OR Service instances
-    user: string = randomId('user') // Random User Identifier
+    user: string = pseudoObjectId() // Random User Identifier
     status: boolean = false
     responses: {[x:string]: Function} = {}
 
@@ -86,7 +86,6 @@ export class Endpoint{
 
         this.router = router
         if (clients) this.clients = clients
-        if (router) this.user = router.currentUser.id
     }
 
     check = async () => {
@@ -167,7 +166,7 @@ export class Endpoint{
             id: endpoint.link.connection?.id
         }
 
-        o.id = endpoint.link.router?.currentUser?.id ?? endpoint.link.user
+        o.id = endpoint.link.router?.user?.id
 
         // WS
         if (endpoint.connection?.protocol === 'websocket') {
@@ -236,7 +235,7 @@ export class Endpoint{
                         if (!this.connection){
                             const target = (this.type === 'server') ? new URL(subscriptionEndpoint, this.target) : this.target
                             
-                            const id = await client.add(this.router?.currentUser, target.href) // Pass full target string
+                            const id = await client.add(this.router?.user, target.href) // Pass full target string
 
                             // Always Have the Router Listen
                             if (this.router){
@@ -261,13 +260,17 @@ export class Endpoint{
                             opts.routes = [this.target] // Connect to Target Room / User only
                         }
 
-                        this.send(subscriptionEndpoint, Object.assign({
+                        console.log('SENDING SUB')
+                        const res = await this.send(subscriptionEndpoint, Object.assign({
                             route: opts.route,
                             message: opts.message,
                             protocol: opts.protocol,
                         }, {
                           message: [opts.routes, this.connection.id] // Routes to Subscribe + Reference ID
                         }), this.link)
+
+                        console.log('RETURNING', res)
+
 
                         resolve(this.connection)
                         return

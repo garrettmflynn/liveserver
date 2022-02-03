@@ -11,17 +11,17 @@ import { DatabaseService } from './database.service';
 
 export class UsersClient extends Router {
 
-    currentUser: Partial<UserObject>
+    currentUser: Partial<UserObject> // Different from this.user (base user)
 		        
     tablet = new DataTablet(); //DataTablet 
     collections = this.tablet.collections;
     
     id: string = randomId()
 
-    constructor (userinfo:Partial<UserObject>={_id:'user'+Math.floor(Math.random()*10000000000)}) {
+    constructor (userInfo:Partial<UserObject>) {
         super()
-        this.currentUser = userinfo;
-        if (this.currentUser?.id) this.currentUser._id = this.currentUser.id // Add a persistent ID
+
+        if (userInfo) this.setupUser(userInfo) // Declares currentUser
        
         // Auto-Connect Database Client Service
         this.load(new DatabaseService(this))
@@ -40,18 +40,18 @@ export class UsersClient extends Router {
 
         if(userinfo.id) userinfo._id = userinfo.id;
 
-        let res = await this.login();
+        // let res = await this.login();
         console.log("Generating/Getting User: ", userinfo._id)
-        let data = await this.getUser(userinfo._id);
-        // console.log("getUser", res);
+        let user = await this.getUser(userinfo._id);
+        // console.log("getUser", user);
         let u;
         let newu = false;
-        if(!data.user?._id) { //no profile, create new one and push initial results
+        if(!user?._id) { //no profile, create new one and push initial results
             // if(!userinfo._id) userinfo._id = userinfo._id;
             u = this.userStruct(userinfo,true);
             newu = true;
             let newdata = await this.setUser(u);
-            console.log('setProfile', data);
+            console.log('setProfile', newdata);
             let structs = this.getLocalData(undefined,{'ownerId': u._id});
             if(structs?.length > 0) this.updateServerData(structs, (data)=>{
                 console.log('setData', data);
@@ -60,8 +60,8 @@ export class UsersClient extends Router {
             this.setAuthorizationsByGroup(u);
         }
         else {
-            u = data.user;
-            u._id = data._id; //replace the unique mongo id for the secondary profile struct with the id for the userinfo for temp lookup purposes
+            u = user;
+            u._id = user._id; //replace the unique mongo id for the secondary profile struct with the id for the userinfo for temp lookup purposes
             
             for(const prop in userinfo) { //checking that the token and user profile overlap correctly
                 let dummystruct = this.userStruct();
@@ -95,24 +95,24 @@ export class UsersClient extends Router {
                 }
             }
 
-            if(data?.authorizations){
-                if(Array.isArray(data.authorizations)) {
-                    this.setLocalData(data.authorizations);
+            if(user?.authorizations){
+                if(Array.isArray(user.authorizations)) {
+                    this.setLocalData(user.authorizations);
                 }
             }
 
-            if (data?.groups){
-                if(Array.isArray(data.groups)) {
-                    this.setLocalData(data.groups);
+            if (user?.groups){
+                if(Array.isArray(user.groups)) {
+                    this.setLocalData(user.groups);
                 }
             }
         }
 
         if(newu) {this.currentUser = u; this.setLocalData(u);}
         else {
-            let res = await this.getAllUserData(u._id,undefined);
+            let data = await this.getAllUserData(u._id,undefined);
 
-            console.log("getServerData", res);
+            console.log("getServerData", data);
             if(!data || data.length === 0) { 
             } else {
                 this.setLocalData(data);
@@ -171,8 +171,6 @@ export class UsersClient extends Router {
 
     //default socket response for the platform
     baseServerCallback = (data) => {
-
-        if (Array.isArray(data)) data = data[0] // account for passing as arguments
 
         let structs = data;
         if(typeof data === 'object' && data?.structType) structs = [data];
@@ -277,7 +275,7 @@ export class UsersClient extends Router {
     
     //simple response test
     async ping(callback=(res)=>{console.log(res);}) {
-        let res = await this.send('ping')
+        let res = (await this.send('ping'))?.[0]
         callback(res)
         return res
     }
@@ -287,49 +285,49 @@ export class UsersClient extends Router {
         let args = [userId,message];
         if(data) args[2] = data;
 
-        let res = await this.send('sendMessage', ...args)
+        let res = (await this.send('sendMessage', ...args))?.[0]
         callback(res)
         return res
     }
 
     //info can be email, id, username, or name. Returns their profile and authorizations
     async getUser (info:string|number='',callback=this.baseServerCallback) {
-        let res = await this.send('database/getProfile', info)
+        let res = (await this.send('database/getProfile', info))?.[0]
         callback(res)
         return res
     }
 
     //get user basic info by id
     async getUsers (ids:string|number[]=[],callback=this.baseServerCallback) {
-        let res = await this.send('database/getProfilesByIds', ids)
+        let res = (await this.send('database/getProfilesByIds', ids))?.[0]
         callback(res)
         return res
     }
     
     //info can be email, id, username, or name. Returns their profile and authorizations
     async getUsersByRoles (userRoles:string[]=[],callback=this.baseServerCallback) {
-        let res = await this.send('database/getProfilesByRoles', userRoles)
+        let res = (await this.send('database/getProfilesByRoles', userRoles))?.[0]
         callback(res)
         return res
     }
 
     //pull all of the collections (except excluded collection names e.g. 'groups') for a user from the server
     async getAllUserData(ownerId:string|number, excluded=[], callback=this.baseServerCallback) {
-        let res = await this.send('database/getAllData', ownerId, excluded)
+        let res = (await this.send('database/getAllData', ownerId, excluded))?.[0]
         callback(res)
         return res
     }
 
     //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
     async getData(collection:string,ownerId?:string|number|undefined,searchDict?,limit:number=0,skip:number=0,callback=this.baseServerCallback) {
-        let res = await this.send('database/getData', collection,ownerId,searchDict,limit,skip)
+        let res = (await this.send('database/getData', collection,ownerId,searchDict,limit,skip))?.[0]
         callback(res);
         return res;
     }
 
     //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
     async getDataByIds(structIds=[],ownerId?:string|number|undefined,collection?:string|undefined,callback=this.baseServerCallback) {
-        let res = await this.send('database/getDataByIdss', structIds, ownerId, collection);
+        let res = (await this.send('database/getDataByIdss', structIds, ownerId, collection))?.[0]
         callback(res);
         return res
     }
@@ -339,7 +337,7 @@ export class UsersClient extends Router {
         if(!struct.parent) return;
         let args = [struct.parent?.structType,'_id',struct.parent?._id];
 
-        let res = await this.send('database/getData', ...args)
+        let res = (await this.send('database/getData', ...args))?.[0]
         callback(res);
         return res;
     }
@@ -361,7 +359,7 @@ export class UsersClient extends Router {
     
     //sets the user profile data on the server
     async setUser (userStruct={},callback=this.baseServerCallback) {
-        let res = await this.send('database/setProfile', this.stripStruct(userStruct))
+        let res = (await this.send('database/setProfile', this.stripStruct(userStruct)))?.[0]
         callback(res)
         return res
     }
@@ -410,7 +408,7 @@ export class UsersClient extends Router {
             copies.push(this.stripStruct(struct));
         })
 
-        let res = await this.send('database/setData', ...copies)
+        let res = (await this.send('database/setData', ...copies))?.[0]
         callback(res)
         return res
 
@@ -432,7 +430,7 @@ export class UsersClient extends Router {
         });
 
         console.log('deleting',toDelete);
-        let res = await this.send('database/deleteData', ...toDelete)
+        let res = (await this.send('database/deleteData', ...toDelete))?.[0]
         callback(res)
         return res
 
@@ -442,21 +440,21 @@ export class UsersClient extends Router {
     async deleteUser (userId, callback=this.baseServerCallback) {
         if(!userId) return;
 
-        let res = await this.send('database/deleteProfile', userId)
+        let res = (await this.send('database/deleteProfile', userId))?.[0]
         callback(res)
         return res
     }
 
     //set a group struct on the server
     async setGroup (groupStruct={},callback=this.baseServerCallback) {
-        let res = await this.send('database/setGroup', this.stripStruct(groupStruct))
+        let res = (await this.send('database/setGroup', this.stripStruct(groupStruct)))?.[0]
         callback(res)
         return res
     }
 
     //get group structs or single one by Id
     async getGroups (userId=this.currentUser._id, groupId='',callback=this.baseServerCallback) {
-        let res = await this.send('database/getGroups', userId,groupId)
+        let res = (await this.send('database/getGroups', userId,groupId))?.[0]
         callback(res)
         return res
     }
@@ -466,7 +464,7 @@ export class UsersClient extends Router {
         if(!groupId) return;
         this.deleteLocalData(groupId);
 
-        let res = await this.send('database/deleteGroup', groupId)
+        let res = (await this.send('database/deleteGroup', groupId))?.[0]
         callback(res)
         return res
     }
@@ -474,7 +472,7 @@ export class UsersClient extends Router {
     //set an authorization struct on the server
     async setAuthorization (authorizationStruct={},callback=this.baseServerCallback) {
 
-        let res = await this.send('database/setAuth', this.stripStruct(authorizationStruct))
+        let res = (await this.send('database/setAuth', this.stripStruct(authorizationStruct)))?.[0]
         callback(res)
         return res
     }
@@ -482,7 +480,7 @@ export class UsersClient extends Router {
     //get an authorization struct by Id
     async getAuthorizations (userId=this.currentUser?._id, authorizationId='',callback=this.baseServerCallback) {
         if(userId === undefined) return;
-        let res = await this.send('database/getAuths', userId, authorizationId)
+        let res = (await this.send('database/getAuths', userId, authorizationId))?.[0]
         callback(res)
         return res
     }
@@ -492,7 +490,7 @@ export class UsersClient extends Router {
         if(!authorizationId) return;
         this.deleteLocalData(authorizationId);
         
-        let res = await this.send('database/deleteAuth', authorizationId)
+        let res = (await this.send('database/deleteAuth', authorizationId))?.[0]
         callback(res)
         return res
     }

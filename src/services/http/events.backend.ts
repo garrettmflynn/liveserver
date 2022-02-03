@@ -21,7 +21,7 @@ export class EventsBackend extends SubscriptionService {
         super(router)
     }
 
-    addUser = async (info:any, request: Request, response: Response) => {
+    updateUser = async (info:any, request: Request, response: Response) => {
         
         const tempId = info.message?.[1]
         const id = info.id ?? tempId ?? randomId('sse') // temporary id (since EventSource cannot pass a body)
@@ -30,37 +30,40 @@ export class EventsBackend extends SubscriptionService {
 
         if (tempId && u) {
             u.id = id
-            this.subscribers.set(id, u)
-            this.subscribers.delete(tempId)
-            await this.notify({route: 'addUser', message: [{id, send: u.callback}]});
-        }
-
-        if (!u) u = {id, routes: {}}
-
-        // Refresh User Subscription Target
-        const headers = {
-            'Content-Type': 'text/event-stream',
-            'Connection': 'keep-alive',
-            'Cache-Control': 'no-cache'
-        };
-
-        response.writeHead(200, headers);
-                
-        u.callback = (data:any) => {
-            if(data?.message && data?.route) {
-                response.write(`data: ${JSON.stringify(data)}\n\n`);
+            if (u.id != tempId) {
+                this.subscribers.delete(tempId)
+                await this.notify({route: 'addUser', message: [{id, send: u.send}]});
             }
-        }
+            response.send(JSON.stringify({message: [true]})) // Return to ensure client is not blocked
+        } else if (!u) {
 
-        u.callback({route:'events/subscribe', message: id}) // send initial value
-        
-        // Cancel Subscriptions
-        request.on('close', () => {
-            this.subscribers.delete(u.id)
-        });
+            // Initialize Subscription
+            u = {id, routes: {}, send: (data:any) => {
+                if(data?.message && data?.route) {
+                    response.write(`data: ${JSON.stringify(data)}\n\n`);
+                }
+            }}
+
+            // Refresh User Subscription Target
+            const headers = {
+                'Content-Type': 'text/event-stream',
+                'Connection': 'keep-alive',
+                'Cache-Control': 'no-cache'
+            };
+
+            response.writeHead(200, headers);
+            
+            u.send({route:'events/subscribe', message: [id]}) // send initial value
+
+            // Cancel Subscriptions
+            request.on('close', () => {
+                this.subscribers.delete(u.id)
+            });
+        } 
 
         this.subscribers.set(id, u)
-        
+
+        // Always Add New Routes
         if (routes){
             routes.forEach(async route => {
                 u.routes[route] = true // TODO: Toggle off to cancel subscription

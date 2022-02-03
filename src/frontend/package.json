@@ -25,7 +25,6 @@
   "license": "AGPL-3.0-or-later",
   "dependencies": {
     "anotherstatemanager": "^1.0.5",
-    "brainsatplay-data": "^0.0.9",
     "brainsatplay-storage": "^0.0.2"
   },
   "bugs": {

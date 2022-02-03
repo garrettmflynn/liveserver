@@ -2,6 +2,7 @@
 import { WebSocketServer } from 'ws'
 import { SubscriptionService } from '../../router/SubscriptionService'
 import { MessageObject } from '../../common/general.types';
+import { pseudoObjectId } from 'src/common/id.utils';
 
 // Create WS Server Instance
 export class WebsocketBackend extends SubscriptionService {
@@ -62,7 +63,7 @@ export class WebsocketBackend extends SubscriptionService {
 
           })
 
-            // const id = subprotocols.id ?? randomId('user')
+          const id = subprotocols?.id
 
             // subprotocols should look like:
             /*
@@ -92,7 +93,6 @@ export class WebsocketBackend extends SubscriptionService {
 
           ws.on('close', (s) => {
               console.log('WS closed');
-              // this.removeUser(id);
               // this.notify({route: 'removeUser', message: [msg.id]}); // TODO: Ensure users actually leave the session (but don't force leave if WS fails)
           });
 
@@ -151,18 +151,16 @@ export class WebsocketBackend extends SubscriptionService {
     // Subscribe to Any Arbitrary Route Event
     addSubscription = async (info: MessageObject, ws) => {
 
-      const id = info.id
+      const id = info.id ?? pseudoObjectId() // Manage Subscriptions without ID
       const routes = info.message?.[0]
       let u = this.subscribers.get(id)
 
       if (!u){
-          u = {id, routes: {}}
-                      
-            u.callback = (o:any) => {
-              if(o.message && o.route) {
-                  ws.send(JSON.stringify(o))
-              }
+          u = {id, routes: {}, send: (o:any) => {
+            if(o.message && o.route) {
+                ws.send(JSON.stringify(o))
             }
+          }}
 
           // Cancel Subscriptions
           ws.on('close', () => {

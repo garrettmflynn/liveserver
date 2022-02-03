@@ -10,7 +10,6 @@ export default function RouteDisplay({routes, sendCallback}) {
 
     let divs = {}
 
-
     useEffect(async () => {
       
         divs = {}
@@ -35,14 +34,16 @@ export default function RouteDisplay({routes, sendCallback}) {
           let button = document.createElement('button')
           button.className = 'button button--secondary button--lg'
           button.innerHTML = name
-          button.onclick = ( ) => {
+          button.onclick = async ( ) => {
             let args = []
             if (o.route === 'unsafe/addfunc') args = ['add', (_, [a, b=1]) => a + b]
             else if (o.route === 'add') args = [vals['add']?.[0]]
             else if (o.route === 'ssr/add') args = ['/arbitrary/route', '<p>Just some arbitrary HTML</p>']
   
             // Sending Over HTTP Response
-            sendCallback(o.route, 'post', ...args)
+            sendCallback(o.route, 'post', ...args).then(res => {
+              vals[o.route] = res
+            })
           }
   
           divs[service].insertAdjacentElement('beforeend', button)

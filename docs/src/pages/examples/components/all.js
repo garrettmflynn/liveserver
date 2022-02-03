@@ -13,11 +13,6 @@ export default function AllExample({server, endpoints, router}) {
     let buttonRef = buttons.current
     let outputRef = output.current
 
-    let vals = {
-      'add': 0
-    }
-
-    let divs = {}
 
     router.subscribe((o) => {
         console.log('Remote #1 Subscription', o)
@@ -26,7 +21,7 @@ export default function AllExample({server, endpoints, router}) {
         else {
         
         // Subscription Responses
-        if (!data?.error) if (outputRef) outputRef.innerHTML = JSON.stringify(vals[o.route] = data)
+        if (!data?.error) if (outputRef) outputRef.innerHTML = JSON.stringify(data)
         else if (outputRef) outputRef.innerHTML = data.error
 
       }
@@ -38,6 +33,7 @@ export default function AllExample({server, endpoints, router}) {
     });
 
     useEffect(() => {
+      console.log('SENDING')
       send('routes', 'get')
     }, [])
 
@@ -48,11 +44,13 @@ export default function AllExample({server, endpoints, router}) {
         endpoint: endpoints[0]
       }, ...args).then(res => {
 
+        console.log('res', res)
         if (!res?.error) {
           if (res && route === 'routes') setRoutes(res[0])
-          if (outputRef) outputRef.innerHTML = JSON.stringify(vals[route] = res)
+          if (outputRef) outputRef.innerHTML = JSON.stringify(res)
         } else if (outputRef) outputRef.innerHTML = res.error
 
+        return res
       }).catch(err => {
         console.log('err', err)
 

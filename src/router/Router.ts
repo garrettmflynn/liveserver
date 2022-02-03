@@ -1,6 +1,6 @@
 import StateManager from 'anotherstatemanager'
 import { getRouteMatches } from '../common/general.utils'
-import { randomId,  } from '../common/id.utils'
+import { randomId, pseudoObjectId,  } from '../common/id.utils'
 import { AllMessageFormats, EndpointConfig, FetchMethods, MessageObject, MessageType, RouteConfig, RouteSpec, UserObject } from '../common/general.types';
 import { Service } from './Service';
 import { getParamNames } from '../common/parse.utils';
@@ -238,7 +238,7 @@ export class Router {
   ]
 
   // Frontend
-  currentUser: Partial<UserObject>
+  user: Partial<UserObject>
     
 
   subscription?: SubscriptionService // Single Subscription per Router (to a server...)
@@ -253,23 +253,19 @@ export class Router {
     debug?:boolean 
     safe?:boolean
     interval?:number
-    user?: Partial<UserObject>
   } = {
     debug: false,
-    user: {}
   }
 
-    constructor(options={}) {
+    constructor(options:{
+      debug?:boolean 
+      safe?:boolean
+      interval?:number
+    } = {debug: false}) {
 		
         Object.assign(this.OPTIONS, options)
 
         if(this.OPTIONS.interval) this.INTERVAL = this.OPTIONS.interval;
-
-        this.currentUser = this.OPTIONS.user;
-
-        // Add a persistent ID (TODO: Somewhere along the way, _id becomes undefined...)
-        if (this.currentUser.id) this.currentUser._id = this.currentUser.id
-        if (!this.currentUser._id) this.currentUser.id = this.currentUser._id = randomId('user')
 
         this.STATE = new StateManager(
           {},
@@ -277,7 +273,7 @@ export class Router {
           undefined //false
         );
 
-        this.DEBUG = this.OPTIONS.debug;
+        this.DEBUG = options?.debug
 
         // Browser-Only
         if ('onbeforeunload' in globalThis){
@@ -293,8 +289,6 @@ export class Router {
         if(this.DEBUG) this.runCallback('routes', [true])
     }
 
-
-
     // -----------------------------------------------
     // 
     // Frontend Methods (OG)
@@ -308,9 +302,9 @@ export class Router {
       this.ENDPOINTS[endpoint.id] = endpoint
 
       endpoint.check().then(res => {
-          if (callback && res) {
-            callback()
-            this.login(endpoint) // Login user to connect to new remote
+          if (res) {
+            if (callback) callback()
+            if (this.user) this.login(endpoint) // Login user to connect to new remote
           }
       })
 
@@ -332,9 +326,8 @@ export class Router {
 
     if (service.subscribe) {
       service.subscribe(async (o:MessageObject, type?:MessageType, origin?:string|undefined) => {
-        let res = this.handleMessage(o, type);
+        let res = await this.handleMessage(o, type);
         if(origin?.includes('worker')) { 
-          res = await res; //await the promise to resolve it
           if(res !== null && service[origin]) service[origin].postMessage({route:'worker/workerPost', message:res, origin:service.id, callbackId:o.callbackId})
           else return res;
         }
@@ -410,25 +403,38 @@ export class Router {
 
   }
 
-    async login(endpoint?, callback=(result)=>{}) {
-      if(this.currentUser) {
-          let res = await this.send({
-            route: 'login',
-            endpoint
-          }, this.currentUser)
-          callback(res)
-          return res
+    async login(endpoint?:Endpoint, user?:Partial<UserObject>) {
+
+      if (user) this.user = user
+
+      if(this.user) {
+
+          await this.logout(endpoint)
+
+          const arr = Object.values((endpoint) ? {endpoint} : this.ENDPOINTS)
+
+          await arr.map(async (endpoint) => {
+            return await this.send({
+              route: 'login',
+              endpoint
+            }, this.user)
+          })
+
+          return (arr.length > 0)
       }
   }
 
-  async logout(endpoint?, callback=(result)=>{}) {
-      if(this.currentUser) {
-          let res = await this.send({
+  async logout(endpoint?:Endpoint) {
+      if(this.user) {
+
+        await Object.values((endpoint) ? {endpoint} : this.ENDPOINTS).map(async (endpoint) => {
+          return await this.send({
             route: 'logout',
             endpoint
-          })
-          callback(res)
-          return res
+          }, this.user)
+        })
+
+        return true
       }
   }
   
@@ -455,7 +461,7 @@ export class Router {
       
 
       let response;      
-      response = await endpoint.send(routeSpec, {id: this.currentUser.id, message: args, method, suppress: !!endpoint.subscription})
+      response = await endpoint.send(routeSpec, {id: this.user?.id, message: args, method, suppress: !!endpoint.subscription})
 
       if (response) this.handleLocalRoute(response, endpoint)
 
@@ -486,11 +492,9 @@ export class Router {
   } = {}) => {
 
       if (Object.keys(this.ENDPOINTS).length > 0 || options?.endpoint) {
-
           if (!options.endpoint) options.endpoint = Object.values(this.ENDPOINTS)[0]
-
-          return await options.endpoint._subscribe(options).then(res => options.endpoint.subscribe(callback))
-          
+          const res = await options.endpoint._subscribe(options).then(res => options.endpoint.subscribe(callback))
+          return res
       } else throw 'Remote is not specified'
 
   }
@@ -553,7 +557,7 @@ export class Router {
             // Convert Output to Message Object
             if (dict === undefined) return
             else {
-              if (typeof dict !== 'object' || !('message' in dict)) dict = {
+              if (typeof dict !== 'object' || (!('message' in dict) && !('route' in dict))) dict = {
                 message: dict
               }
               // if (!dict.route) dict.route = route // Only send back a route when you want to trigger inside the Router
@@ -562,7 +566,6 @@ export class Router {
               if (this.ROUTES[dict.route]) dict.block = true // Block infinite command chains... 
 
               // Pass Out
-
               if(dict.message === DONOTSEND) return;
               return dict;
             }
@@ -573,54 +576,49 @@ export class Router {
   }
 
   // Track Users Connected to the LiveServer
-  addUser(userinfo:Partial<UserObject>={}) {
+  addUser(userinfo:Partial<UserObject>) {
 
-    // Grab Proper Id
-    let id = randomId('user');
-    if(userinfo.id) {
-      userinfo._id = userinfo.id;
-      id = userinfo.id;
-    }
-    else if (userinfo._id) {
-      userinfo.id = userinfo._id;
-      id = userinfo._id;
-    }
+    if (userinfo) {
+      // Grab Proper Id
+      if (!userinfo._id) userinfo._id = pseudoObjectId()
+      if (!userinfo.id) userinfo.id = userinfo._id
 
-    // Get Current User if Exists
-    const u = this.USERS[id]
+      // Get Current User if Exists
+      const u = this.USERS[userinfo._id]
 
-    // Grab Base
-    let newuser: UserObject = u ?? {
-      id:id, 
-      _id:id, //second reference (for mongodb parity)
-      username:id,
-      origin:id,
-      props: {},
-      updatedPropNames: [],
-      sessions:[],
-      blocked:[], //blocked user ids for access controls
-      lastUpdate:Date.now(),
-      lastTransmit:0,
-      latency:0,
-      routes: new Map(),
-    };
+      // Grab Base
+      let newuser: UserObject = u ?? {
+        id: userinfo.id, 
+        _id: userinfo._id, //second reference (for mongodb parity)
+        username:userinfo.id,
+        origin: userinfo._id,
+        props: {},
+        updatedPropNames: [],
+        sessions:[],
+        blocked:[], //blocked user ids for access controls
+        lastUpdate:Date.now(),
+        lastTransmit:0,
+        latency:0,
+        routes: new Map(),
+      };
 
-    Object.assign(newuser,userinfo); //assign any supplied info to the base
+      Object.assign(newuser,userinfo); //assign any supplied info to the base
 
-    if(this.DEBUG) console.log('Adding User, Id:', id);
+      if(this.DEBUG) console.log('Adding User, Id:', userinfo._id);
 
-    this.USERS[id] =  newuser
+      this.USERS[userinfo._id] =  newuser
 
-    //add any additional properties sent. remote.service has more functions for using these
-    for (let key in this.SERVICES){
-          const s = this.SERVICES[key]
-          if (s.status === true){
-            const route = s.name + '/addUser'
-            if (this.ROUTES[route]) this.runRoute(route, 'POST', [userinfo], id) 
-          }
-    }
+      //add any additional properties sent. remote.service has more functions for using these
+      for (let key in this.SERVICES){
+            const s = this.SERVICES[key]
+            if (s.status === true){
+              const route = s.name + '/addUser'
+              if (this.ROUTES[route]) this.runRoute(route, 'POST', [newuser], userinfo._id) 
+            }
+      }
 
-    return newuser; //returns the generated id so you can look up
+      return newuser; //returns the generated id so you can look up
+    } else return false
   }
 
   removeUser(user:string|UserObject) {
@@ -628,11 +626,9 @@ export class Router {
     
     if(u) {
 
-      
         Object.values(this.SERVICES).forEach(s => {
           if (s.status === true){
             const route = s.name + '/removeUser'
-            console.log(s.name, route)
             if (this.ROUTES[route]) this.runRoute(route, 'DELETE', [u], u.id)
           }
         })
@@ -681,7 +677,6 @@ export class Router {
       
       if(o._id) o.id = o._id; //just in case
       
-
       if(o.route != null) {
         
         let u = this.USERS[o?.id]
@@ -699,7 +694,6 @@ export class Router {
           const res = await this.runRoute(o.route, o.method, o.message, u?.id ?? o.id, o.callbackId);
           if (res && o.suppress) res.suppress = o.suppress // only suppress when handling messages here
         // }
-        // console.log(res)
         
         return res;
       }

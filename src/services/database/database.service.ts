@@ -31,12 +31,12 @@ export class DatabaseService extends Service {
 
     constructor (Router, dbOptions?:{
         mode?: 'local' | 'mongodb' | string,
-        instance?: any
+        db?: any
     }, debug=true) {
         super(Router)
 
         // if(!Router) { console.error('Requires a Router instance.'); return; }
-        this.db = dbOptions?.instance;
+        this.db = dbOptions?.db;
         this.collections = new Map();
         this.mode = (this.db) ? ((dbOptions.mode) ? dbOptions.mode : 'local') : 'local'
 
@@ -49,7 +49,7 @@ export class DatabaseService extends Service {
                 if (!u) return false
 
                 let data;
-                if(this.mode === 'mongo') {
+                if(this.mode.includes('mongo')) {
                     data = await this.setMongoData(u,args); //input array of structs
                 } else { 
                     let non_notes = [];
@@ -77,7 +77,7 @@ export class DatabaseService extends Service {
                 if (!u) return false
 
                 let data;
-                if(this.mode === 'mongo') {
+                if(this.mode.includes('mongo')) {
                     data = await this.getMongoData(u, args[0], args[1], args[2], args[4], args[5]);
                 } else {
                     data = [];
@@ -102,7 +102,7 @@ export class DatabaseService extends Service {
                 if (!u) return false
 
                 let data;
-                if(this.mode === 'mongo') {
+                if(this.mode.includes('mongo')) {
                     data = await this.getMongoDataByIds(u, args[0], args[1], args[2]);
                 } else {
                     data = [];
@@ -125,7 +125,7 @@ export class DatabaseService extends Service {
                 if (!u) return false
 
                 let data;
-                if(this.mode === 'mongo') {
+                if(this.mode.includes('mongo')) {
                     data = await this.getAllUserMongoData(u,args[0],args[1]);
                 } else {
                     let result = this.getLocalData(undefined,{ownerId:args[0]});
@@ -152,7 +152,7 @@ export class DatabaseService extends Service {
                 if (!u) return false
 
                 let data;
-                if(this.mode === 'mongo') {
+                if(this.mode.includes('mongo')) {
                     data = await this.deleteMongoData(u,args);
                 } else {
                     data = false;
@@ -173,7 +173,7 @@ export class DatabaseService extends Service {
                 if (!u) return false
 
                 let data;
-                if(this.mode === 'mongo') {
+                if(this.mode.includes('mongo')) {
                     data = await this.getMongoProfile(u,args[0]);
                 } else {
                     let struct = this.getLocalData('profile',{_id:args[0]});
@@ -197,7 +197,7 @@ export class DatabaseService extends Service {
                 const u = self.USERS[origin]
                 if (!u) return false
                 let data;
-                if(this.mode === 'mongo') {
+                if(this.mode.includes('mongo')) {
                     data = await this.setMongoProfile(u,args[0]);
                 } else {
                     let passed = await this.checkAuthorization(u,args[0], this.mode);
@@ -214,7 +214,7 @@ export class DatabaseService extends Service {
                 if (!u) return false
 
                 let data;
-                if(this.mode === 'mongo') {
+                if(this.mode.includes('mongo')) {
                     data = await this.getMongoProfilesByIds(u,args[0]);
                 } else {
                     data = [];
@@ -233,7 +233,7 @@ export class DatabaseService extends Service {
                 if (!u) return false
 
                 let data;
-                if(this.mode === 'mongo') {
+                if(this.mode.includes('mongo')) {
                     data = await this.getMongoProfilesByRoles(u,args[0]);
                 } else {
                     let profiles = this.getLocalData('profile');
@@ -255,7 +255,7 @@ export class DatabaseService extends Service {
                 if (!u) return false
 
                 let data;
-                if(this.mode === 'mongo') {
+                if(this.mode.includes('mongo')) {
                     data = await this.getMongoGroups(u,args[0],args[1]);
                 } else {
                     if(typeof args[1] === 'string') {
@@ -294,7 +294,7 @@ export class DatabaseService extends Service {
                 if (!u) return false
 
                 let data;
-                if(this.mode === 'mongo') {
+                if(this.mode.includes('mongo')) {
                     data = await this.deleteMongoGroup(u,args[0]);
                 } else {
                     let struct = this.getLocalData('group',args[0]);
@@ -315,7 +315,7 @@ export class DatabaseService extends Service {
                 if (!u) return false
 
                 let data;
-                if(this.mode === 'mongo') {
+                if(this.mode.includes('mongo')) {
                     data = await this.deleteMongoProfile(u,args[0]);
                 } else {
                     data = false;
@@ -343,7 +343,7 @@ export class DatabaseService extends Service {
                 if (!u) return false
 
                 let data;
-                if(this.mode === 'mongo') {
+                if(this.mode.includes('mongo')) {
                     data = await this.getMongoAuthorizations(u,args[0],args[1]);
                 } else {
                     if(args[1]) {
@@ -363,7 +363,7 @@ export class DatabaseService extends Service {
                 if (!u) return false
 
                 let data;
-                if(this.mode === 'mongo') {
+                if(this.mode.includes('mongo')) {
                     data = await this.deleteMongoAuthorization(u,args[0]);
                 } else {
                     data = true;
@@ -747,7 +747,7 @@ export class DatabaseService extends Service {
                 if (!u.ownerId) u.ownerId = u.id
 
                 if (u && bypassAuth === false){
-                    if(user.id !== u.id) {
+                    if(user.id !== u.id) { // TODO: Ensure that passed users will always have the same ObjectId (not necessarily id...)
                         let passed = await this.checkAuthorization(user,u);
                         if(!passed) resolve(undefined);
                     }
@@ -1164,7 +1164,7 @@ export class DatabaseService extends Service {
                     auth.associatedAuthId = authStruct._id.toString();
                     otherAuthset = auth;
                     let copy = JSON.parse(JSON.stringify(auth));
-                    if(this.mode === 'mongo') {
+                    if(this.mode.includes('mongo')) {
                         delete copy._id;
                         await this.db.collection('authorization').updateOne({ $and: [ { authorizedId: authStruct.authorizedId }, { authorizerId: authStruct.authorizerId }, { ownerId: auth.ownerId } ] }, {$set: copy}, {upsert: true});
                     } else {
