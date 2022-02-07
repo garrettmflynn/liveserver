@@ -24,9 +24,7 @@ export class WebsocketBackend extends SubscriptionService {
     async init() {
 
         this.server.on('upgrade', async (request, socket, head) => {
-  
-            // NOTE: Can authorize connection with user credentials here (e.g. must have an account to use Websockets)
-            this.wss.handleUpgrade(request, socket, head, (ws) => {
+              this.wss.handleUpgrade(request, socket, head, (ws) => {
                 this.wss.emit('connection', ws, request);
               });
         });
@@ -82,36 +80,11 @@ export class WebsocketBackend extends SubscriptionService {
               }
           });
 
-          ws.on('close', (s) => {
-              console.log('WS closed');
-              // this.notify({route: 'removeUser', message: [msg.id]}); // TODO: Ensure users actually leave the session (but don't force leave if WS fails)
-          });
-
-            // console.log('user session started: ', message);
-            // ws.isAlive = true;
-            // ws.on('pong', function(){this.isAlive = true;});
+          ws.on('close', (s) => console.log('WS closed'));
         });   
-        
-        // const interval = setInterval(() => {
-        //   this.controller.users.forEach((u) => {
-        //     if (u.socket.isAlive === false) {
-        //       console.log('connection lost:', u);
-        //       return this.controller.removeUser(u.id);
-        //     }
-        
-        //     u.socket.isAlive = false;
-        //     u.socket.ping();
-        //   });
-        // }, 5000);
-
-
-        // this.wss.on('close', function close() {
-        //   clearInterval(interval);
-        // });
     }
 
   process = async (ws, o) => {
-    // console.log(o)
 
     this.defaultCallback(ws, o)
     // Check to Add Subscribers (only ws)
@@ -163,8 +136,6 @@ export class WebsocketBackend extends SubscriptionService {
       } 
 
         routes?.forEach(async route => {
-            // let res = await this.notify({route, message: []}, true) // Getting current routes to pass along
-            // u.callback(res)
             u.routes[route] = true
         })
 

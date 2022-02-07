@@ -16,11 +16,12 @@ export class SubscriptionService extends Service {
     updateSubscribers?: (router: Router, o: MessageObject) => any = (self, o) => {
 
         this.subscribers.forEach(u => {
-            let possibilities = getRouteMatches(o.route)
+            let possibilities = getRouteMatches(o.route, false)
             possibilities.forEach(route => {
                 if (u.routes[route]) {
                     // Allow subscribers that aren't logged in
                     // u = self.USERS[u.id]
+
                     if (u?.send) {
                         u.send(self.format(o))
                     }

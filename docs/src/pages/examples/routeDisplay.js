@@ -36,7 +36,7 @@ export default function RouteDisplay({routes, sendCallback}) {
           button.innerHTML = name
           button.onclick = async ( ) => {
             let args = []
-            if (o.route === 'unsafe/addfunc') args = [{
+            if (o.route === 'unsafe/createRoute') args = [{
               route: 'add',
               post: (_, [a, b=1]) => a + b
             }]

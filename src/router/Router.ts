@@ -148,12 +148,6 @@ export class Router {
       }
   },
   { //lists user keys
-    route:'listUsers',
-    post:(Router)=>{
-      return Array.from(Router.USERS.keys());
-    }
-  },
-  { //lists user keys
     route:'blockUser',
     post:(Router,args,origin)=>{
       let user = Router.USERS[origin]
@@ -531,6 +525,9 @@ export class Router {
           if (info.headers) o.headers = info.headers // e.g. text/html for SSR
       }
 
+      // Remove Wildcards
+      if (o.route) o.route = o.route.replace(/\/\*\*?/, '')
+
       return o
     }
 
@@ -639,10 +636,6 @@ export class Router {
     return false;
   }
 
-  triggerSubscriptions = (msg:MessageObject) => {
-    return this.SUBSCRIPTIONS.forEach(o => o(this, msg))
-  }
-     
   handleMessage = async (msg:AllMessageFormats, type?:MessageType) => {
 
     let o:Partial<MessageObject> = {}
@@ -669,8 +662,6 @@ export class Router {
         let u = this.USERS[o?.id]
 
         console.log('runRoute', o.route)
-        // Handle Subscription Updates based on updateSubscribers Notifications
-        // if (type === 'subscribers') this.triggerSubscriptions(o as MessageObject)
 
         // TODO: Allow Server to Target Remote too
         // let res
@@ -719,25 +710,26 @@ export class Router {
             if (route[0] === '/') route = route.slice(1)
             o.args = getParamNames(o.post)
 
-            this.ROUTES[route] = Object.assign({}, o)
-            this.ROUTES[route].route = route
+            this.ROUTES[route] = Object.assign(o, {route})
             
             if (o.get) {
 
               // Subscribe to Base Route // TODO: Doube-check that subscriptions are working
-              // route = route.split('/').filter(a => a != '*' && a != '**').join('/')
               this.STATE.setState({[route]: o.get?.object ?? o.get});
 
+
               this.STATE.subscribe(route, (data) => {
+
                 const message = (o.get?.transform) ? o.get.transform(data, ...[]) : data
                 
-                this.SUBSCRIPTIONS.forEach(o => o(this, {
-                  route, 
-                  message
-                }))
-
+                this.SUBSCRIPTIONS.forEach(o =>{
+                  return o(this, {
+                    route, 
+                    message
+                  })
               })
-            }
+            })
+          }
         })
         return true;
     }

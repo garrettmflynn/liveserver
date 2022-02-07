@@ -16,7 +16,9 @@ export class WebsocketClient extends SubscriptionService {
     connected = false;
     sendQueue: {[x:string]: Function[]} = {}
     streamUtils
-    sockets: Map<string,any> = new Map()
+    sockets: Map<string,any> = new Map();
+    readables: Map<string,any> = new Map();
+    writables: Map<string,any> = new Map();
 
     queue = {};
 
@@ -59,7 +61,6 @@ export class WebsocketClient extends SubscriptionService {
 
         try {
             if (url.protocol === 'http:') {
-            
                 socket = new WebSocket(
                     'ws://' + url.host, // We're always using :80
                     this.encodeForSubprotocol(subprotocolObject));
@@ -80,47 +81,62 @@ export class WebsocketClient extends SubscriptionService {
             return undefined;
         }
 
-        socket.onerror = (e) => {
-            console.log('error', e);
-        };
 
-        socket.onopen = () => {
-            console.log('websocket opened');
-            this.connected = true;
-            //this.streamUtils.info.connected = true;
-            this.sendQueue[remote]?.forEach(f => f());
-            this.sendQueue[remote] = []
-        };
+        // Make into a Readable Stream
+        socket.binaryType = "arraybuffer";
+        const readable = new ReadableStream({
+            start: (controller) => {
 
-        socket.onmessage = this.onmessage
-        socket.onclose = (message) => {
-            this.connected = false;
-            //this.streamUtils.info.connected = false;
-            console.log('websocket closed');
-        }
+                // On Message
+                socket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    this.onmessage(data)
+                    controller.enqueue(data);
+                }
+
+                // On Closed
+                socket.onclose = () => {
+                    this.connected = false;
+                    controller.close();
+                    console.log('websocket closed');
+                }
+
+                // On Error
+                socket.onerror = (e) => console.log('error', e);
+            },
+
+            cancel: () => {
+                socket.close();
+            }
+        });
+
+        // On Open Callback
+        const writable = new WritableStream({
+            // Implement the sink
+            write: (chunk) => {
+                console.log(chunk)
+            },
+            close: () => {
+               console.log('closed')
+            },
+            abort: (err) => {
+                console.log("Sink error:", err);
+            }
+        })
+
+        readable.pipeTo(writable)
+        .then(() => console.log("All data successfully written!"))
+        .catch(e => console.error("Something went wrong!", e));
 
         // let id = randomId('socket')
 
         this.sockets.set(remote, socket);
+        this.readables.set(remote, readable);
+        this.writables.set(remote, writable);
 
         return remote
 
     }
-
-    // websocket.binaryType = "arraybuffer";
-    // TODO: Make everything into streams
-    // function makeReadableWebSocketStream(url, protocols) {
-    //     let websocket = new WebSocket(url, protocols);
-    //     websocket.binaryType = "arraybuffer";
-      
-    //     return new ReadableStream({
-    //       start(controller) {
-    //         websocket.onmessage = event => controller.enqueue(event.data);
-    //         websocket.onclose = () => controller.close();
-    //         websocket.onerror = () => controller.error(new Error("The WebSocket errored"));
-    //       }
-    //     });
-    //   }
 
     getSocket(remote?:string|URL) {
         if (typeof remote === 'string') remote = new URL(remote)
@@ -211,7 +227,6 @@ export class WebsocketClient extends SubscriptionService {
 
     onmessage = (res) => {
 
-        res = JSON.parse(res.data);
         // console.error('onmessage',res)
 
         //this.streamUtils.processSocketMessage(res);

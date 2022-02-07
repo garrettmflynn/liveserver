@@ -11,9 +11,7 @@ export class UnsafeService extends Service {
             // let newFunc = (typeof args[1] === 'string') ? parseFunctionFromText(args[1]) : args[1]
   
             // let newCallback = args[0]
-  
-            self.addRoute(args[0]) // 
-
+              self.addRoute(args[0]) // 
             return true;
           }
         },

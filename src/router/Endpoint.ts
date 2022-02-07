@@ -5,6 +5,8 @@ import { createRoute } from '../common/general.utils';
 import Router from './Router';
 // import { Service } from './Service';
 import { randomId , pseudoObjectId} from '../common/id.utils';
+import { Readable } from 'stream';
+import { ReadableStreamController } from 'stream/web';
 
 // Load Node Polyfills
 try {
@@ -23,6 +25,10 @@ export class Endpoint{
     target: URL = null
     type: string = null
     link: Endpoint = null
+    readable: ReadableStream;
+    controller: ReadableStreamController<any>;
+
+    writable: WritableStream;
 
     credentials: Partial<UserObject> = {}
 
@@ -89,6 +95,30 @@ export class Endpoint{
 
         this.router = router
         if (clients) this.clients = clients
+
+
+
+        // Enable Streams API Integration
+        let subId;
+        this.readable = new ReadableStream({
+            start: (controller) => this.controller = controller,
+
+            cancel: () => {
+                // this.unsubscribe(subId)
+            }
+        });
+
+        this.writable = new WritableStream({
+            write: ({route, message}) => {
+                console.log('Writing through stream')
+                this.send(route, message, this)
+            },
+            close: () => {console.log('closed')},
+            abort: (err) => {
+                console.log("Sink error:", err);
+            }
+        })
+
     }
 
     setCredentials = (o?:Partial<UserObject>) => {
@@ -196,7 +226,6 @@ export class Endpoint{
         // HTTP
         else {
 
-            console.log(endpoint.link.credentials)
             o.id = endpoint.link.credentials?.id // Link ID
             if (!o.method) o.method = (o.message?.length > 0) ? 'POST' : 'GET'
 
@@ -210,15 +239,59 @@ export class Endpoint{
   
               if (toSend.method != 'GET') toSend.body = safeStringify(o)
 
-              response = await fetch(createRoute(o.route, endpoint.link.target), toSend).then(async (res) => {
-                    return await res.json().then(json => {
-                      if (!res.ok) throw json.message
-                      else return json
-                    }).catch(async (err)  => {
-                      throw 'Invalid JSON'
+              response = await fetch(
+                  createRoute(o.route, endpoint.link.target), 
+                  toSend
+                ).then(async response => {
+
+                    // Use the Streams API
+                    const reader = response.body.getReader()
+                    const length = response.headers.get("Content-Length") as any
+                    let received = 0
+
+                    // On Stream Chunk
+                    const stream = new ReadableStream({
+                        start(controller) {
+
+                            const push = async () => {
+
+                                reader.read().then(({value, done}) => {
+
+                                    // Each chunk has a `done` property. If it's done,
+                                    if (done) {
+                                        controller.close();
+                                        return;
+                                    }
+                            
+                                    // If it's not done, increment the received variable, and the bar's fill.
+                                    received += value.length
+                                    console.log(`${received / length * 100}%`)
+                            
+                                    // Keep reading, and keep doing this AS LONG AS IT'S NOT DONE.
+                                    controller.enqueue(value);
+                                    push()
+                                })
+                            }
+
+                            push()
+                        }
                     })
-                }).catch((err) => {
-                    throw err.message
+
+                    // Read the Response
+                    response = new Response(stream, { headers: response.headers });
+                    response = await response.json().then(json => {
+                        if (!response.ok) throw json.message
+                        else return json
+                    }).catch(async (err)  => {
+                        throw 'Invalid JSON'
+                    })
+
+
+                    // Activate Subscriptions
+                    // Object.values(this.responses).forEach(f => f(response))
+                    this.controller.enqueue(response)
+
+                    return response
                 })
         }
 
@@ -260,6 +333,11 @@ export class Endpoint{
                             if (this.router){
                                 client.addResponse('router', (o) => {
                                     const data = (typeof o === 'string') ? JSON.parse(o) : o 
+
+                                    // Enqueue in Stream
+                                    this.controller.enqueue(data)
+
+                                    // Activate Subscriptions
                                     Object.values(this.responses).forEach(f => {
                                         f(data)
                                     })

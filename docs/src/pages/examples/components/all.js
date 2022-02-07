@@ -33,7 +33,6 @@ export default function AllExample({server, endpoints, router}) {
     });
 
     useEffect(() => {
-      console.log('SENDING')
       send('routes', 'get')
     }, [])
 
@@ -44,7 +43,6 @@ export default function AllExample({server, endpoints, router}) {
         endpoint: endpoints[0]
       }, ...args).then(res => {
 
-        console.log('res', res)
         if (!res?.error) {
           if (res && route === 'routes') setRoutes(res[0])
           if (outputRef) outputRef.innerHTML = JSON.stringify(res)
