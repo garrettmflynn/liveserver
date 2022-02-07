@@ -41,11 +41,11 @@ const endpoints = []
 endpoints.push(router.connect({
   target: SERVER_URI,
   credentials: {id, _id: id}
-})) // Anonymous Connection
+}))
 endpoints.push(router.connect({
   target: SERVER_URI_2,
   credentials: {id, _id: id}
-})) // Anonymous Connection
+}))
 
 export default function Examples() {
   const {siteConfig} = useDocusaurusContext();

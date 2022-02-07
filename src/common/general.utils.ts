@@ -6,12 +6,17 @@ export function createRoute (path:string, remote:string|URL) {
   }
 
   export function getRouteMatches(route) {
-    let matches = [route, route + '/*', route + '/**']
         let split = route.split('/')
         split = split.slice(0,split.length-1)
+
+        let matches = [route]
+        if (split.length === 0) matches.push(route + '/*')
+        matches.push(route + '/**')
+
         split.forEach((_,i) => {
             let slice = split.slice(0,i+1).join('/')
-            matches.push(slice, slice + '/*', slice + '/**')
+            if (i === split.length - 1) matches.push(slice + '/*')
+            matches.push(slice + '/**')
         })
 
         return matches

@@ -12,28 +12,28 @@ export class OSCClient extends Service{
 	routes = [
 			{
 				route: 'oscData',
-				callback: (self, args) => {
+				post: (self, args) => {
 					const message = args[0]
 					this.state.setState(message.address+'_'+message.port, message.oscData); //update state
 				}
 			},
 			{
 				route: 'oscInfo',
-				callback: (self, args) => {
+				post: (self, args) => {
 					const message = args[0]
 					this.state.setState('oscInfo', message); //update state
 				}
 			},
 			{
 				route: 'oscClosed',
-				callback: (self, args) => {
+				post: (self, args) => {
 					const message = args[0]
 					this.state.setState('oscClosed', message); //update state
 				}
 			},
 			{
 				route: 'oscError',
-				callback: (self, args) => {
+				post: (self, args) => {
 					const message = args[0]
 					this.state.setState('oscError', message); //update state
 				}

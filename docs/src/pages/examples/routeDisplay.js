@@ -36,9 +36,12 @@ export default function RouteDisplay({routes, sendCallback}) {
           button.innerHTML = name
           button.onclick = async ( ) => {
             let args = []
-            if (o.route === 'unsafe/addfunc') args = ['add', (_, [a, b=1]) => a + b]
+            if (o.route === 'unsafe/addfunc') args = [{
+              route: 'add',
+              post: (_, [a, b=1]) => a + b
+            }]
             else if (o.route === 'add') args = [vals['add']?.[0]]
-            else if (o.route === 'ssr/add') args = ['/arbitrary/route', '<p>Just some arbitrary HTML</p>']
+            else if (o.route === 'http/add') args = ['/arbitrary/route', '<p>Just some arbitrary HTML</p>']
   
             // Sending Over HTTP Response
             sendCallback(o.route, 'post', ...args).then(res => {

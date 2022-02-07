@@ -46,49 +46,52 @@ export class Router {
   DEFAULTROUTES = [
     {   
       route: 'ping',
-      callback:() => {
+      post:() => {
           return 'pong';
       }
   },
   { //return a list of services available on the server
-    route: 'services', 
-    reference: {
+    route: 'services/**', 
+    get: {
       object: this.SERVICES,
-      transform: (reference) => {
+      transform: (reference, ...args) => {
         let dict = {};
-        for (let k in reference){
+
+        // Use First Argument
+        let keys = (args.length > 0) ? [args[0]] : Object.keys(reference)
+        keys.forEach(k => {
           const o = reference[k]
           if (o instanceof Service) dict[k] = o.constructor.name;
-        }
+        })
+
+        // Drill on Response
+        args.forEach((v,i) => dict = dict[v])
+
         return dict;
       }
     },
-    // callback: (Router, args, origin) => {
-    //   let list = [];
-    //   for (let k in Router.SERVICES.server){
-    //     const o = Router.SERVICES.server[k]
-    //     if (k) list.push({
-    //       route: k,
-    //       name: o.constructor.name
-    //     });
-    //   }
-    //   if (args[0] === true) console.log('Services available: ', list); //list available functions
-    //   return list;
-    // }
   },
   { //return a list of function calls available on the server
     route: '/',
-    aliases: ['routes'] ,
-    reference: {
+    aliases: ['routes/**'] ,
+    get: {
       object: this.ROUTES,
-      transform: (reference, args) => {
+      transform: (reference, ...args) => {
         let o = {}
-        for (let key in reference){
-          if (key && !key.includes('*')) o[key] = {
-            route: reference[key].route,
+
+        // Shift Arguments
+        let keys = (args.length > 0) ? [args[0]] : Object.keys(reference)
+        keys.forEach(key => {
+          if (key) o[key] = {
+            route: reference[key].route.split('/').filter(str => !str.match(/\*\*?/)).join('/'),
             args: reference[key].args,
+            wildcard: key.includes('*')
           } // Shallow copy
-        }
+        })
+
+        // Auto-Drill on References
+        args.forEach((v,i) => o = o[v])
+
         return o
       }
     }
@@ -96,13 +99,13 @@ export class Router {
   { //generic send message between two users (userId, message, other data)
       route:'sendMessage',
       aliases:['message','sendMsg'],
-      callback:(Router,args)=>{
+      post:(Router,args)=>{
           return Router.sendMsg(args[0],args[1],args[2]);
       }
   },
   { //set user details for yourRouter
       route:'setUserServerDetails',
-      callback:(Router,args,origin)=>{
+      post:(Router,args,origin)=>{
         let user = Router.USERS[origin]
         if (!user) return false
         if(args[0]) user.username = args[0];
@@ -116,7 +119,7 @@ export class Router {
   },
   { //assign user props for yourRouter or someone else (by user unique id)
       route:'setProps',
-      callback:(Router,args,origin)=>{
+      post:(Router,args,origin)=>{
         let user = Router.USERS[origin]
         if (!user) return false
         if(typeof args === 'object' && !Array.isArray(args)) {
@@ -133,7 +136,7 @@ export class Router {
   },
   { //get props of a user by id or of yourRouter
       route:'getProps',
-      callback:(Router,args,origin)=>{
+      post:(Router,args,origin)=>{
         let user = Router.USERS[origin]
         if (!user) return false
   
@@ -146,26 +149,29 @@ export class Router {
   },
   { //lists user keys
     route:'listUsers',
-    callback:(Router)=>{
+    post:(Router)=>{
       return Array.from(Router.USERS.keys());
     }
   },
   { //lists user keys
     route:'blockUser',
-    callback:(Router,args,origin)=>{
+    post:(Router,args,origin)=>{
       let user = Router.USERS[origin]
       if (!user) return false
       return this.blockUser(user,args[0]);
     }
   },
   { //get basic details of a user or of yourRouter
-    route: 'users',
-    reference: {
+    route: 'users/**',
+    get: {
       object: this.USERS,
-      transform: (o) => {
+      transform: (o, ...args) => {
 
         let dict = {}
-        for (let k in o) {
+         // Use First Argument
+         let keys = (args.length > 0) ? [args[0]] : Object.keys(o)
+ 
+        keys.forEach(k => {
           const u = o[k]
             dict[k] = {
               _id:u._id,
@@ -177,14 +183,18 @@ export class Router {
               lastTransmit:u.lastTransmit,
               latency:u.latency
             }
-        }
+      })
+
+              // rill References
+              args.forEach((v,i) => dict = dict[v])
+
         return dict
       }
     }
   },
   { //get basic details of a user or of yourRouter
       route:'getUser',
-      callback:(Router,args,origin)=>{
+      post:(Router,args,origin)=>{
         let user = Router.USERS[origin]
         if (!user) return false
   
@@ -220,7 +230,7 @@ export class Router {
   {
     route:'login',
     aliases:['addUser', 'startSession'],
-    callback: async (Router, args, origin) => {
+    post: async (Router, args, origin) => {
       let u = await Router.addUser(...args)
       return { message: !!u, id: u.id }
     }
@@ -228,7 +238,7 @@ export class Router {
   {
     route:'logout',
     aliases:['removeUser','endSession'],
-    callback:(Router,args,origin) => {
+    post:(Router,args,origin) => {
       let user = Router.USERS[origin]
         if (!user) return false
       if(args[0]) Router.removeUser(...args)
@@ -463,7 +473,7 @@ export class Router {
     // Activate Internal Routes if Relevant (currently blocking certain command chains)
     if (!o.block) {
       let route = this.ROUTES[o?.route]
-      if (route?.callback instanceof Function) return route.callback(this, o.message, o.id)
+      if (route?.post instanceof Function) return route.post(this, o.message, o.id) // TODO: Enable non-post
     }
   }
 
@@ -514,10 +524,10 @@ export class Router {
       headers?: {[x:string]:string}
     } = {}) {
       if (o !== undefined){ // Can pass false and null
-          if (!(typeof o === 'object') || (!('message' in o) && !('route' in o))) o = {message: o}
+          if (!o || !(typeof o === 'object') || (!('message' in o) && !('route' in o))) o = {message: o}
           if (!Array.isArray(o.message)) o.message = [o.message]
           if (info.service && o?.route) o.route = `${info.service}/${o.route}` // Correct Route
-          // if (routeInfo.reference) state.setState(route, res.message)
+          // if (routeInfo.get) state.setState(route, res.message)
           if (info.headers) o.headers = info.headers // e.g. text/html for SSR
       }
 
@@ -591,8 +601,8 @@ export class Router {
       for (let key in this.SERVICES){
             const s = this.SERVICES[key]
             if (s.status === true){
-              const route = s.name + '/addUser'
-              if (this.ROUTES[route]) this.runRoute(route, 'POST', [newuser], userinfo._id) 
+              const route = s.name + '/users' // Default Route
+              if (this.ROUTES[route]) this.runRoute(route, 'POST', [newuser], userinfo.id) 
             }
       }
 
@@ -607,7 +617,7 @@ export class Router {
 
         Object.values(this.SERVICES).forEach(s => {
           if (s.status === true){
-            const route = s.name + '/removeUser'
+            const route = s.name + '/users'
             if (this.ROUTES[route]) this.runRoute(route, 'DELETE', [u], u.id)
           }
         })
@@ -701,23 +711,25 @@ export class Router {
 
       const cases = [o.route, ...(o.aliases) ? o.aliases : []]
       delete o.aliases
+
       cases.forEach(route => {
-            if(!route || (!o.callback && !o.reference)) return false;
+            if(!route || (!o.post && !o.get)) return false;
             route = o.route = `${(o.service) ? `${o.service}/` : ''}` + route
             this.removeRoute(route); //removes existing callback if it is there
             if (route[0] === '/') route = route.slice(1)
-            o.args = getParamNames(o.callback)
+            o.args = getParamNames(o.post)
 
             this.ROUTES[route] = Object.assign({}, o)
             this.ROUTES[route].route = route
             
-            if (o.reference) {
-              route = route.split('/').filter(a => a != '*' && a != '**').join('/')
-              this.STATE.setState({[route]: o.reference?.object ?? o.reference});
+            if (o.get) {
 
-              // TODO: Drill subscriptions automatically...
+              // Subscribe to Base Route // TODO: Doube-check that subscriptions are working
+              // route = route.split('/').filter(a => a != '*' && a != '**').join('/')
+              this.STATE.setState({[route]: o.get?.object ?? o.get});
+
               this.STATE.subscribe(route, (data) => {
-                const message = (o.reference?.transform) ? o.reference.transform(data) : data
+                const message = (o.get?.transform) ? o.get.transform(data, ...[]) : data
                 
                 this.SUBSCRIPTIONS.forEach(o => o(this, {
                   route, 
@@ -745,34 +757,40 @@ export class Router {
         // Get Wildcard Possibilities
         let possibilities = getRouteMatches(route)
 
-        let errorRes = {route, block: true, message: {content: errorPage}, headers: {'Content-Type': 'text/html'}} // NOTE: Do not include route unless you want it to be parsed as a command
+        let errorRes = {route, block: true, message: {html: errorPage}, headers: {'Content-Type': 'text/html'}} // NOTE: Do not include route unless you want it to be parsed as a command
 
         // Iterate over Possibilities
         Promise.all(possibilities.map(async possibleRoute => {
 
           let routeInfo = this.ROUTES[possibleRoute]
+
           if (routeInfo) {
             try {
               let res;
-              if (method.toUpperCase() === 'GET' || !routeInfo?.callback) {
-                const split = route.split('/').filter(a => a != '*' && a != '**') // Remove wildcards
-                const value = this.STATE.data[split[0]]
+
+              // Delete Handler
+               if (routeInfo?.delete && method.toUpperCase() === 'DELETE') {
+                res  = await routeInfo.delete(this, input, origin)
+              } 
+              
+              // Get Handler
+              else if (method.toUpperCase() === 'GET' || !routeInfo?.post) {
+                const value = this.STATE.data[routeInfo.route] // Get State by route
+
                 if (value){
-                  const args = split.slice(1)
-                  let message = (routeInfo.reference?.transform) ? routeInfo.reference.transform(value) : value
-
-                  // Auto-Drill on References
-                  args.forEach((v,i) => {
-                    message = message[v]
-                  })
-
-                  res = {route, message} // NOTE: Do not include route unless you want it to be parsed as a command
+                  
+                  // Get argsuments after main route
+                  const args = route.replace(routeInfo.route.split('/').filter(a => a != '*' && a != '**').join('/'), '').split('/').filter(str => !!str)
+                  res = {message: (routeInfo.get?.transform) ? await routeInfo.get.transform(value, ...args) : value}
                 } else res = errorRes
-              } else if (routeInfo?.callback) {
-                res  = await routeInfo?.callback(this, input, origin)
-              } else res = errorRes
-
-
+              }
+              // Post Handler
+              else if (routeInfo?.post) {
+                res  = await routeInfo?.post(this, input, origin)
+              } 
+              
+              // Error Handler
+              else res = errorRes
               resolve(this.format(res))
 
             } catch(e) {
@@ -788,7 +806,7 @@ export class Router {
         let route = this.ROUTES[event.data.foo] ?? this.ROUTES[event.data.route] ?? this.ROUTES[event.data.functionName]
         if (!route) route = this.ROUTES[event.data.foo]
         if (route){
-              if (event.data.message) return await route.callback(this, event.data.message, event.data.origin);
+              if (event.data.message) return await route.post(this, event.data.message, event.data.origin);
               else return
         } else return false
     }

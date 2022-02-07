@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import styles from '../examples.module.css'
 import { randomId } from '../../../../../src/common/id.utils';
+import RouteDisplay from '../routeDisplay';
 
 export default function WebRTCExample({server, endpoints, router, id}) {
   
@@ -21,7 +22,7 @@ export default function WebRTCExample({server, endpoints, router, id}) {
     const id = ev.detail.id
     peers[id] = {
       element: document.createElement('div'),
-      readout: document.createElement('span')
+      readout: document.createElement('span'),
     }
 
     peers[id].element.insertAdjacentHTML('beforeend',`<strong>${id}: </strong>`)
@@ -83,8 +84,8 @@ export default function WebRTCExample({server, endpoints, router, id}) {
       }
 
       disconnect.current.onclick = () => {
-        peerReference.send({
-          route: 'webrtc/disconnect',
+        peerReference.delete({
+          route: 'webrtc/user',
           // endpoint: endpoints[1]
         })
       }

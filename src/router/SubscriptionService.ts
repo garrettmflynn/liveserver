@@ -8,7 +8,7 @@ export class SubscriptionService extends Service {
 
     // FE
     service?: string;
-    reference?: any; // Networking object reference
+    connection?: any; // Networking object connection
     responses?: Map<string, Function> = new Map()
 
     // Message Handler

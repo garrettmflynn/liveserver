@@ -292,21 +292,21 @@ export class UsersClient extends Router {
 
     //info can be email, id, username, or name. Returns their profile and authorizations
     async getUser (info:string|number='',callback=this.baseServerCallback) {
-        let res = (await this.send('database/getProfile', info))?.[0]
+        let res = (await this.send('database/users', info))?.[0]
         callback(res)
         return res
     }
 
     //get user basic info by id
     async getUsers (ids:string|number[]=[],callback=this.baseServerCallback) {
-        let res = (await this.send('database/getProfilesByIds', ids))?.[0]
+        let res = (await this.send('database/users', ...ids))?.[0] // Pass Array
         callback(res)
         return res
     }
     
     //info can be email, id, username, or name. Returns their profile and authorizations
     async getUsersByRoles (userRoles:string[]=[],callback=this.baseServerCallback) {
-        let res = (await this.send('database/getProfilesByRoles', userRoles))?.[0]
+        let res = (await this.send('database/getUsersByRoles', userRoles))?.[0]
         callback(res)
         return res
     }
@@ -359,7 +359,7 @@ export class UsersClient extends Router {
     
     //sets the user profile data on the server
     async setUser (userStruct={},callback=this.baseServerCallback) {
-        let res = (await this.send('database/setProfile', this.stripStruct(userStruct)))?.[0]
+        let res = (await this.send('database/users', this.stripStruct(userStruct)))?.[0]
         callback(res)
         return res
     }
@@ -440,7 +440,7 @@ export class UsersClient extends Router {
     async deleteUser (userId, callback=this.baseServerCallback) {
         if(!userId) return;
 
-        let res = (await this.send('database/deleteProfile', userId))?.[0]
+        let res = (await this.delete('database/users', userId))?.[0]
         callback(res)
         return res
     }

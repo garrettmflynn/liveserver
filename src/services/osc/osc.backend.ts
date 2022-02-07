@@ -15,13 +15,13 @@ export class OSCBackend extends SubscriptionService {
         this.routes = [
             { 
                 route:'startOSC',
-                callback: async (self,args) => {
+                post: async (self,args) => {
                     return await this.addPort(args[0],args[1],args[2],args[3])
                 }
               },
               { 
                 route:'sendOSC',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     // const u = self.USERS[origin]
                     // if (!u) return false
 
@@ -34,7 +34,7 @@ export class OSCBackend extends SubscriptionService {
               },
               { 
                 route:'stopOSC',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                   if(this.remove(args[0], args[1])) return true;
                 }
               }

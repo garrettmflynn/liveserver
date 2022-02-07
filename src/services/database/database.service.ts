@@ -6,45 +6,225 @@ import { UserObject } from '../../common/general.types';
 import { Router } from "../../router/Router";
 import { Service } from "../../router/Service";
 import { randomId } from '../../common/id.utils';
+import * as mongoExtension from './mongodb.extension'
+
+export const safeObjectID = (str) => {
+    return (typeof str === 'string' && str.length === 24) ? ObjectID(str) : str
+}
+
+type dbType = any
+
+type CollectionsType = {
+    users?: CollectionType
+    [x:string]: CollectionType
+}
+
+
+type CollectionType = any | {
+    instance?: any; // MongoDB Collection Instance
+    match?: string[],
+    filters?: {
+        post: (user, args,collections) => boolean,
+        get: (responseArr, collections) => boolean,
+        delete: (user, args, collections) => boolean
+    }
+}
+
+const defaultCollections = [
+    'users',
+    'group',
+    'authorization',
+    'discussion',
+    'chatroom',
+    'comment',
+    'dataInstance',
+    'event',
+    'notification',
+    'schedule',
+    'date'
+];
 
 export class DatabaseService extends Service {
     
     name = 'database'
     controller: Router;
     db: any;
-    collections = new Map();
-    mode: 'local' | 'mongodb' | string
+    collections: CollectionsType = {}
 
-    collectionNames = [
-        'profile',
-        'group',
-        'authorization',
-        'discussion',
-        'chatroom',
-        'comment',
-        'dataInstance',
-        'event',
-        'notification',
-        'schedule',
-        'date'
-    ];
+    mode: 'local' | 'mongodb' | string 
 
-    constructor (Router, dbOptions?:{
+
+    constructor (Router, dbOptions:{
         mode?: 'local' | 'mongodb' | string,
-        db?: any
-    }, debug=true) {
+        db?: dbType,
+        collections?: CollectionsType
+    } = {}, debug=true) {
         super(Router)
+
+        // Experimental APIs
+        // https://developer.mozilla.org/en-US/docs/Web/API/StorageManager
+        // console.log(globalThis.navigator?.storage)
+
+        // https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API
+        // https://developer.mozilla.org/en-US/docs/Web/API/FileSystem
+        // https://web.dev/file-system-access/
+        // https://stackoverflow.com/questions/65086325/how-to-stream-files-to-and-from-the-computer-in-browser-javascript
 
         // if(!Router) { console.error('Requires a Router instance.'); return; }
         this.db = dbOptions?.db;
-        this.collections = new Map();
+
         this.mode = (this.db) ? ((dbOptions.mode) ? dbOptions.mode : 'local') : 'local'
 
-        this.routes = [
+
+        // Fill in Default collections
+        if (!dbOptions.collections) dbOptions.collections = {}
+        defaultCollections.forEach(k => {
+            if (!dbOptions.collections[k])  dbOptions.collections[k] = (this.db) ? {instance: this.db.collection(k)} : {
+                match: ['id', 'email', 'username']
+            }
+        })
+
+        Object.values(dbOptions.collections).forEach(o => o.reference = {})
+
+        this.collections = dbOptions.collections // Add Reference for Local Data
+
+        // Populate Collections Object & Routes
+        for (let key in this.collections){
+
+
+            // Populate Filters
+            if (!this.collections[key].filters) this.collections[key].filters = {}
+            if (!this.collections[key].filters.get) this.collections[key].filters.get = () => true // Filter Nothing
+            if (!this.collections[key].filters.post) this.collections[key].filters.post = () => true // Pass
+            if (!this.collections[key].filters.delete) this.collections[key].filters.delete = () => true // Pass
+
+
+            // Grab Object Reference
+            const object = this.collections[key].reference
+
+            const getHandler = async (...args) => {
+    
+                let data = []
+                args = args
+                .filter(v => typeof v === 'string')
+                .map(v => {
+                    const split = v.split(',')
+                    if (split.length > 0) return split
+                    else return [v]
+                }) // TODO: Allow JSON passing
+
+                const len:number = args.length
+                const values = args.shift() ?? []
+
+                await Promise.all(values.map(async v => {
+
+                if (args[0]) console.log('Arr', args[0].split(','))
+
+                    const query:any[] = [{_id: safeObjectID(v)}]
+                    if (this.collections[key].match) this.collections[key].match.forEach(k => query.push({[k]: v}))
+                    
+                    // Check MongoDB or Local
+                    if(this.mode.includes('mongo')) data.push(await mongoExtension.get(this, this.collections[key].instance, query))
+                    else {
+                        data.push((len > 0) ? Object.values(object).find((dict) => {
+                            query.forEach(o => {
+                                const k = Object.keys(o)[0]
+                                return dict[k] === o[k]
+                            })
+                        }) : object)
+                    }
+                }))
+
+
+                // Drill Into Properties
+                try {
+                    args.forEach(k => data = data[k[0]]) // Only drill by the first value
+                } catch (e) {}
+
+                // Check Permission to Access Data
+                return (typeof data === 'object' && data != null) 
+                ? await Object.values(data).filter((v) => this.collections[key].filters.get(v, this.collections))  // Object
+                : (this.collections[key].filters.get(data, this.collections)) ? data : null // Single  Non-Object
+            }
+
+            this.routes.push({
+                route: `${key}/**`,
+
+                // Generic Get Handler
+                get: {
+                    object,
+                    transform: getHandler
+                },
+
+                // Generic Delete Handler
+                delete: async (self, args, origin): Promise<boolean> => {
+
+                    // Don't Allow Users to Delete until Logged In
+                    const u = self.USERS[origin]
+                    if (!u) return null
+
+                    // Check filters
+                    let passed = (this.collections[key]?.filters?.delete) ? await this.collections[key].filters.delete(u, args, this.collections) : true
+                    if (passed) {
+                        // Set MongoDB or Local
+                        if(this.mode.includes('mongo')) {
+
+                            let o = await getHandler(...args)
+                            if (o) {
+                                await mongoExtension.del(this, this.collections[key].instance, args[0])
+                                return true
+                            } else return false
+                            // if(u.id !== userId) this.router.sendMsg(userId,'deleted',userId);
+                        }
+                        else {
+                            let s = this.collections[key].reference[args[0]._id] // Delete by ObjectID only
+                            if(s) {
+
+                                const toDelete = this.collections[key].reference[s._id]
+                                delete this.collections[key].reference[s._id]
+                                if (toDelete) return true
+                                else return false
+                            }
+                        }
+                    } return null
+                }, 
+                
+                // Generic Post Handler
+                post: async (self, args, origin): Promise<boolean> => {
+                    
+                    // Don't Allow Users to Request until Logged In
+                    const u = self.USERS[origin]
+
+                    if (!u) return null
+
+                    let data;
+                    if (args.length === 0) return getHandler(...args) // Use Get if post has no arguments
+                    // Check filters
+                    let passed = (this.collections[key]?.filters?.post) ? await this.collections[key].filters.post(u, args, this.collections) : true
+                    if (passed) {
+                        // Set MongoDB or Local
+                        if(this.mode.includes('mongo')) {
+                            data = await mongoExtension.post(this, this.collections[key].instance, args)
+                        }
+                        else {
+                            // TODO: Ensure this is actually the right scope (may be args[0])
+                            args.forEach((s)=> this.collections[key].reference[s._id] = s);
+                        }
+
+                    } else return null
+
+                    return !!data // Return Boolean
+                }
+            })
+        }
+
+
+        // Overwrite Other Routes
+        this.routes.push(
             {   
                 route:'setData', 
             aliases:['setMongoData'],
-            callback: async (self,args,origin) => {
+            post: async (self,args,origin) => {
                 const u = self.USERS[origin]
                 if (!u) return false
 
@@ -72,7 +252,7 @@ export class DatabaseService extends Service {
         { 
             route:'getData', 
             aliases:['getMongoData','getUserData'],
-            callback:async (self,args,origin) => {
+            post:async (self,args,origin) => {
                 const u = self.USERS[origin]
                 if (!u) return false
 
@@ -97,7 +277,7 @@ export class DatabaseService extends Service {
         { 
             route:'getDataByIds', 
             aliases:['getMongoDataByIds','getUserDataByIds'],
-            callback:async (self,args,origin) => {
+            post:async (self,args,origin) => {
                 const u = self.USERS[origin]
                 if (!u) return false
 
@@ -120,7 +300,7 @@ export class DatabaseService extends Service {
         },     
         {
             route:'getAllData',
-            callback:async (self,args,origin) => {
+            post:async (self,args,origin) => {
                 const u = self.USERS[origin]
                 if (!u) return false
 
@@ -147,7 +327,7 @@ export class DatabaseService extends Service {
         }, 
         {
             route:'deleteData', 
-            callback:async (self,args,origin) => {
+            post:async (self,args,origin) => {
                 const u = self.USERS[origin]
                 if (!u) return false
 
@@ -167,82 +347,16 @@ export class DatabaseService extends Service {
             }
         },
         {
-            route:'getProfile',
-            callback:async (self,args,origin) => {
+            route:'getUsersByRoles',
+            post:async (self,args,origin) => {
                 const u = self.USERS[origin]
                 if (!u) return false
 
                 let data;
                 if(this.mode.includes('mongo')) {
-                    data = await this.getMongoProfile(u,args[0]);
+                    data = await this.getMongoUsersByRoles(u,args[0]);
                 } else {
-                    let struct = this.getLocalData('profile',{_id:args[0]});
-                    if(!struct) data = {};
-                    else {
-                        let passed = await this.checkAuthorization(u,struct);
-                        if(passed) {
-                            let groups = this.getLocalData('group',{ownerId:args[0]});
-                            let auths = this.getLocalData('authorization',{ownerId:args[0]});
-                            
-                            // Fold Groups and Authorizations into the User
-                            // TODO: Generalize the addition of keys to a database entry
-                            struct.groups = groups
-                            struct.authorizations = auths
-                            data = struct
-                        } else data = {};
-                    }
-                }
-
-                return data;
-            }
-        },
-        {
-            route:'setProfile',
-            aliases: ['addUser'],
-            callback:async (self,args,origin) => {
-                const u = self.USERS[origin]
-                if (!u) return false
-                let data;
-                if(this.mode.includes('mongo')) {
-                    data = await this.setMongoProfile(u,args[0]);
-                } else {
-                    let passed = await this.checkAuthorization(u,args[0], this.mode);
-                    if(passed) this.setLocalData(args[0]);
-                    return true;
-                }
-                return !!data
-            }
-        },
-        {
-            route:'getProfilesByIds',
-            callback:async (self,args,origin) => { 
-                const u = self.USERS[origin]
-                if (!u) return false
-
-                let data;
-                if(this.mode.includes('mongo')) {
-                    data = await this.getMongoProfilesByIds(u,args[0]);
-                } else {
-                    data = [];
-                    if(Array.isArray(args[0])) {
-                        let struct = this.getLocalData('profile',{_id:args[0]});
-                        if(struct) data.push(struct);
-                    }
-                }
-                return data;
-            }
-        },
-        {
-            route:'getProfilesByRoles',
-            callback:async (self,args,origin) => {
-                const u = self.USERS[origin]
-                if (!u) return false
-
-                let data;
-                if(this.mode.includes('mongo')) {
-                    data = await this.getMongoProfilesByRoles(u,args[0]);
-                } else {
-                    let profiles = this.getLocalData('profile');
+                    let profiles = this.getLocalData('users');
                     data = [];
                     profiles.forEach((struct) => {
                         if(struct.userRoles?.includes(args[0])) {
@@ -256,7 +370,7 @@ export class DatabaseService extends Service {
         {
             route:'getGroup',
             aliases:['getGroups'],
-            callback:async (self,args,origin) => {
+            post:async (self,args,origin) => {
                 const u = self.USERS[origin]
                 if (!u) return false
 
@@ -286,7 +400,7 @@ export class DatabaseService extends Service {
         },
         {
             route:'setGroup',
-            callback:async (self,args,origin) => {
+            post:async (self,args,origin) => {
                 const u = self.USERS[origin]
                 if (!u) return false
 
@@ -295,7 +409,7 @@ export class DatabaseService extends Service {
         },
         {
             route:'deleteGroup',
-            callback:async (self,args,origin) => {
+            post:async (self,args,origin) => {
                 const u = self.USERS[origin]
                 if (!u) return false
 
@@ -314,29 +428,8 @@ export class DatabaseService extends Service {
             }
         },
         {
-            route:'deleteProfile',
-            aliases: ['removeUser'],
-            callback:async (self,args,origin) => {
-                const u = self.USERS[origin]
-                if (!u) return false
-
-                let data;
-                if(this.mode.includes('mongo')) {
-                    data = await this.deleteMongoProfile(u,args[0]);
-                } else {
-                    data = false;
-                    let struct = this.getLocalData(args[0]);
-                    if(struct) {
-                        let passed = this.checkAuthorization(u,struct, this.mode);
-                        if(passed) data = this.deleteLocalData(struct);
-                    }
-                }
-                return data;
-            }
-        },
-        {
             route:'setAuth',
-            callback:async (self,args,origin) => {
+            post:async (self,args,origin) => {
                 const u = self.USERS[origin]
                 if (!u) return false
                 return await this.setAuthorization(u, args[0], this.mode);
@@ -344,7 +437,7 @@ export class DatabaseService extends Service {
         },
         {
             route:'getAuths',
-            callback:async (self,args,origin) => {
+            post:async (self,args,origin) => {
                 const u = self.USERS[origin]
                 if (!u) return false
 
@@ -364,7 +457,7 @@ export class DatabaseService extends Service {
         },
         {
             route:'deleteAuth',
-            callback:async (self,args,origin) => {
+            post:async (self,args,origin) => {
                 const u = self.USERS[origin]
                 if (!u) return false
 
@@ -381,8 +474,7 @@ export class DatabaseService extends Service {
                     return data;
                 } 
             }
-        }
-        ]
+        })
     }
 
     
@@ -411,13 +503,13 @@ export class DatabaseService extends Service {
                 if (obj.id === (user as any)) user = obj;
             }
         }
-        if(typeof user === 'string' || typeof user === 'undefined') return false;
+        if(typeof user === 'string' || user == null) return false;
         let usersToNotify = {};
         //console.log('Check to notify ',user,structs);
 
         let newNotifications = [];
         structs.forEach(async (struct)=>{
-            if (user.id !== struct.ownerId) { //a struct you own being updated by another user
+            if (user?.id !== struct.ownerId) { //a struct you own being updated by another user
                 let newNotification = this.notificationStruct(struct);
                 newNotification.id = 'notification_'+struct._id; //overwrites notifications for the same parent
                 newNotification.ownerId = struct.ownerId;
@@ -442,7 +534,7 @@ export class DatabaseService extends Service {
             else { //users not explicitly assigned so check if there are authorized users with access
                 let auths = [];
                 if(mode === 'mongo') {
-                    let s = this.db.collection('authorization').find({ $or:[{authorizedId: user.id},{authorizerId: user.id}] });
+                    let s = this.collections.authorizations.instance.find({ $or:[{authorizedId: user.id},{authorizerId: user.id}] });
                     if(await s.count() > 0) {
                         await s.forEach(d => auths.push(d));
                     }
@@ -512,7 +604,7 @@ export class DatabaseService extends Service {
                             await this.db.collection(struct.structType).insertOne(copy);   
                             firstwrite = true; 
                         }
-                        else await this.db.collection(struct.structType).updateOne({_id: ObjectID(struct._id)}, {$set: copy}, {upsert: false});
+                        else await this.db.collection(struct.structType).updateOne({_id: safeObjectID(struct._id)}, {$set: copy}, {upsert: false});
                     }
                 }
             }));
@@ -548,7 +640,7 @@ export class DatabaseService extends Service {
                             let pulledReply;
 
                             await Promise.all(['discussion','chatroom','comment'].map(async (name) => {
-                                let found = await this.db.collection(name).findOne({_id:ObjectID(replyToId)});
+                                let found = await this.db.collection(name).findOne({_id:safeObjectID(replyToId)});
                                 if(found) pulledReply = found;
                             }));
                             //console.log(pulledReply)
@@ -588,7 +680,7 @@ export class DatabaseService extends Service {
                                 await Promise.all(toUpdate.map(async(s)=>{
                                     let copy = JSON.parse(JSON.stringify(s));
                                     delete copy._id;
-                                    await this.db.collection(s.structType).updateOne({_id:ObjectID(s._id)},{$set: copy},{upsert: false});
+                                    await this.db.collection(s.structType).updateOne({_id:safeObjectID(s._id)},{$set: copy},{upsert: false});
                                 }));
 
                                 // console.log('pulled comment',pulledComment)
@@ -623,8 +715,11 @@ export class DatabaseService extends Service {
         else return false;
     }
 
-    async setMongoProfile(user:UserObject,struct:any={}) {
+    async setMongoUser(user:UserObject,struct:any={}) {
+
+
         if(struct.id) { //this has a second id that matches the token id
+            
             if(user.id !== struct.id) {
                 let passed = await this.checkAuthorization(user,struct);
                 if(!passed) return false;
@@ -634,10 +729,13 @@ export class DatabaseService extends Service {
             if(copy._id) delete copy._id;
 
             if(this.router.DEBUG) console.log('RETURNS PROFILE', struct)
-            else await this.db.collection('profile').updateOne({ _id: ObjectID(struct._id) }, {$set: copy}, {upsert: true}); 
-
-            user = await this.db.collection('profile').findOne({ _id: ObjectID(struct._id) });
             
+            // Only Set _id if Appropriate
+            const _id = safeObjectID(struct._id)
+            const toFind = (_id !== struct._id) ? { _id } : {id: struct.id}
+            await this.collections.users.instance.updateOne(toFind, {$set: copy}, {upsert: true}); 
+
+            user = await this.collections.users.instance.findOne(toFind);
             this.checkToNotify(user, [struct]);
             return user;
         } else return false;
@@ -648,7 +746,7 @@ export class DatabaseService extends Service {
         if(struct._id) {
             let exists = undefined;
             if(mode === 'mongo') {
-                exists = await this.db.collection('group').findOne({name:struct.name});
+                exists = await this.collections.groups.instance.findOne({name:struct.name});
             } else {
                 exists = this.getLocalData('group',{_id:struct._id});
             }
@@ -668,7 +766,7 @@ export class DatabaseService extends Service {
             let users = [];
             let ids = [];
             if(mode === 'mongo') {
-                let cursor = this.db.collection('profile').find({ $or: allusers }); //encryption references
+                let cursor = this.collections.users.instance.find({ $or: allusers }); //encryption references
                 if( await cursor.count() > 0) {
                     await cursor.forEach((user) => {
                         users.push(user);
@@ -677,7 +775,7 @@ export class DatabaseService extends Service {
                 }
             } else {
                 allusers.forEach((search) => {
-                    let result = this.getLocalData('profile',search);
+                    let result = this.getLocalData('users',search);
                     if(result.length > 0) {
                         users.push(result[0]);
                         ids.push(result[0].id);
@@ -723,7 +821,7 @@ export class DatabaseService extends Service {
                 if(struct._id.includes('defaultId')) {
                     await this.db.collection(struct.structType).insertOne(copy);
                 }
-                else await this.db.collection('group').updateOne({ _id: ObjectID(struct._id) }, {$set: copy}, {upsert: true}); 
+                else await this.collections.groups.instance.updateOne({ _id: safeObjectID(struct._id) }, {$set: copy}, {upsert: true}); 
             } else {
                 this.setLocalData(struct);
             }
@@ -733,12 +831,12 @@ export class DatabaseService extends Service {
     }
 
     //
-    async getMongoProfile(user:UserObject,info='', bypassAuth=false): Promise<Partial<UserObject>>  {
+    async getMongoUser(user:UserObject,info='', bypassAuth=false): Promise<Partial<UserObject>>  {
         return new Promise(async resolve => {
             const query:any[] = [{email: info},{id: info},{username:info}]
-            try {query.push({_id: ObjectID(info)})} catch (e) {}
+            try {query.push({_id: safeObjectID(info)})} catch (e) {}
 
-            let u = await this.db.collection('profile').findOne({$or: query}); //encryption references
+            let u = await this.collections.users.instance.findOne({$or: query}); //encryption references
             
             if(!u || u == null) resolve({});
             else {
@@ -752,11 +850,11 @@ export class DatabaseService extends Service {
                     }
                     // console.log(u);
                     let authorizations = [];
-                    let auths = this.db.collection('authorization').find({ownerId:u.id});
+                    let auths = this.collections.authorizations.instance.find({ownerId:u.id});
                     if((await auths.count() > 0)) {
                         await auths.forEach(d => authorizations.push(d));
                     }
-                    let gs = this.db.collection('group').find({users:{$all:[u.id]}});
+                    let gs = this.collections.groups.instance.find({users:{$all:[u.id]}});
                     let groups = [];
                     if((await gs.count() > 0)) {
                         await gs.forEach(d => groups.push(d));
@@ -771,15 +869,15 @@ export class DatabaseService extends Service {
     }
 
     //safely returns the profile id, username, and email and other basic info based on the user role set applied
-    async getMongoProfilesByIds(user={},userIds=[]) {
+    async getMongoUsersByIds(user={},userIds=[]) {
         let usrs = [];
         userIds.forEach((u) => {
-            try {usrs.push({_id:ObjectID(u)});} catch {}
+            try {usrs.push({_id:safeObjectID(u)});} catch {}
         });
 
         let found = [];
         if (usrs.length > 0){
-            let users = this.db.collection('profile').find({$or:usrs});
+            let users = this.collections.users.instance.find({$or:usrs});
             if(await users.count() > 0) {
                 await users.forEach((u) => {
                     found.push(u);
@@ -791,8 +889,8 @@ export class DatabaseService extends Service {
     }
 
     //safely returns the profile id, username, and email and other basic info based on the user role set applied
-    async getMongoProfilesByRoles(user={},userRoles=[]) {
-        let users = this.db.collection('profile').find({
+    async getMongoUsersByRoles(user={},userRoles=[]) {
+        let users = this.collections.users.instance.find({
             userRoles:{$all: userRoles}
         });
         let found = [];
@@ -815,7 +913,7 @@ export class DatabaseService extends Service {
                 })
             let found = [];
             if(!collection) {
-                await Promise.all(this.collectionNames.map(async (name) => {
+                await Promise.all(Object.keys(this.collections).map(async (name) => {
                     let cursor = await this.db.collection(name).find({$or:query});
                     
                     if(await cursor.count() > 0) {
@@ -853,7 +951,7 @@ export class DatabaseService extends Service {
     //get all data for an associated user, can add a search string
     async getMongoData(user:UserObject, collection:string|undefined, ownerId:string|undefined, dict:any|undefined={}, limit=0, skip=0) {
         if (!ownerId) ownerId = dict?.ownerId // TODO: Ensure that replacing ownerId, key, value with dict was successful
-        if (dict._id) dict._id = ObjectID(dict._id)
+        if (dict._id) dict._id = safeObjectID(dict._id)
 
         let structs = [];
         let passed = true;
@@ -876,7 +974,7 @@ export class DatabaseService extends Service {
             let found = await this.db.collection(collection).findOne({ownerId:ownerId,...dict});
             if(found) structs.push(found);
         } else if (Object.keys(dict).length > 0 && !ownerId) { //need to search all collections in this case
-            await Promise.all(this.collectionNames.map(async (name) => {
+            await Promise.all(Object.keys(this.collections).map(async (name) => {
                 let found = await this.db.collection(name).findOne(dict);
                 if(found) {
                     if(user.id !== found.ownerId && checkedAuth !== found.ownerId) {
@@ -894,11 +992,10 @@ export class DatabaseService extends Service {
 
     async getAllUserMongoData(user:UserObject,ownerId,excluded=[]) {
         let structs = [];
-        //let collectionNames = await this.db.getCollectionNames()
 
         let passed = true;
         let checkedId = '';
-        await Promise.all(this.collectionNames.map(async (name,j) => {
+        await Promise.all(Object.keys(this.collections).map(async (name,j) => {
             if(passed && excluded.indexOf(name) < 0) {
                 let cursor = this.db.collection(name).find({ownerId:ownerId});
                 let count = await cursor.count();
@@ -930,7 +1027,7 @@ export class DatabaseService extends Service {
             let checkedAuth = '';
             structRefs.forEach(async (ref)=>{
                 if(ref.structType && ref._id) {
-                    let struct = await this.db.collection(ref.structType).findOne({_id: ObjectID(ref._id)});
+                    let struct = await this.db.collection(ref.structType).findOne({_id: safeObjectID(ref._id)});
                     if(struct) {
                         let passed = true;
                         if(user.id !== struct.ownerId && checkedAuth !== struct.ownerId) {
@@ -950,14 +1047,14 @@ export class DatabaseService extends Service {
     async getMongoAuthorizations(user:UserObject,ownerId=user.id, authId='') {
         let auths = [];
         if(authId.length === 0 ) {
-            let cursor = this.db.collection('authorization').find({ownerId:ownerId});
+            let cursor = this.collections.authorizations.instance.find({ownerId:ownerId});
             if(await cursor.count > 0) {
                 await cursor.forEach((a) => {
                     auths.push(a)
                 });
             }
         }
-        else auths.push(await this.db.collection('authorization').findOne({_id: ObjectID(authId), ownerId:ownerId}));
+        else auths.push(await this.collections.authorizations.instance.findOne({_id: safeObjectID(authId), ownerId:ownerId}));
         if(user.id !== auths[0].ownerId) {
             let passed = await this.checkAuthorization(user,auths[0]);
             if(!passed) return undefined;
@@ -969,7 +1066,7 @@ export class DatabaseService extends Service {
     async getMongoGroups(user:UserObject, userId=user.id, groupId='') {
         let groups = [];
         if(groupId.length === 0 ) {
-            let cursor = this.db.collection('group').find({users:{$all:[userId]}});
+            let cursor = this.collections.groups.instance.find({users:{$all:[userId]}});
             if(await cursor.count > 0) {
                 await cursor.forEach((a) => {
                     groups.push(a)
@@ -977,7 +1074,7 @@ export class DatabaseService extends Service {
             }
         }
         else {
-            try {groups.push(await this.db.collection('group').findOne({_id:ObjectID(groupId), users:{$all:[userId]}}));} catch {}
+            try {groups.push(await this.collections.groups.instance.findOne({_id:safeObjectID(groupId), users:{$all:[userId]}}));} catch {}
         }
 
         return groups;
@@ -991,11 +1088,11 @@ export class DatabaseService extends Service {
         await Promise.all(structRefs.map(async (ref) => {
 
             try {
-                let _id = ObjectID(ref._id)
+                let _id = safeObjectID(ref._id)
                 let struct = await this.db.collection(ref.structType).findOne({_id});
                 if(struct) {
                     structs.push(struct);
-                    let notifications = await this.db.collection('notification').find({parent:{structType:ref.structType,id:ref._id}});
+                    let notifications = await this.collections.notifications.instance.find({parent:{structType:ref.structType,id:ref._id}});
                     let count = await notifications.count();
                     for(let i = 0; i < count; i++) {
                         let note = await notifications.next();
@@ -1015,7 +1112,7 @@ export class DatabaseService extends Service {
             }
             if(passed) {
                 //console.log(passed);
-                await this.db.collection(struct.structType).deleteOne({_id:ObjectID(struct._id)});
+                await this.db.collection(struct.structType).deleteOne({_id:safeObjectID(struct._id)});
                 //delete any associated notifications, too
                 if(struct.users) {
                     struct.users.forEach((uid)=> {
@@ -1032,15 +1129,15 @@ export class DatabaseService extends Service {
     }
 
     //specific delete functions (the above works for everything)
-    async deleteMongoProfile(user:UserObject,userId) {
+    async deleteMongoUser(user:UserObject,userId) {
         
         if(user.id !== userId) {
-            let u = await this.db.collection('profile').findOne({ id: userId });
+            let u = await this.collections.users.instance.findOne({ id: userId });
             let passed = await this.checkAuthorization(user,u);
             if(!passed) return false;
         }
 
-        await this.db.collection('profile').deleteOne({ id: userId });
+        await this.collections.users.instance.deleteOne({ id: userId });
 
         if(user.id !== userId) this.router.sendMsg(userId,'deleted',userId);
 
@@ -1049,7 +1146,7 @@ export class DatabaseService extends Service {
     }
 
     async deleteMongoGroup(user:UserObject,groupId) {
-        let s = await this.db.collection('group').findOne({ _id: ObjectID(groupId) });
+        let s = await this.collections.groups.instance.findOne({ _id: safeObjectID(groupId) });
         if(s) {
             if(user.id !== s.ownerId) {
                 let passed = await this.checkAuthorization(user,s);
@@ -1058,14 +1155,14 @@ export class DatabaseService extends Service {
             if(s.users) {
                 s.users.forEach((u) => { this.router.sendMsg(s.authorizerId,'deleted',s._id); });
             }
-            await this.db.collection('group').deleteOne({ _id:ObjectID(groupId) });
+            await this.collections.groups.instance.deleteOne({ _id:safeObjectID(groupId) });
             return true;
         } else return false; 
     }
 
 
     async deleteMongoAuthorization(user:UserObject,authId) {
-        let s = await this.db.collection('authorization').findOne({ _id: ObjectID(authId) });
+        let s = await this.collections.authorizations.instance.findOne({ _id: safeObjectID(authId) });
         if(s) {
             if(user.id !== s.ownerId) {
                 let passed = await this.checkAuthorization(user,s);
@@ -1073,11 +1170,11 @@ export class DatabaseService extends Service {
             }
             if(s.associatedAuthId) {
                 if(this.router.DEBUG) console.log(s);
-                await this.db.collection('authorization').deleteOne({ _id: ObjectID(s.associatedAuthId) }); //remove the other auth too 
+                await this.collections.authorizations.instance.deleteOne({ _id: safeObjectID(s.associatedAuthId) }); //remove the other auth too 
                 if(s.authorizerId !== user.id) this.router.sendMsg(s.authorizerId,'deleted',s._id);
                 else if (s.authorizedId !== user.id) this.router.sendMsg(s.authorizedId,'deleted',s._id);
             }
-            await this.db.collection('authorization').deleteOne({ _id: ObjectID(authId) });
+            await this.collections.authorizations.instance.deleteOne({ _id: safeObjectID(authId) });
             return true;
         } else return false; 
     }
@@ -1102,11 +1199,11 @@ export class DatabaseService extends Service {
 
         let u1, u2;
         if(mode === 'mongo') {
-            u1 = await this.getMongoProfile(user, authStruct.authorizedId, true); //can authorize via email, id, or username
-            u2 = await this.getMongoProfile(user, authStruct.authorizerId, true);
+            u1 = await this.getMongoUser(user, authStruct.authorizedId, true); //can authorize via email, id, or username
+            u2 = await this.getMongoUser(user, authStruct.authorizerId, true);
         } else {
-            u1 = this.getLocalData('profile',{'_id':authStruct.authorizedId});
-            u2 = this.getLocalData('profile',{'_id':authStruct.authorizedId});
+            u1 = this.getLocalData('users',{'_id':authStruct.authorizedId});
+            u2 = this.getLocalData('users',{'_id':authStruct.authorizedId});
         }
 
         if(!u1 || !u2) return false; //no profile data
@@ -1123,7 +1220,7 @@ export class DatabaseService extends Service {
         let auths = [];
 
         if(mode === 'mongo'){
-            let s = this.db.collection('authorization').find(
+            let s = this.collections.authorizations.instance.find(
                 { $and: [ { authorizedId: authStruct.authorizedId }, { authorizerId: authStruct.authorizerId } ] }
             );
             if ((await s.count()) > 0) {
@@ -1167,7 +1264,7 @@ export class DatabaseService extends Service {
                     let copy = JSON.parse(JSON.stringify(auth));
                     if(this.mode.includes('mongo')) {
                         delete copy._id;
-                        await this.db.collection('authorization').updateOne({ $and: [ { authorizedId: authStruct.authorizedId }, { authorizerId: authStruct.authorizerId }, { ownerId: auth.ownerId } ] }, {$set: copy}, {upsert: true});
+                        await this.collections.authorizations.instance.updateOne({ $and: [ { authorizedId: authStruct.authorizedId }, { authorizerId: authStruct.authorizerId }, { ownerId: auth.ownerId } ] }, {$set: copy}, {upsert: true});
                     } else {
                         this.setLocalData(copy);
                     }
@@ -1179,21 +1276,21 @@ export class DatabaseService extends Service {
         let copy = JSON.parse(JSON.stringify(authStruct));
         if(mode ==='mongo') {
             delete copy._id;
-            await this.db.collection('authorization').updateOne({ $and: [ { authorizedId: authStruct.authorizedId }, { authorizerId: authStruct.authorizerId }, { ownerId: authStruct.ownerId } ] }, {$set: copy}, {upsert: true});
+            await this.collections.authorizations.instance.updateOne({ $and: [ { authorizedId: authStruct.authorizedId }, { authorizerId: authStruct.authorizerId }, { ownerId: authStruct.ownerId } ] }, {$set: copy}, {upsert: true});
         } else {
             this.setLocalData(copy);
         }
 
         if(authStruct._id.includes('defaultId') && mode === 'mongo') {
-            let replacedAuth = await this.db.collection('authorization').findOne(copy);
+            let replacedAuth = await this.collections.authorizations.instance.findOne(copy);
             if(replacedAuth) {
                 authStruct._id = replacedAuth._id.toString();
                 if(otherAuthset) {
-                    let otherAuth = await this.db.collection('authorization').findOne({$and: [ { authorizedId: otherAuthset.authorizedId }, { authorizerId: otherAuthset.authorizerId }, { ownerId: otherAuthset.ownerId } ] });
+                    let otherAuth = await this.collections.authorizations.instance.findOne({$and: [ { authorizedId: otherAuthset.authorizedId }, { authorizerId: otherAuthset.authorizerId }, { ownerId: otherAuthset.ownerId } ] });
                     if(otherAuth) {
                         otherAuth.associatedAuthId = authStruct._id;
                         delete otherAuth._id;
-                        await this.db.collection('authorization').updateOne({ $and: [ { authorizedId: otherAuth.authorizedId }, { authorizerId: otherAuth.authorizerId }, { ownerId: otherAuth.ownerId } ] }, {$set: otherAuth}, {upsert: true}); 
+                        await this.collections.authorizations.instance.updateOne({ $and: [ { authorizedId: otherAuth.authorizedId }, { authorizerId: otherAuth.authorizerId }, { ownerId: otherAuth.ownerId } ] }, {$set: otherAuth}, {upsert: true}); 
                         this.checkToNotify(user,[otherAuth]);
                     }
                 }
@@ -1220,8 +1317,8 @@ export class DatabaseService extends Service {
 
         let auth1, auth2;
         if(mode === 'mongo') {
-            auth1 = await this.db.collection('authorization').findOne({$or: [{authorizedId:user.id,authorizerId:struct.ownerId, ownerId:user.id},{authorizedId:struct.ownerId,authorizerId:user.id, ownerId:user.id}]});
-            auth2 = await this.db.collection('authorization').findOne({$or: [{authorizedId:user.id,authorizerId:struct.ownerId, ownerId:struct.ownerId},{authorizedId:struct.ownerId,authorizerId:user.id, ownerId:struct.ownerId}]});
+            auth1 = await this.collections.authorizations.instance.findOne({$or: [{authorizedId:user.id,authorizerId:struct.ownerId, ownerId:user.id},{authorizedId:struct.ownerId,authorizerId:user.id, ownerId:user.id}]});
+            auth2 = await this.collections.authorizations.instance.findOne({$or: [{authorizedId:user.id,authorizerId:struct.ownerId, ownerId:struct.ownerId},{authorizedId:struct.ownerId,authorizerId:user.id, ownerId:struct.ownerId}]});
         }
         else {
             auth1 = this.getLocalData('authorization', {ownerId:user.id}).find((o) => {
@@ -1254,7 +1351,7 @@ export class DatabaseService extends Service {
             else if(auth1.authorizations.indexOf('provider') > -1 && auth2.authorizations.indexOf('provider') > -1) passed = true;
             else if(auth1.authorizations.indexOf('peer') > -1 && auth2.authorizations.indexOf('peer') > -1) passed = true;
             else if (auth1.structIds?.indexOf(struct._id) > -1 && auth2.structIds?.indexOf(struct._id) > -1) passed = true;
-            //other conditions?
+            //other filters?
         }
 
         //if(!passed) console.log('auth bounced', auth1, auth2);
@@ -1263,10 +1360,9 @@ export class DatabaseService extends Service {
     }
 
     wipeDB = async () => {
-        //await this.db.collection('authorization').deleteMany({});
-        //await this.db.collection('group').deleteMany({});
-        await this.db.collection('profile').deleteMany({});
-        await this.db.collection('data').deleteMany({});
+        //await this.collections.authorizations.instance.deleteMany({});
+        //await this.collections.groups.instance.deleteMany({});
+        await Promise.all(Object.values(this.collections).map(c => c.instance.deleteMany({})))
 
         return true;
     }
@@ -1298,12 +1394,12 @@ export class DatabaseService extends Service {
         let setInCollection = (s) => {
             let type = s.structType;
         
-            let collection = this.collections.get(type);
+            let collection = this.collections[type].reference
             if(!collection) {
-                collection = new Map();
-                this.collections.set(type,collection);
+                collection = {}
+                this.collections[type].reference = collection
             }
-            collection.set(s._id,s);
+            collection[s._id] = s
 
         }
 
@@ -1332,13 +1428,14 @@ export class DatabaseService extends Service {
 
         let result = [];
         if(!collection && (ownerId || key)) {
-            this.collections.forEach((c) => { //search all collections
+            Object.values(this.collections).forEach((c) => { //search all collections
+                c = c.reference // Drop to reference
                 if((key === '_id' || key === 'id') && value) {
-                    let found = c.get(value);
+                    let found = c[value]
                     if(found) result.push(found);
                 }
                 else {
-                    c.forEach((struct) => {
+                    Object.values(c).forEach((struct) => {
                         if(key && value) {
                             if(struct[key] === value && struct.ownerId === ownerId) {
                                 result.push(struct);
@@ -1353,17 +1450,18 @@ export class DatabaseService extends Service {
             return result;
         }
         else {
-            let c = this.collections.get(collection);
+            let c = this.collections[collection].reference
             if(!c) return result; 
 
             if(!key && !ownerId) {
-                c.forEach((struct) => {result.push(struct);})
+                Object.values(c).forEach((struct) => {result.push(struct);})
                 return result; //return the whole collection
             }
             
-            if((key === '_id' || key === 'id') && value) return c.get(value); //collections store structs by id so just get the one struct
+            if((key === '_id' || key === 'id') && value) return c[value] //collections store structs by id so just get the one struct
             else {
-                c.forEach((struct,k) => {
+                Object.keys(c).forEach((k) => {
+                    const struct = c[k]
                     if(key && value && !ownerId) {
                         if(struct[key] === value) result.push(struct);
                     }   
@@ -1385,7 +1483,9 @@ export class DatabaseService extends Service {
     deleteLocalData(struct) {
         if(!struct) throw new Error('Struct not supplied')
         if(!struct.structType || !struct._id) return false;
-        this.collections.get(struct.structType).delete(struct._id);
+
+        // Delete the Reference by ID
+        if (this.collections[struct.structType]) delete this.collections[struct.structType].reference[struct._id]
         return true;
     }
 

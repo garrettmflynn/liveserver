@@ -11,14 +11,6 @@ export class WebsocketBackend extends SubscriptionService {
   server: any
   wss = new WebSocketServer({ clientTracking: false, noServer: true });
 
-  // routes = [
-  //   {
-  //     route: 'removeUser', 
-  //     callback = (self, args, id) => {
-  //       const u = self.USERS[id]
-  //     }
-  //   }
-  // ]
 
     constructor(router, httpServer){
       super(router)

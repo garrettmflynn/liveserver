@@ -6,20 +6,20 @@ export class UnsafeService extends Service {
     name = 'unsafe'
     routes = [
         { //add a local function, can implement whole algorithm pipelines on-the-fly
-          route: 'addfunc', callback: async (self, args) => { //arg0 = name, arg1 = function string (arrow or normal)
+          route: 'createRoute', post: async (self, args) => { //arg0 = name, arg1 = function string (arrow or normal)
 
-            let newFunc = (typeof args[1] === 'string') ? parseFunctionFromText(args[1]) : args[1]
+            // let newFunc = (typeof args[1] === 'string') ? parseFunctionFromText(args[1]) : args[1]
   
-            let newCallback = { route: args[0], callback: newFunc };
+            // let newCallback = args[0]
   
-            self.addRoute(newCallback)
+            self.addRoute(args[0]) // 
 
             return true;
           }
         },
         {
           route:'runfunc', //pass a stringified function, parse, and run it. Use second argument for the function argument array. Good for testing
-          callback:(self,args,origin)=>{
+          post:(self,args,origin)=>{
               if(args[0] && args[1]) {
                   let func = parseFunctionFromText(args[0]);
                   try{
@@ -30,7 +30,7 @@ export class UnsafeService extends Service {
           }
         },
         { //set locally accessible values, just make sure not to overwrite the defaults in the callbackManager
-          route: 'setValues', callback: (self, args) => {
+          route: 'setValues', post: (self, args) => {
             if (typeof args === 'object') {
               Object.keys(args).forEach((key) => {
                 self[key] = args[key]; //variables will be accessible in functions as this.x or this['x']
@@ -40,7 +40,7 @@ export class UnsafeService extends Service {
           }
         },
         { //append array values
-          route: 'appendValues', callback: (self, args) => {
+          route: 'appendValues', post: (self, args) => {
             if (typeof args === 'object') {
               Object.keys(args).forEach((key) => {
                 if(!self[key]) self[key] = args[key];
@@ -52,7 +52,7 @@ export class UnsafeService extends Service {
           }
         },
         { //for use with transfers
-          route: 'setValuesFromArrayBuffers', callback: (self, args) => {
+          route: 'setValuesFromArrayBuffers', post: (self, args) => {
             if (typeof args === 'object') {
               Object.keys(args).forEach((key) => { 
                 if(args[key].__proto__.__proto__.constructor.name === 'TypedArray') self[key] = Array.from(args[key]);
@@ -63,7 +63,7 @@ export class UnsafeService extends Service {
           }
         },
         { //for use with transfers
-          route: 'appendValuesFromArrayBuffers', callback: (self, args) => {
+          route: 'appendValuesFromArrayBuffers', post: (self, args) => {
             if (typeof args === 'object') {
               Object.keys(args).forEach((key) => {
                 if(!self[key] && args[key].__proto__.__proto__.constructor.name === 'TypedArray') self[key] = Array.from(args[key]);
@@ -77,7 +77,7 @@ export class UnsafeService extends Service {
           }
         },
         { //parses a stringified class prototype (class x{}.toString()) containing function methods for use on the worker
-          route: 'transferClassObject', callback: (self, args) => {
+          route: 'transferClassObject', post: (self, args) => {
             if (typeof args === 'object') {
               Object.keys(args).forEach((key) => {
                 if(typeof args[key] === 'string') {

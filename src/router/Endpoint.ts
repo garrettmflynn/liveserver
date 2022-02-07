@@ -195,6 +195,8 @@ export class Endpoint{
 
         // HTTP
         else {
+
+            console.log(endpoint.link.credentials)
             o.id = endpoint.link.credentials?.id // Link ID
             if (!o.method) o.method = (o.message?.length > 0) ? 'POST' : 'GET'
 

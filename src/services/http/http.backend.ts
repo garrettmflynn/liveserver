@@ -27,19 +27,19 @@ export class HTTPBackend extends SubscriptionService {
     routes = [
         { //add a local function, can implement whole algorithm pipelines on-the-fly
           route: 'add',
-          callback: async (self, args) => { //arg0 = name, arg1 = function string (arrow or normal)
+          post: async (self, args) => { //arg0 = name, arg1 = function string (arrow or normal)
 
-            const reference = {content: args[1] ?? `<p>Just a test lol</p>`}
+            const get = {html: args[1] ?? `<p>Just a test lol</p>`}
             
             self.addRoute({
               route: args[0],
-              reference,
+              get,
               headers: {
                 'Content-Type': 'text/html',
               },
-              callback: (self,args) => {
-                reference.content = args[0]
-                return {message: reference.content}
+              post: (self,args) => {
+                  get.html = args[0]
+                return {message: get.html}
               }
 
             })
@@ -60,7 +60,7 @@ export class HTTPBackend extends SubscriptionService {
 
         // this.addRoute(transform(k, {
         //     route: `/${(name) ? `${name}/` : ''}` + k,
-        //     callback: ((service as any)[k] instanceof Function) ? (service as any)[k] : () => (service as any)[k]
+        //     post: ((service as any)[k] instanceof Function) ? (service as any)[k] : () => (service as any)[k]
         // }))
     }
 
@@ -101,7 +101,7 @@ export class HTTPBackend extends SubscriptionService {
 
                     // Only Send HTML for SSR
                     if (contentType ===  'text/html') {
-                        response.send(res.message?.content) // send back  
+                        response.send(res.message?.[0]?.html) // send back  
                     } else {
                         response.setHeader('Content-Type','application/json')
                         response.send(JSON.stringify(res as any)) // send back  

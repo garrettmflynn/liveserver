@@ -46,6 +46,7 @@ server.listen(parseInt(port), () => {
 // Connect to your local instance of Mongoose
 mongoose.connection.on("open", () => console.log("DB Connected!"));
 
+
 mongoose
   .connect(process.env.DB_URI ?? "")
   .then(() => {
@@ -93,7 +94,31 @@ mongoose
     }
 
     if (services.database){
-      let database = new DatabaseService(controller, { mode: "mongdb", db });
+
+      let database = new DatabaseService(controller, { mode: "mongodb", db,
+        collections: {
+          // Included
+          users: {
+            instance: db.collection('users'),
+            match: ['id', 'username', 'email'],
+            filters: {
+              get: () => {
+                return true
+              },
+              post: () => {
+                return false
+              }
+            }
+          },
+
+          // Custom
+          notes: {
+            instance: db.collection('notes'),
+            match: ['id']
+          }
+        }
+      });
+      
       controller.load(database)
     }
 

@@ -14,7 +14,7 @@ var config = {
     path: PATHS.bundles,
     filename: '[name].js',
     library: {
-      type: 'umd',
+      // type: 'umd',
       type: 'module',
       // name: 'router',
       // export: 'default',

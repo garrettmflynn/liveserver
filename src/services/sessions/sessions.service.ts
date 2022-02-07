@@ -51,7 +51,7 @@ export class SessionsService extends Service {
             // Frontend
             {
                 route: 'sessionData',
-                callback: (self, args)=>{
+                post: (self, args)=>{
                     if(args[0]) {
                         this.state.setState(args[0],args[1]); // id, message
                     }
@@ -61,7 +61,7 @@ export class SessionsService extends Service {
             // Backend
             {
                 route:'updateUserStreamData',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     const user = self.USERS[origin]
                     if (!user) return false
                     return this._updateUserStreamData(user,args[0]); // TODO: The second argument is probably wrong
@@ -69,7 +69,7 @@ export class SessionsService extends Service {
             },
             {
                 route:'createSession',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     const user = self.USERS[origin]
                     if (!user) return false
                     return this._createSession(user,args[0],args[1]);
@@ -77,7 +77,7 @@ export class SessionsService extends Service {
             },
             {
                 route:'subscribeToSession',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     const user = self.USERS[origin]
                     if (!user) return false
                     if(self.USERS[args[0]])
@@ -88,7 +88,7 @@ export class SessionsService extends Service {
             {
                 route:'unsubscribeFromSession',
                 aliases:['kickUser'],
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     const user = self.USERS[origin]
                     if (!user) return false
                     if(!args[0]) return this._unsubscribeFromSession(user,user.id,args[1]);
@@ -97,13 +97,13 @@ export class SessionsService extends Service {
             },
             {
                 route:'getSessionData',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     return this._getSessionData(args[0]);
                 }
             }, 
             {
                 route:'deleteSession',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     const user = self.USERS[origin]
                     if (!user) return false
                     return this._deleteSession(user,args[0]);
@@ -111,7 +111,7 @@ export class SessionsService extends Service {
             }, 
             {
                 route:'makeHost',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     const user = self.USERS[origin]
                     if (!user) return false
                     return this._makeHost(user,args[0],args[1]);
@@ -119,7 +119,7 @@ export class SessionsService extends Service {
             }, 
             {
                 route:'makeOwner',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     const user = self.USERS[origin]
                     if (!user) return false
                     return this._makeOwner(user,args[0],args[1]);
@@ -127,7 +127,7 @@ export class SessionsService extends Service {
             }, 
             {
                 route:'makeAdmin',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     const user = self.USERS[origin]
                     if (!user) return false
                     return this._makeAdmin(user,args[0],args[1]);
@@ -135,7 +135,7 @@ export class SessionsService extends Service {
             }, 
             {
                 route:'makeModerator',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     const user = self.USERS[origin]
                     if (!user) return false
                     return this._makeModerator(user,args[0],args[1]);
@@ -143,7 +143,7 @@ export class SessionsService extends Service {
             }, 
             {
                 route:'removeAdmin',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     const user = self.USERS[origin]
                     if (!user) return false
                     return this._removeAdmin(user,args[0],args[1]);
@@ -151,7 +151,7 @@ export class SessionsService extends Service {
             }, 
             {
                 route:'removeModerator',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     const user = self.USERS[origin]
                     if (!user) return false
                     return this._removeModerator(user,args[0],args[1]);
@@ -159,7 +159,7 @@ export class SessionsService extends Service {
             }, 
             {
                 route:'banUser',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     const user = self.USERS[origin]
                     if (!user) return false
                     return this._banUser(user,args[0],args[1]);
@@ -167,7 +167,7 @@ export class SessionsService extends Service {
             }, 
             {
                 route:'unbanUser',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     const user = self.USERS[origin]
                     if (!user) return false
                     return this._unbanUser(user,args[0],args[1]);
@@ -175,13 +175,13 @@ export class SessionsService extends Service {
             }, 
             { //some manual overrides for the update loops
                 route:'updateSessionUsers',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     return this._updateSessionUsers(args[0]);
                 }
             }, 
             {
                 route:'updateUserStream',
-                callback:(self,args,origin) => {
+                post:(self,args,origin) => {
                     return this._updateUserStream(args[0]);
                 }
             }

@@ -52,14 +52,14 @@ export class ServerWorker extends Service {
     routes = [
         {
             route:'workerPost',
-            callback:(self,args,origin)=>{
+            post:(self,args,origin)=>{
               console.log('worker message received!', args, origin);
               return;
             }
         },
         {
             route:'addservice',
-            callback:(self,args,origin)=>{
+            post:(self,args,origin)=>{
                 //provide service name and setup arguments (e.g. duplicating server details etc)
                 if(services[args[0]]) {
                     let service;
@@ -80,13 +80,13 @@ export class ServerWorker extends Service {
         },
         {
             route:'removeservice',
-            callback:(self,args,origin)=>{
+            post:(self,args,origin)=>{
                 return;
             }
         },
         { //MessageChannel port, it just runs the whole callback system to keep it pain-free, while allowing messages from other workers
             route: 'addport', 
-            callback: (self, args, origin) => { //args[0] = eventName, args[1] = case, only fires event if from specific same origin
+            post: (self, args, origin) => { //args[0] = eventName, args[1] = case, only fires event if from specific same origin
                 let port = args[1]; //messageport 
                 this[`${origin}`] = port; //message ports will have the origin marked as the worker id 
                 port.onmessage = onmessage; //port messages get processed generically, an argument will denote they are from a worker 
@@ -95,7 +95,7 @@ export class ServerWorker extends Service {
         },
         {
             route:'postMessagePort', //send a message to another worker via a message port
-            callback:(self,args,origin) => {
+            post:(self,args,origin) => {
                 if(!args[1]){
                     if(this[`${origin}`]) 
                         this[`${origin}`].postMessage(JSON.stringify(args[0]),undefined,args[2]); //0 is whatever, 2 is transfer array
@@ -108,14 +108,14 @@ export class ServerWorker extends Service {
         },
         {
             route:'postMessage', //post back to main thread
-            callback:(self,args,origin)=>{
+            post:(self,args,origin)=>{
                 postMessage(args[0],undefined,args[1]); //0 is args, 1 is transfer array
                 return;
             }
         },
         {
             route:'addcallback',
-            callback:(self,args,origin)=>{
+            post:(self,args,origin)=>{
                 if(!args[0] && !args[1]) return;
                 let func = parseFunctionFromText(args[1]);
                 if(func) this.addCallback(args[0],func);
@@ -124,14 +124,14 @@ export class ServerWorker extends Service {
         },
         {
             route:'removecallback',
-            callback:(self,args,origin)=>{
+            post:(self,args,origin)=>{
                 if(args[0]) this.removeCallback(args[0]);
                 return true;
             }
         },
         {
             route:'run',
-            callback:(self,args,origin)=>{
+            post:(self,args,origin)=>{
                 let c = this.responses.find((o) => {
                     if(o.name === args[0]) {
                         return true;

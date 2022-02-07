@@ -16,8 +16,7 @@ export class Service {
 
     // Service-Specific Routes
     routes: RouteConfig[] = [
-        // {route: 'addUser', callback: (self, args, id) => {}} // Called every time a user is added via the Router
-        // {route: 'removeUser', callback: (self, args, id) => {}} // Called every time a user is removed via the Router
+        // {route: 'users', delete: (self, args, id) => {}, post: (self, args, id) => {}} // Called every time a user is added or removed via the Router
     ]
 
     private delegate =  globalThis?.document?.createDocumentFragment();

@@ -37,7 +37,7 @@ export class WebRTCClient extends SubscriptionService {
         // // Initialization
         // {
         //     route: 'rooms',
-        //     callback: (message:any) => {
+        //     post: (message:any) => {
         //              message.forEach((room) => {this.rooms.set(room.id, room)})
         //             this.dispatchEvent(new CustomEvent('room', {detail: {rooms: message}}))
         //     }
@@ -46,7 +46,7 @@ export class WebRTCClient extends SubscriptionService {
         // Room Management
         // {
         //     route: 'info',
-        //     callback: (self, [peers, rooms]) => {
+        //     post: (self, [peers, rooms]) => {
         //             // rooms.forEach((room) => {this.rooms.set(room.id, room)})
         //             // this.dispatchEvent(new CustomEvent('room', {detail: {rooms}}))
 
@@ -56,7 +56,7 @@ export class WebRTCClient extends SubscriptionService {
         // },
         {
             route: 'room',
-            callback: (self, args) => {
+            post: (self, args) => {
                 const o = args[0]
                 this.rooms.set(o.id, o)
                 this.dispatchEvent(new CustomEvent('room', {detail: {room: o, rooms: Array.from(this.rooms, ([_,value]) => value)}}))
@@ -69,7 +69,7 @@ export class WebRTCClient extends SubscriptionService {
         // Default WebRTC Commands
         {
             route: 'answer',
-            callback: (self, args) => {
+            post: (self, args) => {
                 let peer = this.peers[args[0]]
                 if (peer) peer.connection.setRemoteDescription(args[1]);
 
@@ -77,7 +77,7 @@ export class WebRTCClient extends SubscriptionService {
         },
         {
             route: 'candidate',
-            callback: (self, args, id) => {
+            post: (self, args, id) => {
                 let peer = this.peers[args[0]]
                 let candidate = new RTCIceCandidate(args[1])
                 if (peer)  peer.connection.addIceCandidate(candidate).catch(() => {}); // silent, first candidates usually aren't appropriate
@@ -85,7 +85,7 @@ export class WebRTCClient extends SubscriptionService {
         },
         {
             route: 'offer',
-            callback: (self, args, id) => {
+            post: (self, args, id) => {
                 if (args) this.onoffer(args[1], args[0])
             }
         },
@@ -93,13 +93,13 @@ export class WebRTCClient extends SubscriptionService {
         // Extra Commands
         {
             route: 'disconnectPeer',
-            callback: (self, args) => {
+            post: (self, args) => {
                 this.closeConnection(this.peers[args[0]])
             }
         },
         {
             route: 'connect',
-            callback: async (self, args) => {
+            post: async (self, args) => {
                 const o = args[0]
                 this.createPeerConnection(o) // connect to peer
                 for (let arr of this.sources) {

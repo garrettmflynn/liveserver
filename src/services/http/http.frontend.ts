@@ -13,9 +13,9 @@ class HTTPClient extends SubscriptionService {
     add = (user, endpoint) => {
         return new Promise(resolve => {
 
-            this.reference = new EventSource(createRoute('',endpoint))
-            this.reference.onopen = () => {
-                this.reference.onmessage = (event) => {
+            this.connection = new EventSource(createRoute('',endpoint))
+            this.connection.onopen = () => {
+                this.connection.onmessage = (event) => {
                 let data = JSON.parse(event.data)
 
                 if (data.route === 'events/subscribe') resolve(data.message[0]) // Ensure IDs are Linked

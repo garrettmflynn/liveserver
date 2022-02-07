@@ -6,18 +6,20 @@ export type RouteConfig = {
     route: string, // Route Name
     id?: string, // Basic identifier for Clients
     private?: boolean, // Hide Route from Router 'routes' function (TODO: can still be called from knowledgeable clients...)
-    // method?: 'GET' | 'POST', // Method constraints
-    reference?: any | {
-        object: any,
-        transform: (o) => any
-    }, // Reference to an object that notifies subscribers on change
     aliases?: string[], // Name aliases
     protocols?: ProtocolObject // Networking constraints
     headers?: any // Specify headers
     service?: string, // Service name
 
-    args?: string[] // Derived argument names
-    callback?: (self: Router, args: any[], id: string) => any
+    args?: string[] // Derived argument names from Post
+
+    // Methods
+    get?: any | {
+        object: any,
+        transform: (o, ...args) => any
+    }, // Reference to an object that notifies subscribers on change
+    post?: (self: Router, args: any[], id: string) => any,
+    delete?: (self: Router, args: any[], id: string) => any
 }
 
 export type RouterOptions = {

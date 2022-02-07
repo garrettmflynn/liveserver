@@ -1,3 +1,17 @@
+## Route Structure
+
+### Get
+Gets data from the collection.
+1. Multiple Entries: If you specify a route with commas (e.g. 'database/users/me,you'), you'll be able to grab multiple entries.
+2. All Entries: Spcify the base route (e.g. 'database/users') to get all entries.
+
+### Post
+Places data into the collection.
+
+### Delete
+Deletes data from the collection.
+
+
 ```
 //ES6 style
 import { WebsocketClient, UsersClient } from 'liveserver-frontend'
