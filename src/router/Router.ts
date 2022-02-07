@@ -526,7 +526,7 @@ export class Router {
       }
 
       // Remove Wildcards
-      if (o.route) o.route = o.route.replace(/\/\*\*?/, '')
+      if (o?.route) o.route = o.route.replace(/\/\*\*?/, '')
 
       return o
     }
@@ -599,7 +599,12 @@ export class Router {
             const s = this.SERVICES[key]
             if (s.status === true){
               const route = s.name + '/users' // Default Route
-              if (this.ROUTES[route]) this.runRoute(route, 'POST', [newuser], userinfo.id) 
+              const possibilities = getRouteMatches(route)
+              possibilities.forEach(r => {
+                if (this.ROUTES[r]) {
+                  this.runRoute(r, 'POST', [newuser], userinfo.id) 
+                }
+              })
             }
       }
 

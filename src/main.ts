@@ -7,6 +7,9 @@ let bodyParser = require("body-parser")
 // Import the LiveServer API
 import * as api from './backend/index'
 
+import { User } from '../examples/schemas/user.schema'
+import { Note } from '../examples/schemas/note.schema'
+
 // Set Environment Variables
 import { resolve } from "path";
 import { config } from "dotenv";
@@ -50,7 +53,7 @@ mongoose.connection.on("open", () => console.log("DB Connected!"));
 mongoose
   .connect(process.env.DB_URI ?? "")
   .then(() => {
-    init(mongoose.connections[0].db)
+    init()
   })
   .catch(() => {
     console.error("Error: MongoDB not initialized...");
@@ -95,25 +98,25 @@ mongoose
 
     if (services.database){
 
-      let database = new DatabaseService(controller, { mode: "mongodb", db,
+      let database = new DatabaseService(controller, { mode: "mongoose", db,
         collections: {
           // Included
           users: {
-            instance: db.collection('users'),
+            model: User,
             match: ['id', 'username', 'email'],
             filters: {
               get: () => {
                 return true
               },
               post: () => {
-                return false
+                return true
               }
             }
           },
 
           // Custom
           notes: {
-            instance: db.collection('notes'),
+            model: Note,
             match: ['id']
           }
         }
