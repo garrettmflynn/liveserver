@@ -292,14 +292,20 @@ export class UsersClient extends Router {
 
     //info can be email, id, username, or name. Returns their profile and authorizations
     async getUser (info:string|number='',callback=this.baseServerCallback) {
-        let res = (await this.send('database/users', info))?.[0]
+        let res = (await this.send({
+            service: 'database',
+            route: 'users'
+        }, info))?.[0]
         callback(res)
         return res
     }
 
     //get user basic info by id
     async getUsers (ids:string|number[]=[],callback=this.baseServerCallback) {
-        let res = (await this.send('database/users', ...ids))?.[0] // Pass Array
+        let res = (await this.send({
+            route:  'users',
+            service: 'database'
+        }, ...ids))?.[0] // Pass Array
         callback(res)
         return res
     }
@@ -440,21 +446,30 @@ export class UsersClient extends Router {
     async deleteUser (userId, callback=this.baseServerCallback) {
         if(!userId) return;
 
-        let res = (await this.delete('database/users', userId))?.[0]
+        let res = (await this.delete({
+            route:  'users',
+            service: 'database'
+        }, userId))?.[0]
         callback(res)
         return res
     }
 
     //set a group struct on the server
     async setGroup (groupStruct={},callback=this.baseServerCallback) {
-        let res = (await this.send('database/setGroup', this.stripStruct(groupStruct)))?.[0]
+        let res = (await this.send({
+            route:  'groups',
+            service: 'database'
+        }, this.stripStruct(groupStruct)))?.[0]
         callback(res)
         return res
     }
 
     //get group structs or single one by Id
     async getGroups (userId=this.currentUser._id, groupId='',callback=this.baseServerCallback) {
-        let res = (await this.send('database/getGroups', userId,groupId))?.[0]
+        let res = (await this.get({
+            route:  'groups',
+            service: 'database'
+        }, userId,groupId))?.[0]
         callback(res)
         return res
     }
@@ -464,7 +479,10 @@ export class UsersClient extends Router {
         if(!groupId) return;
         this.deleteLocalData(groupId);
 
-        let res = (await this.send('database/deleteGroup', groupId))?.[0]
+        let res = (await this.delete({
+            route:  'groups',
+            service: 'database'
+        }, groupId))?.[0]
         callback(res)
         return res
     }
@@ -472,7 +490,10 @@ export class UsersClient extends Router {
     //set an authorization struct on the server
     async setAuthorization (authorizationStruct={},callback=this.baseServerCallback) {
 
-        let res = (await this.send('database/setAuth', this.stripStruct(authorizationStruct)))?.[0]
+        let res = (await this.send({
+            route:  'authorizations',
+            service: 'database'
+        }, this.stripStruct(authorizationStruct)))?.[0]
         callback(res)
         return res
     }
@@ -480,7 +501,10 @@ export class UsersClient extends Router {
     //get an authorization struct by Id
     async getAuthorizations (userId=this.currentUser?._id, authorizationId='',callback=this.baseServerCallback) {
         if(userId === undefined) return;
-        let res = (await this.send('database/getAuths', userId, authorizationId))?.[0]
+        let res = (await this.get({
+            route:  'authorizations/'+ userId,
+            service: 'database'
+        }, authorizationId))?.[0]
         callback(res)
         return res
     }
@@ -490,7 +514,10 @@ export class UsersClient extends Router {
         if(!authorizationId) return;
         this.deleteLocalData(authorizationId);
         
-        let res = (await this.send('database/deleteAuth', authorizationId))?.[0]
+        let res = (await this.delete({
+            route:  'authorizations',
+            service: 'database'
+        }, authorizationId))?.[0]
         callback(res)
         return res
     }

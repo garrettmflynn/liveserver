@@ -197,7 +197,9 @@ export class Endpoint{
         // Support String -> Object Specification
         if (typeof route === 'string')  o.route = route
         else {
-            o.route = route.route
+            // Support Dynamic Service URLs
+            const dynamicServiceName = this.services[route.service]
+            o.route = (dynamicServiceName) ? `${dynamicServiceName}/${route.route}` : route.route
         } 
 
         o.suppress = !!this.connection

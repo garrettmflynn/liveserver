@@ -39,6 +39,7 @@ export type EndpointConfig = string | URL | {
 export type RouteSpec = string | {
     route: string,
     endpoint?: Endpoint // === id
+    service?: string
     // id?: string // id
 }
 
