@@ -1,5 +1,5 @@
 import { Router } from '../router/Router'
-import { Endpoint } from 'src/router/Endpoint'
+import { Endpoint } from '../router/Endpoint'
 export type RouterInterface = Partial<Router>
 
 export type RouteConfig = {

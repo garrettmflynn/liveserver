@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import styles from '../examples.module.css'
-import { Volume } from '../libraries/brainsatplay-components/dist/module';
+// import { Volume } from '../libraries/brainsatplay-components/dist/module';
 // import RouteDisplay from '../routeDisplay';
 
 export default function StreamsExample({ server, endpoints, router, id }) {
@@ -16,8 +16,8 @@ export default function StreamsExample({ server, endpoints, router, id }) {
 
   useEffect(async () => {
 
-    const volume = new Volume()
-    audio.current.insertAdjacentElement('beforeend', volume)
+    // const volume = new Volume()
+    // audio.current.insertAdjacentElement('beforeend', volume)
 
     const datastreams = await import('datastreams-api')
     const dataDevices = new datastreams.DataDevices()
@@ -73,7 +73,7 @@ export default function StreamsExample({ server, endpoints, router, id }) {
           for(const volume of volumes)
             volumeSum += volume;
           const averageVolume = volumeSum / volumes.length;
-          volume.volume = (averageVolume / (analyser.maxDecibels - analyser.minDecibels))
+          // volume.volume = (averageVolume / (analyser.maxDecibels - analyser.minDecibels))
         };
 
         if(volumeCallback !== null && volumeInterval === null) volumeInterval = setInterval(volumeCallback, 100);
@@ -101,7 +101,6 @@ export default function StreamsExample({ server, endpoints, router, id }) {
         <div className={styles.conference}>
           <video ref={video} className={styles.video}></video>
           <div ref={audio}>
-            <h2>Audio</h2>
           </div>
         </div>
         <div className={styles.terminal}><span ref={output}></span></div>
