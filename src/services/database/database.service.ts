@@ -110,7 +110,6 @@ export class DatabaseService extends Service {
                     const query:any[] = []
                     if (this.collections[key].match) this.collections[key].match.forEach(k => query.push({[k]: v}))
                     
-
                     // Check MongoDB or Local
                     if(this.collections[key].model) data.push(await mongooseExtension.get(this, this.collections[key].model, query, v))
                     else {

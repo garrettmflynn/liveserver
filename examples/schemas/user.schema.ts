@@ -8,9 +8,9 @@ const userFitbitToken = new Schema<UserObj['fitbit']>({
 });
 
 const schema = new Schema<UserObj>({
-    email: { type: String, required: true, unique: true },
+    email: { type: String },
     username: String,
-    userRoles: { type: [String], required: true },
+    userRoles: { type: [String] },
     missingKeyVals: [String],
     fullName: String,
     firstName: String,

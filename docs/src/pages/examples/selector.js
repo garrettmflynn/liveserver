@@ -5,6 +5,7 @@ import MultipleExample from './components/multiple';
 import { useHistory } from 'react-router';
 import AllExample from './components/all';
 import WebRTCExample from './components/webrtc';
+import StreamsExample from './components/streams';
 
 export default function ExampleSelector({server, endpoints, router, id}) {
    const history = useHistory();
@@ -36,6 +37,13 @@ export default function ExampleSelector({server, endpoints, router, id}) {
             endpoints={endpoints}
             id={id}
             />
+
+          case 'streams':
+            return <StreamsExample
+            server={server}
+            router={router}
+            endpoints={endpoints}
+          />
         }
       }
 
@@ -55,6 +63,9 @@ export default function ExampleSelector({server, endpoints, router, id}) {
         </button>
         <button onClick={() => set('webrtc')}>
           WebRTC
+        </button>
+        <button onClick={() => set('streams')}>
+          Streams
         </button>
         </nav>
 
