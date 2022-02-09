@@ -1,8 +1,8 @@
 export const settings = {
     "hosturl" : "http://localhost",
-    "port"    : "80",          //base port
-    "port2"   : "81",          //second port, add whatever you need
-    "docusaurus" : "3000"      //this port is set in the docusaurus package.json
+    "port"    : "78",          //base port
+    "port2"   : "79",          //second port, add whatever you need
+    "docusaurus" : "80"      //this port is set in the docusaurus package.json
 }
 
 //exports.default = settings;
