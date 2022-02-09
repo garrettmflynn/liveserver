@@ -25,7 +25,9 @@ import { UnsafeService } from './services/unsafe/unsafe.service'
 config({ path: resolve(__dirname, `../.env`) });
 config({ path: resolve(__dirname, `../.key`) });
 
-const main = (port="80", services:{[x:string] : boolean}={}) => {
+import {settings} from 'server_settings.js'
+
+const main = (port=settings.port, services:{[x:string] : boolean}={}) => {
 
 const app = express();
 
@@ -40,9 +42,11 @@ let protocol = "http";
  port = port;
 const server = http.createServer(app);
 
+console.log('using port ', port);
+
 // Start Server
 server.listen(parseInt(port), () => {
-  console.log(`Server created on ${protocol}://localhost:${port}`);
+  console.log(`Server created on ${protocol}://${settings.hosturl}:${port}`);
 });
 
 // ---------------- Start Database --------------------
