@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import styles from '../examples.module.css'
-// import { Volume } from '../libraries/brainsatplay-components/dist/module';
+import { Volume } from '../../../../libraries/brainsatplay-components/dist/module.js';
 // import RouteDisplay from '../routeDisplay';
+import * as  datastreams from '../../../../libraries/datastreams-api/dist/module.js'
 
 export default function StreamsExample({ server, endpoints, router, id }) {
 
@@ -16,10 +17,11 @@ export default function StreamsExample({ server, endpoints, router, id }) {
 
   useEffect(async () => {
 
-    // const volume = new Volume()
-    // audio.current.insertAdjacentElement('beforeend', volume)
+    const volume = new Volume()
+    audio.current.insertAdjacentElement('beforeend', volume)
 
-    const datastreams = await import('datastreams-api')
+    // const datastreams = await import('datastreams-api')
+    console.log(datastreams)
     const dataDevices = new datastreams.DataDevices()
 
     dataDevices.getSupportedDevices().then((devices) => {
@@ -33,7 +35,6 @@ export default function StreamsExample({ server, endpoints, router, id }) {
       
       
       navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-        console.log('Audio', stream, stream.getAudioTracks()[0])
 
         // TODO: Fix DataStreams-API for Audio
         const context = new AudioContext();

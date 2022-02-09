@@ -12,4 +12,4 @@ _bundles
 docs/docs/reference
 
 # Library Builds
-**/dist
+src/**/dist

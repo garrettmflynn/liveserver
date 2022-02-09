@@ -1,0 +1,5 @@
+export var ondata = function (data) {
+    var latest = data;
+    return latest;
+};
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiaW5kZXguanMiLCJzb3VyY2VSb290IjoiIiwic291cmNlcyI6WyIuLi8uLi8uLi8uLi9kZXZpY2VzL2JjaTIwMDB3ZWIvaW5kZXgudHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IkFBQ0EsTUFBTSxDQUFDLElBQU0sTUFBTSxHQUFHLFVBQUMsSUFBVTtJQUM3QixJQUFJLE1BQU0sR0FBUyxJQUFJLENBQUE7SUFDdkIsT0FBTyxNQUFNLENBQUE7QUFDakIsQ0FBQyxDQUFBIn0=

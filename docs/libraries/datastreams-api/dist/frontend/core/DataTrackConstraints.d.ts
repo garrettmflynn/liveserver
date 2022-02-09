@@ -1,0 +1,37 @@
+import { DataStreamTrack } from "./DataStreamTrack";
+export declare class DataTrackConstraints {
+    deviceId?: string | undefined;
+    groupId?: string | undefined;
+    autoGainControl: boolean | undefined;
+    channelCount: number | undefined;
+    echoCancellation: boolean | undefined;
+    latency: number | undefined;
+    noiseSuppression: boolean | undefined;
+    sampleRate: number | undefined;
+    sampleSize: number | undefined;
+    volume: number | undefined;
+    whiteBalanceMode: number | undefined;
+    exposureMode: number | undefined;
+    focusMode: number | undefined;
+    pointOfInterest: number | undefined;
+    exposureCompensation: number | undefined;
+    colorTemperature: number | undefined;
+    iso: number | undefined;
+    brightness: number | undefined;
+    contrast: number | undefined;
+    saturation: number | undefined;
+    sharpness: number | undefined;
+    focusDistance: number | undefined;
+    zoom: number | undefined;
+    torch: number | undefined;
+    aspectRatio: number | undefined;
+    facingMode: string | undefined;
+    frameRate: number | undefined;
+    height: number | undefined;
+    width: number | undefined;
+    resizeMode: number | undefined;
+    cursor: string | string[];
+    displaySurface: string | string[];
+    logicalSurface: boolean;
+    constructor(track: DataStreamTrack);
+}
