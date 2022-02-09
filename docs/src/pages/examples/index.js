@@ -17,8 +17,8 @@ import {settings} from '../../../../server_settings.js'
 
 let router = new Router()
 
-const SERVER_URI = settings.hosturl+":"+settings.port//(window.location.href.includes('localhost')) ? 'http://localhost:80' : 'http://localhost:80' // Replace with production server URI
-const SERVER_URI_2 = settings.hosturl+":"+settings.port2//(window.location.href.includes('localhost')) ? 'http://localhost:81' : 'http://localhost:81' // Replace with production server URI
+const SERVER_URI = settings.protocol+"://"+settings.hosturl+":"+settings.port//(window.location.href.includes('localhost')) ? 'http://localhost:80' : 'http://localhost:80' // Replace with production server URI
+const SERVER_URI_2 = settings.protocol+"://"+settings.hosturl+":"+settings.port2//(window.location.href.includes('localhost')) ? 'http://localhost:81' : 'http://localhost:81' // Replace with production server URI
 
 let services = [
   new SessionsService(router), 

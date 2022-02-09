@@ -38,7 +38,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors()); // how to allow data to only intended website without cors
 
 // Set Server
-let protocol = "http";
+let protocol = settings.protocol;
  port = port;
 const server = http.createServer(app);
 

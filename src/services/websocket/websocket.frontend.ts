@@ -55,7 +55,7 @@ export class WebsocketClient extends SubscriptionService {
         return this.addSocket(endpoint, user)
     }
 
-    addSocket(url:string|URL=new URL(`${settings.host}:${settings.port}`), subprotocolObject=this.subprotocols) {
+    addSocket(url:string|URL=new URL(`${settings.protocol}://${settings.host}:${settings.port}`), subprotocolObject=this.subprotocols) {
         let socket;
 
         if (!(url instanceof URL)) url = new URL(url)
