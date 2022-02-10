@@ -6,6 +6,8 @@ import { MessageObject, UserObject } from '../../common/general.types';
 import { safeStringify } from  '../../common/parse.utils';
 import { randomId } from  '../../common/id.utils';
 
+import {settings} from '../../../server_settings'
+
 // TODO: Convert to SubscriptionService and mirror the backend network services
 export class WebsocketClient extends SubscriptionService {
 
@@ -53,7 +55,7 @@ export class WebsocketClient extends SubscriptionService {
         return this.addSocket(endpoint, user)
     }
 
-    addSocket(url:string|URL=new URL('https://localhost:80'), subprotocolObject=this.subprotocols) {
+    addSocket(url:string|URL=new URL(`${settings.protocol}://${settings.host}:${settings.port}`), subprotocolObject=this.subprotocols) {
         let socket;
 
         if (!(url instanceof URL)) url = new URL(url)

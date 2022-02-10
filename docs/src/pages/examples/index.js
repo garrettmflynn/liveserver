@@ -13,10 +13,12 @@ import { WebsocketClient } from './../../../../src/services/websocket/websocket.
 import { Router } from './../../../../src/router/Router';
 import { randomId } from '../../../../src/common/id.utils';
 
+import {settings} from '../../../../server_settings.js'
+
 let router = new Router()
 
-const SERVER_URI = (window.location.href.includes('localhost')) ? 'http://localhost:80' : 'http://localhost:80' // Replace with production server URI
-const SERVER_URI_2 = (window.location.href.includes('localhost')) ? 'http://localhost:81' : 'http://localhost:81' // Replace with production server URI
+const SERVER_URI = settings.protocol+"://"+settings.hosturl+":"+settings.port//(window.location.href.includes('localhost')) ? 'http://localhost:80' : 'http://localhost:80' // Replace with production server URI
+const SERVER_URI_2 = settings.protocol+"://"+settings.hosturl+":"+settings.port2//(window.location.href.includes('localhost')) ? 'http://localhost:81' : 'http://localhost:81' // Replace with production server URI
 
 let services = [
   new SessionsService(router), 

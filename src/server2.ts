@@ -1,5 +1,7 @@
 import main from './main'
-main('81', {
+import {settings} from 'server_settings.js'
+
+main(settings.port2, {
   websocket: true,
   webrtc: true
 })
