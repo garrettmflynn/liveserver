@@ -43,6 +43,8 @@
     ]
   },
   "devDependencies": {
+    "@brainsatplay/device": "^0.0.0",
+    "datastreams-api": "0.0.5",
     "docusaurus-plugin-typedoc": "^0.16.6",
     "typedoc": "^0.22.10",
     "typedoc-plugin-markdown": "^3.11.8",

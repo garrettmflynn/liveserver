@@ -38,14 +38,25 @@ services.forEach(service => {
 const id = randomId()
 
 const endpoints = []
-endpoints.push(router.connect({
+const endpoint = router.connect({
   target: SERVER_URI,
   credentials: {id, _id: id}
-}))
+})
+endpoints.push(endpoint)
 endpoints.push(router.connect({
   target: SERVER_URI_2,
   credentials: {id, _id: id}
 }))
+
+
+endpoint.send('http/add', {
+  method: 'POST',
+  message: ['/ssr/endpoint', '<p>Just some arbitrary HTML</p>']
+})
+
+router.post('http/add', '/ssr/router', '<p>Just some arbitrary HTML</p>')
+
+
 
 export default function Examples() {
   const {siteConfig} = useDocusaurusContext();

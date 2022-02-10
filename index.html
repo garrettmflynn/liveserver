@@ -5,17 +5,21 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
-    <script src="./src/frontend/dist/index.js"></script>
-    <script src="./src/router/dist/browser/index.js"></script>
+    <script src="./node_modules/datastreams-api/dist/browser.js"></script>
+    <!-- <script src="./src/frontend/dist/index.js"></script>
+    <script src="./src/router/dist/browser/index.js"></script> -->
 </head>
 <body>
     <script src="https://opencollective.com/brainsatplay/contribute/button.js" color="blue"></script>
 </body>
 <script type="module">
+    import * as datastreams from './node_modules/datastreams-api/dist/module.js'
+    console.log(datastreams)
 
-    import router, {Service} from './src/router/dist/module/index.js'
-    console.log(router, new Service())
-    console.log(liveserver)
+
+    // import router, {Service} from './src/router/dist/module/index.js'
+    // console.log(router, new Service())
+    // console.log(liveserver)
     // console.log(frontend)
 </script>
 </html>

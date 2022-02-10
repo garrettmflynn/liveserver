@@ -39,7 +39,7 @@ export class HTTPBackend extends SubscriptionService {
               },
               post: (self,args) => {
                   get.html = args[0]
-                return {message: get.html}
+                return {message: [get.html]}
               }
 
             })
@@ -93,6 +93,7 @@ export class HTTPBackend extends SubscriptionService {
 
                 if (res instanceof Error) response.status(404).send(JSON.stringify(res, Object.getOwnPropertyNames(res))) 
                 else if (res != null) {
+
                     for (let header in res?.headers){
                         response.setHeader(header, res.headers[header]);
                     }

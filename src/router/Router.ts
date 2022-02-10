@@ -517,6 +517,7 @@ export class Router {
       service?: string,
       headers?: {[x:string]:string}
     } = {}) {
+
       if (o !== undefined){ // Can pass false and null
           if (!o || !(typeof o === 'object') || (!('message' in o) && !('route' in o))) o = {message: o}
           if (!Array.isArray(o.message)) o.message = [o.message]
@@ -788,7 +789,7 @@ export class Router {
               
               // Error Handler
               else res = errorRes
-              resolve(this.format(res))
+              resolve(this.format(res, routeInfo))
 
             } catch(e) {
               console.log('Callback Failed: ', e)
