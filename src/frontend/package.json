@@ -3,6 +3,7 @@
   "version": "0.0.11",
   "description": "Websockets with user communication, access controls, and notifications. Clientside and serverside data management plus mongodb integration.",
   "main": "./dist/index.js",
+  "module": "dist/index.esm.js",
   "types": "./dist/index.d.ts",
   "files": [
     "dist"

@@ -27,6 +27,13 @@ const umd = {
   } ]
 }
 
+
+const es6 = {
+  input: './index.ts', // our source file
+  output: [ { file: pkg.module, format: 'es'  } ]
+}
+
+
 const common = {
  plugins: [
     commonjs(),
@@ -64,4 +71,5 @@ const common = {
 
 export default [
   Object.assign({}, umd, common),
+  Object.assign({}, es6, common),
 ]
