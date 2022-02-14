@@ -1,6 +1,6 @@
 {
   "name": "liveserver-router",
-  "version": "0.0.9",
+  "version": "0.0.11",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "browser": "./dist/browser.js",
