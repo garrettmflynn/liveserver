@@ -842,7 +842,7 @@ export class UsersClient extends Router {
         _id?: string
         id?: string
     }={}, currentUser=false) {
-        let user = DS.ProfileStruct(props,undefined,props);
+        let user = DS.ProfileStruct(undefined,props,undefined,props);
 
         if(props._id) user.id = props._id; //references the token id
         else if(props.id) user.id = props.id;

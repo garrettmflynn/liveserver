@@ -471,6 +471,7 @@ export class DatabaseService extends Service {
     //         structType:structType,
     //         timestamp:Date.now(),
     //         id:randomId(structType),
+    //         tag:'',
     //         note:'',
     //         ownerId: '',
     //         parentUserId: '',
