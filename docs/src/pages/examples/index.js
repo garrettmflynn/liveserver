@@ -2,14 +2,14 @@ import React from 'react';
 import Layout from '@theme/Layout';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import ExampleSelector from './selector';
-import { SessionsService } from './../../../../src/services/sessions/sessions.service';
-import { DatabaseService } from './../../../../src/services/database/database.service';
-import { UnsafeService } from './../../../../src/services/unsafe/unsafe.service';
+import SessionsService from './../../../../src/services/sessions/sessions.service';
+import DatabaseService from './../../../../src/services/database/database.service';
+import UnsafeService from './../../../../src/services/unsafe/unsafe.service';
 
-import { OSCClient } from './../../../../src/services/osc/osc.frontend';
-import { WebRTCClient } from './../../../../src/services/webrtc/webrtc.frontend';
-import { HTTPClient } from './../../../../src/services/http/http.frontend';
-import { WebsocketClient } from './../../../../src/services/websocket/websocket.frontend';
+import OSCClient from './../../../../src/services/osc/osc.frontend';
+import WebRTCClient from './../../../../src/services/webrtc/webrtc.frontend';
+import HTTPClient from './../../../../src/services/http/http.frontend';
+import WebsocketClient from './../../../../src/services/websocket/websocket.frontend';
 import { Router } from './../../../../src/router/Router';
 import { randomId } from '../../../../src/common/id.utils';
 

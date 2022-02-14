@@ -1,9 +1,8 @@
 // import datastreams from "datastreams-api"
-import * as datastreams from 'datastreams-api/index'
+import * as datastreams from 'datastreams-api'
 
 import { randomId } from '../../common/id.utils'
 import { MessageObject } from 'src/common/general.types'
-console.log(datastreams)
 
 // Data Channels Behave Just Like Tracks
 export default class DataChannel extends datastreams.DataStreamTrack {

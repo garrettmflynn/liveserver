@@ -4,15 +4,14 @@
 import { SubscriptionService } from '../../router/SubscriptionService'
 import { MessageObject, UserObject } from '../../common/general.types';
 import { safeStringify } from  '../../common/parse.utils';
-import { randomId } from  '../../common/id.utils';
 
-import {settings} from '../../../server_settings'
+import {settings} from '../../server_settings'
 
-// TODO: Convert to SubscriptionService and mirror the backend network services
-export class WebsocketClient extends SubscriptionService {
+class WebsocketService extends SubscriptionService {
 
     name = 'websocket'
     service = 'websocket'
+    static type = 'client'
 
     subprotocols?: Partial<UserObject>
     connected = false;
@@ -289,3 +288,5 @@ export class WebsocketClient extends SubscriptionService {
 
     terminate = this.close; //alias
 }
+
+export default WebsocketService

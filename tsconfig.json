@@ -48,5 +48,5 @@
       "**/__test__/**",
       "**/dist/**",
   ],
-  "include": ["src", "server_settings.js"],
+  "include": ["src"],
 }

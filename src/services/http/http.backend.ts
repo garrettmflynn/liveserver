@@ -16,9 +16,11 @@ import { SubscriptionService } from '../../router/SubscriptionService';
 //   return result;
 // }
 
-export class HTTPBackend extends SubscriptionService {
+class HTTPService extends SubscriptionService {
 
     name = 'http'
+    static type = 'backend'
+
     id: string = randomId('http')
     services = {
         events: null // new EventsService()
@@ -120,4 +122,4 @@ export class HTTPBackend extends SubscriptionService {
     }
 }
 
-export default HTTPBackend
+export default HTTPService

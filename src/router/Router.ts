@@ -61,7 +61,7 @@ export class Router {
         let keys = (args.length > 0) ? [args[0]] : Object.keys(reference)
         keys.forEach(k => {
           const o = reference[k]
-          if (o instanceof Service) dict[k] = o.constructor.name;
+          if (o instanceof Service) dict[k] = o.name;
         })
 
         // Drill on Response
@@ -338,7 +338,7 @@ export class Router {
 
           // let worker = false;
           // if(name.includes('worker')) worker = true;
-          const name = service.constructor.name.replace(/Client|Service/, '').toLowerCase();
+          const name = service.name
 
           // NOTE: This is where you listen for service.notify()
           if (service.subscribe){
@@ -356,7 +356,7 @@ export class Router {
                     res = await this.send({
                       route: `${client.route}/${o.route}`,
                       endpoint: service?.endpoint // If remote is bound to client
-                    }, ...o.message) // send automatically with extension
+                    }, ...o.message ?? []) // send automatically with extension
                 }
 
                 return res
@@ -399,7 +399,7 @@ export class Router {
         const arr = Object.values((endpoint) ? {endpoint} : this.ENDPOINTS)
 
         let res = await Promise.all(arr.map(async (endpoint) => {
-          endpoint.setCredentials(user)
+          if (user) endpoint.setCredentials(user)
           return await this.send({
             route: 'login',
             endpoint
@@ -495,12 +495,11 @@ export class Router {
 
     async load(service:any, name:string = service.name) {
 
-      let isObject = service.constructor.name === 'Object'
-      let isClient = service.constructor.name.match(/Client/)
-      let isService = service.constructor.name.match(/Service/)
-      let isBackend = service.constructor.name.match(/Backend/)
+      let isClient = service.constructor.type === 'client'
+      let isService =  !service.constructor.type || service.constructor.type === 'service' // Includes objects
+      let isBackend =  service.constructor.type === 'backend'
 
-    if (isObject || isService) await this._loadService(service, name)
+    if (isService) await this._loadService(service, name)
 
     // Add as Backend
     if (isBackend) await this._loadBackend(service, name)

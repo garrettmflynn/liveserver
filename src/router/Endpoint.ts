@@ -5,7 +5,6 @@ import { createRoute } from '../common/general.utils';
 import Router from './Router';
 // import { Service } from './Service';
 import { randomId , pseudoObjectId} from '../common/id.utils';
-import { Readable } from 'stream';
 import { ReadableStreamController } from 'stream/web';
 
 // Load Node Polyfills
@@ -16,19 +15,22 @@ try {
         if (typeof fetch !== 'function') {
           globalThis.fetch = polyFetch
         }
+
+        var stream = require("stream")
+        globalThis.WritableStream = (stream.Writable as any)
+        globalThis.ReadableStream = (stream.Readable as any)
     }
 } catch (err) {}
 
-export class Endpoint{
+export class Endpoint {
 
     id: string = null
     target: URL = null
     type: string = null
     link: Endpoint = null
     readable: ReadableStream;
-    controller: ReadableStreamController<any>;
-
     writable: WritableStream;
+    controller: ReadableStreamController<any>;
 
     credentials: Partial<UserObject> = {}
 
@@ -59,8 +61,24 @@ export class Endpoint{
 
 
     // Interface for Sending / Receiving Information
-    constructor(config: EndpointConfig, clients?, router?:Router){
+    constructor(config: EndpointConfig = 'https://localhost', clients?, router?:Router){
 
+
+        // Create Writable Stream
+        this.writable = new WritableStream({
+
+            write: ({route, message}) => {
+                console.log('Writing through stream')
+                this.send(route, message, this)
+            },
+            close: () => {console.log('closed')},
+            abort: (err) => {
+                console.log("Sink error:", err);
+            }
+
+        })
+
+        // Set Endpoint Details
         let target, type;
         if (typeof config === 'object'){
           if (config instanceof URL) target = config
@@ -107,17 +125,6 @@ export class Endpoint{
                 // this.unsubscribe(subId)
             }
         });
-
-        this.writable = new WritableStream({
-            write: ({route, message}) => {
-                console.log('Writing through stream')
-                this.send(route, message, this)
-            },
-            close: () => {console.log('closed')},
-            abort: (err) => {
-                console.log("Sink error:", err);
-            }
-        })
 
     }
 
@@ -280,29 +287,28 @@ export class Endpoint{
                     })
 
                     // Read the Response
-                    response = new Response(stream, { headers: response.headers });
-                    response = await response.json().then(json => {
-                        if (!response.ok) throw json.message
-                        else return json
-                    }).catch(async (err)  => {
-                        throw 'Invalid JSON'
-                    })
-
-
-                    // Activate Subscriptions
-                    // Object.values(this.responses).forEach(f => f(response))
-                    this.controller.enqueue(response)
-
-                    return response
+                    return new Response(stream, { headers: response.headers });
                 })
         }
 
-        if (response && !response?.route) {
-            response.route = o.route // Add send route if none provided
-            response.block = true // Block if added
+        const res = await response.json().then(json => {
+            if (!response.ok) throw json.message
+            else return json
+        }).catch(async (err)  => {
+            throw 'Invalid JSON'
+        })
+
+
+        // Activate Subscriptions
+        // Object.values(this.responses).forEach(f => f(response))
+        this.controller.enqueue(response)
+
+        if (res && !res?.route) {
+            res.route = o.route // Add send route if none provided
+            res.block = true // Block if added
         }
 
-        return response
+        return res
     }
 
     _subscribe = async (opts:any={}) => {
@@ -317,11 +323,11 @@ export class Endpoint{
                   servicesToCheck.forEach(async client => {
   
                       if (
-                          opts.force || // Required for Websocket Fallback
-                          (client.status === true && (client instanceof SubscriptionService))
+                          (client && opts.force) || // Required for Websocket Fallback
+                          (client?.status === true && (client instanceof SubscriptionService))
                         ) {
 
-                        let subscriptionEndpoint = `${this.link.services.available[client.service] ?? client.name.toLowerCase()}/subscribe`
+                        let subscriptionEndpoint = `${this.link.services.available[client?.service] ?? client.name.toLowerCase()}/subscribe`
                                 
                         client.setEndpoint(this.link) // Bind Endpoint to Subscription Client
                     

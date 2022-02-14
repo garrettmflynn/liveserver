@@ -6,9 +6,10 @@ import { randomId } from "../../common/id.utils";
 import { parseFunctionFromText, } from "../../common/parse.utils";
 
 import worker from './server.worker'
+import { workerRenderer } from './old/oldlib/workerRenderer/workerRenderer';
 
 //Runs on main thread
-export class WorkerService extends Service {
+class WorkerService extends Service {
     id:string=randomId('worker');
     name:string='worker';
     defaultRoutes:any[];
@@ -308,3 +309,6 @@ export class WorkerService extends Service {
 
     }
 }
+
+
+export default WorkerService

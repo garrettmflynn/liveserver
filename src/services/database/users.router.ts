@@ -2,7 +2,7 @@ import { DataTablet, DS } from 'brainsatplay-data'
 import { UserObject, RouterOptions } from '../../common/general.types';
 import { Router } from '../../router/Router'
 import { randomId } from '../../common/id.utils';
-import { DatabaseService } from './database.service';
+import DatabaseService from './database.service';
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 //
 // Description

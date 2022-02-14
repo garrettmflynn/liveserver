@@ -15,17 +15,16 @@ import { resolve } from "path";
 import { config } from "dotenv";
 import {Router} from './router/Router'
 
-// import { Router } from 'liveserver-router'
-import { OSCBackend } from './services/osc/osc.backend'
-import { WebRTCBackend } from './services/webrtc/webrtc.backend'
+import OSCService from './services/osc/osc.backend'
+import WebRTCService from './services/webrtc/webrtc.backend'
 
-import { SessionsService } from './services/sessions/sessions.service'
-import { DatabaseService } from './services/database/database.service'
-import { UnsafeService } from './services/unsafe/unsafe.service'
+import SessionsService from './services/sessions/sessions.service'
+import DatabaseService from './services/database/database.service'
+import UnsafeService from './services/unsafe/unsafe.service'
 config({ path: resolve(__dirname, `../.env`) });
 config({ path: resolve(__dirname, `../.key`) });
 
-import {settings} from 'server_settings.js'
+import {settings} from 'src/server_settings.js'
 
 const main = (port=settings.port, services:{[x:string] : boolean}={}) => {
 
@@ -65,14 +64,14 @@ mongoose
   });
 
   // ----------------- Initialize API ------------------
-  function init(db?:any) {
+  function init() {
 
     // Instantiate the Router class to handle services
     let controller = new Router({ debug: false });
 
     // Enable HTTP Messages
     if (services.http){
-      let http = new api.HTTPBackend(controller);
+      let http = new api.HTTPService(controller);
 
       app.get("**", http.controller);
       app.post("**", http.controller);
@@ -81,17 +80,17 @@ mongoose
 
     // Enable WebSocket Messages
     if (services.websocket){
-      let websocket = new api.WebsocketBackend(controller, server);
+      let websocket = new api.WebsocketService(controller, server);
       controller.load(websocket)
     }
 
     if (services.osc){
-      let osc = new OSCBackend(controller);
+      let osc = new OSCService(controller);
       controller.load(osc)
     }
 
     if (services.webrtc){
-      let webrtc = new WebRTCBackend(controller);
+      let webrtc = new WebRTCService(controller);
       controller.load(webrtc)
     }
 
@@ -102,7 +101,7 @@ mongoose
 
     if (services.database){
 
-      let database = new DatabaseService(controller, { mode: "mongoose", db,
+      let database = new DatabaseService(controller, { mode: "mongoose",
         collections: {
           // Included
           users: {
