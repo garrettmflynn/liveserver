@@ -82,59 +82,6 @@ class WebsocketService extends SubscriptionService {
             return undefined;
         }
 
-
-        // Make into a Readable Stream
-        socket.binaryType = "arraybuffer";
-        const readable = new ReadableStream({
-            start: (controller) => {
-
-                // On Message
-                socket.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                    this.onmessage(data)
-                    controller.enqueue(data);
-                }
-
-                // On Closed
-                socket.onclose = () => {
-                    this.connected = false;
-                    controller.close();
-                    console.log('websocket closed');
-                }
-
-                // On Error
-                socket.onerror = (e) => console.log('error', e);
-            },
-
-            cancel: () => {
-                socket.close();
-            }
-        });
-
-        // On Open Callback
-        const writable = new WritableStream({
-            // Implement the sink
-            write: (chunk) => {
-                console.log(chunk)
-            },
-            close: () => {
-               console.log('closed')
-            },
-            abort: (err) => {
-                console.log("Sink error:", err);
-            }
-        })
-
-        readable.pipeTo(writable)
-        .then(() => console.log("All data successfully written!"))
-        .catch(e => console.error("Something went wrong!", e));
-
-        // let id = randomId('socket')
-
-        this.sockets.set(remote, socket);
-        this.readables.set(remote, readable);
-        this.writables.set(remote, writable);
-
         return remote
 
     }

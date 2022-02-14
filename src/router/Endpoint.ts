@@ -5,7 +5,6 @@ import { createRoute } from '../common/general.utils';
 import Router from './Router';
 // import { Service } from './Service';
 import { randomId , pseudoObjectId} from '../common/id.utils';
-import { ReadableStreamController } from 'stream/web';
 
 // Load Node Polyfills
 try {
@@ -15,10 +14,6 @@ try {
         if (typeof fetch !== 'function') {
           globalThis.fetch = polyFetch
         }
-
-        var stream = require("stream")
-        globalThis.WritableStream = (stream.Writable as any)
-        globalThis.ReadableStream = (stream.Readable as any)
     }
 } catch (err) {}
 
@@ -28,9 +23,6 @@ export class Endpoint {
     target: URL = null
     type: string = null
     link: Endpoint = null
-    readable: ReadableStream;
-    writable: WritableStream;
-    controller: ReadableStreamController<any>;
 
     credentials: Partial<UserObject> = {}
 
@@ -62,21 +54,6 @@ export class Endpoint {
 
     // Interface for Sending / Receiving Information
     constructor(config: EndpointConfig = 'https://localhost', clients?, router?:Router){
-
-
-        // Create Writable Stream
-        this.writable = new WritableStream({
-
-            write: ({route, message}) => {
-                console.log('Writing through stream')
-                this.send(route, message, this)
-            },
-            close: () => {console.log('closed')},
-            abort: (err) => {
-                console.log("Sink error:", err);
-            }
-
-        })
 
         // Set Endpoint Details
         let target, type;
@@ -113,18 +90,6 @@ export class Endpoint {
 
         this.router = router
         if (clients) this.clients = clients
-
-
-
-        // Enable Streams API Integration
-        let subId;
-        this.readable = new ReadableStream({
-            start: (controller) => this.controller = controller,
-
-            cancel: () => {
-                // this.unsubscribe(subId)
-            }
-        });
 
     }
 
@@ -197,118 +162,114 @@ export class Endpoint {
     }
 
     // Send Message to Endpoint (mirror linked Endpoint if necessary)
-    send = async (route:RouteSpec, o: Partial<MessageObject> = {}, endpoint:Endpoint = this) => {
+    send = async (route:RouteSpec, o: Partial<MessageObject> = {}) => {
 
 
+            // Support String -> Object Specification
+            if (typeof route === 'string')  o.route = route
+            else {
+                // Support Dynamic Service URLs
+                const dynamicServiceName = this.services[route.service]
+                o.route = (dynamicServiceName) ? `${dynamicServiceName}/${route.route}` : route.route
+            } 
 
-        // Support String -> Object Specification
-        if (typeof route === 'string')  o.route = route
-        else {
-            // Support Dynamic Service URLs
-            const dynamicServiceName = this.services[route.service]
-            o.route = (dynamicServiceName) ? `${dynamicServiceName}/${route.route}` : route.route
-        } 
+            o.suppress = !!this.connection
 
-        o.suppress = !!this.connection
+            // Get Response
+            let response;
 
-        // Get Response
-        let response;
-
-        // create separate options object
-        const opts = {
-            suppress: o.suppress,
-            id: endpoint.link.connection?.id
-        }
-        
-        // WS
-        if (endpoint.connection?.protocol === 'websocket') {
-            o.id = endpoint.link.credentials?.id // Link ID
-            response = await endpoint.link.connection.service.send(o as MessageObject, opts)
-        }
-
-        // WebRTC (direct = no link)
-        else if (endpoint?.connection?.protocol === 'webrtc') {
-            o.id = endpoint.credentials?.id || endpoint.link.credentials?.id // This ID / Link ID
-            response = await endpoint.connection.service.send(o as MessageObject, opts) 
-        }
-
-        // HTTP
-        else {
-
-            o.id = endpoint.link.credentials?.id // Link ID
-            if (!o.method) o.method = (o.message?.length > 0) ? 'POST' : 'GET'
-
-            const toSend: any = {
-                method: o.method.toUpperCase(),
-                mode: 'cors', // no-cors, *cors, same-origin
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+            // create separate options object
+            const opts = {
+                suppress: o.suppress,
+                id: this.link.connection?.id
             }
-  
-              if (toSend.method != 'GET') toSend.body = safeStringify(o)
+            
+            // WS
+            if (this.connection?.protocol === 'websocket') {
+                o.id = this.link.credentials?.id // Link ID
+                response = await this.link.connection.service.send(o as MessageObject, opts)
+            }
 
-              response = await fetch(
-                  createRoute(o.route, endpoint.link.target), 
-                  toSend
-                ).then(async response => {
+            // WebRTC (direct = no link)
+            else if (this?.connection?.protocol === 'webrtc') {
+                o.id = this.credentials?.id || this.link.credentials?.id // This ID / Link ID
+                response = await this.connection.service.send(o as MessageObject, opts) 
+            }
 
-                    // Use the Streams API
-                    const reader = response.body.getReader()
-                    const length = response.headers.get("Content-Length") as any
-                    let received = 0
+            // HTTP
+            else {
 
-                    // On Stream Chunk
-                    const stream = new ReadableStream({
-                        start(controller) {
+                o.id = this.link.credentials?.id // Link ID
+                if (!o.method) o.method = (o.message?.length > 0) ? 'POST' : 'GET'
 
-                            const push = async () => {
+                const toSend: any = {
+                    method: o.method.toUpperCase(),
+                    mode: 'cors', // no-cors, *cors, same-origin
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                }
+    
+                if (toSend.method != 'GET') toSend.body = safeStringify(o)
 
-                                reader.read().then(({value, done}) => {
+                response = await fetch(
+                    createRoute(o.route, this.link.target), 
+                    toSend
+                    ).then(async response => {
 
-                                    // Each chunk has a `done` property. If it's done,
-                                    if (done) {
-                                        controller.close();
-                                        return;
+                        // Use the Streams API
+                        const reader = response.body.getReader()
+                        const length = response.headers.get("Content-Length") as any
+                        let received = 0
+
+                        // On Stream Chunk
+                        if (globalThis.ReadableStream){
+                            const stream = new ReadableStream({
+                                start(controller) {
+
+                                    const push = async () => {
+
+                                        reader.read().then(({value, done}) => {
+
+                                            // Each chunk has a `done` property. If it's done,
+                                            if (done) {
+                                                controller.close();
+                                                return;
+                                            }
+                                    
+                                            // If it's not done, increment the received variable, and the bar's fill.
+                                            received += value.length
+                                            console.log(`${received / length * 100}%`)
+                                    
+                                            // Keep reading, and keep doing this AS LONG AS IT'S NOT DONE.
+                                            controller.enqueue(value);
+                                            push()
+                                        })
                                     }
-                            
-                                    // If it's not done, increment the received variable, and the bar's fill.
-                                    received += value.length
-                                    console.log(`${received / length * 100}%`)
-                            
-                                    // Keep reading, and keep doing this AS LONG AS IT'S NOT DONE.
-                                    controller.enqueue(value);
+
                                     push()
-                                })
-                            }
+                                }
+                            })
 
-                            push()
-                        }
+                            // Read the Response
+                            return new Response(stream, { headers: response.headers });
+                        } else return response
                     })
+            }
 
-                    // Read the Response
-                    return new Response(stream, { headers: response.headers });
-                })
-        }
+            const res = await response.json().then(json => {
+                if (!response.ok) throw json.message
+                else return json
+            }).catch(async (err)  => {
+                throw 'Invalid JSON'
+            })
 
-        const res = await response.json().then(json => {
-            if (!response.ok) throw json.message
-            else return json
-        }).catch(async (err)  => {
-            throw 'Invalid JSON'
-        })
+            if (res && !res?.route) {
+                res.route = o.route // Add send route if none provided
+                res.block = true // Block router activation if added
+            }
 
-
-        // Activate Subscriptions
-        // Object.values(this.responses).forEach(f => f(response))
-        this.controller.enqueue(response)
-
-        if (res && !res?.route) {
-            res.route = o.route // Add send route if none provided
-            res.block = true // Block if added
-        }
-
-        return res
+            return res
     }
 
     _subscribe = async (opts:any={}) => {
@@ -342,9 +303,6 @@ export class Endpoint {
                                 client.addResponse('router', (o) => {
                                     const data = (typeof o === 'string') ? JSON.parse(o) : o 
 
-                                    // Enqueue in Stream
-                                    this.controller.enqueue(data)
-
                                     // Activate Subscriptions
                                     Object.values(this.responses).forEach(f => {
                                         f(data)
@@ -364,13 +322,13 @@ export class Endpoint {
                         if (this.type === 'webrtc') {
                             opts.routes = [this.target] // Connect to Target Room / User only
                         }
-                        const res = await this.send(subscriptionEndpoint, Object.assign({
+                        const res = await this.link.send(subscriptionEndpoint, Object.assign({
                             route: opts.route,
                             message: opts.message,
                             protocol: opts.protocol,
                         }, {
                           message: [opts.routes, this.connection.id] // Routes to Subscribe + Reference ID
-                        }), this.link)
+                        }))
 
                         resolve(this.connection)
                         return
