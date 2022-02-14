@@ -4,23 +4,20 @@
 import { SubscriptionService } from '../../router/SubscriptionService'
 import { MessageObject, UserObject } from '../../common/general.types';
 import { safeStringify } from  '../../common/parse.utils';
-import { randomId } from  '../../common/id.utils';
 
-import {settings} from '../../../server_settings'
+import {settings} from '../../server_settings'
 
-// TODO: Convert to SubscriptionService and mirror the backend network services
-export class WebsocketClient extends SubscriptionService {
+class WebsocketService extends SubscriptionService {
 
     name = 'websocket'
     service = 'websocket'
+    static type = 'client'
 
     subprotocols?: Partial<UserObject>
     connected = false;
     sendQueue: {[x:string]: Function[]} = {}
     streamUtils
     sockets: Map<string,any> = new Map();
-    readables: Map<string,any> = new Map();
-    writables: Map<string,any> = new Map();
 
     queue = {};
 
@@ -82,59 +79,6 @@ export class WebsocketClient extends SubscriptionService {
             console.error('Error with socket creation!',err);
             return undefined;
         }
-
-
-        // Make into a Readable Stream
-        socket.binaryType = "arraybuffer";
-        const readable = new ReadableStream({
-            start: (controller) => {
-
-                // On Message
-                socket.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                    this.onmessage(data)
-                    controller.enqueue(data);
-                }
-
-                // On Closed
-                socket.onclose = () => {
-                    this.connected = false;
-                    controller.close();
-                    console.log('websocket closed');
-                }
-
-                // On Error
-                socket.onerror = (e) => console.log('error', e);
-            },
-
-            cancel: () => {
-                socket.close();
-            }
-        });
-
-        // On Open Callback
-        const writable = new WritableStream({
-            // Implement the sink
-            write: (chunk) => {
-                console.log(chunk)
-            },
-            close: () => {
-               console.log('closed')
-            },
-            abort: (err) => {
-                console.log("Sink error:", err);
-            }
-        })
-
-        readable.pipeTo(writable)
-        .then(() => console.log("All data successfully written!"))
-        .catch(e => console.error("Something went wrong!", e));
-
-        // let id = randomId('socket')
-
-        this.sockets.set(remote, socket);
-        this.readables.set(remote, readable);
-        this.writables.set(remote, writable);
 
         return remote
 
@@ -289,3 +233,5 @@ export class WebsocketClient extends SubscriptionService {
 
     terminate = this.close; //alias
 }
+
+export default WebsocketService

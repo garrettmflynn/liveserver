@@ -16,9 +16,11 @@ import { SubscriptionService } from '../../router/SubscriptionService';
 //   return result;
 // }
 
-export class HTTPBackend extends SubscriptionService {
+class HTTPService extends SubscriptionService {
 
     name = 'http'
+    static type = 'backend'
+
     id: string = randomId('http')
     services = {
         events: null // new EventsService()
@@ -39,7 +41,7 @@ export class HTTPBackend extends SubscriptionService {
               },
               post: (self,args) => {
                   get.html = args[0]
-                return {message: get.html}
+                return {message: [get.html]}
               }
 
             })
@@ -93,6 +95,7 @@ export class HTTPBackend extends SubscriptionService {
 
                 if (res instanceof Error) response.status(404).send(JSON.stringify(res, Object.getOwnPropertyNames(res))) 
                 else if (res != null) {
+
                     for (let header in res?.headers){
                         response.setHeader(header, res.headers[header]);
                     }
@@ -119,4 +122,4 @@ export class HTTPBackend extends SubscriptionService {
     }
 }
 
-export default HTTPBackend
+export default HTTPService

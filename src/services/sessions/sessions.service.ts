@@ -2,11 +2,11 @@ import StateManager from 'anotherstatemanager'
 import { SettingsObject, UserObject } from "../../common/general.types";
 import { DONOTSEND } from "../../router/Router";
 import { Service } from "../../router/Service";
-import { StreamService } from '../stream';
+import StreamService from '../stream/stream.service';
 
 //TODO: one-off data calls based on session configs
 //      reimplement callbacks
-export class SessionsService extends Service {
+class SessionsService extends Service {
     name = 'sessions'
 
     // Frontend

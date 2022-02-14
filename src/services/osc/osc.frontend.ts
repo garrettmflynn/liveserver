@@ -2,10 +2,12 @@ import StateManager from 'anotherstatemanager'
 import { Service } from '../../router/Service'
 
 //OSC stream frontend calls
-export class OSCClient extends Service{
+class OSCService extends Service{
 
 	name = 'osc'
 	service = 'osc'
+	static type = 'client'
+
 	state = new StateManager();
 
 	// Responses to Monitor
@@ -117,6 +119,7 @@ export class OSCClient extends Service{
 
 }
 
+export default OSCService
 
 /**
  * 

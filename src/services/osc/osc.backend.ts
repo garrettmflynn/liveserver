@@ -4,8 +4,9 @@ import { SubscriptionService } from "../../router";
 
 // Garrett Flynn, AGPL v3.0
 
-export class OSCBackend extends SubscriptionService {
+class OSCService extends SubscriptionService {
     name = 'osc'
+    static type = 'backend'
 
     ports = []   
 
@@ -147,4 +148,4 @@ export class OSCBackend extends SubscriptionService {
     }
 }
 
-export default OSCBackend
+export default OSCService

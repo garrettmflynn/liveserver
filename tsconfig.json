@@ -43,10 +43,10 @@
       "baseUrl": "./",
   },
   "exclude": [
-      "./node_modules/*",
+      "**/node_modules/**",
       "./docs",
       "**/__test__/**",
       "**/dist/**",
   ],
-  "include": ["src", "server_settings.js"],
+  "include": ["src"],
 }

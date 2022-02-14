@@ -10,10 +10,11 @@ Known Bugs
 import { SubscriptionService } from '../../router/SubscriptionService'
 import { UserObject, MessageObject } from '../../common/general.types';
 
-export class WebRTCClient extends SubscriptionService {
+class WebRTCService extends SubscriptionService {
 
     name = 'webrtc'
     service = 'webrtc'
+    static type = 'client'
 
     config: RTCConfiguration
     peers: {[x:string]:{
@@ -444,3 +445,5 @@ export class WebRTCClient extends SubscriptionService {
 
     }
 }
+
+export default WebRTCService

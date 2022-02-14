@@ -5,8 +5,9 @@ import { MessageObject } from '../../common/general.types';
 import { pseudoObjectId } from '../../common/id.utils';
 
 // Create WS Server Instance
-export class WebsocketBackend extends SubscriptionService {
+class WebsocketService extends SubscriptionService {
 
+  static type = 'backend'
   name = 'websocket'
   server: any
   wss = new WebSocketServer({ clientTracking: false, noServer: true });
@@ -142,4 +143,4 @@ export class WebsocketBackend extends SubscriptionService {
     }
 }
 
-export default WebsocketBackend
+export default WebsocketService

@@ -3,9 +3,11 @@ import { RoomInterface } from './types/Room.types'
 import { MessageObject, UserObject } from '../../common/general.types'
 import { Service } from '../../router/Service'
 
-export class WebRTCBackend extends Service {
+class WebRTCService extends Service {
 
     name = 'webrtc'
+    static type = 'backend'
+
     peers: {[x:string]:UserObject} = {}
     rooms: {[x:string]:any} = {}
     pairs: {[x:string]:any} = {}
@@ -144,24 +146,29 @@ export class WebRTCBackend extends Service {
         let peer = this.peers[info?.id]
 
         // Connect Peer
-        if (peer) {
-            u.send({route: "webrtc/connect", message: [{id:peer.id, info: peer}]}) // initialize connections
-            peer.send({route: "webrtc/connect", message: [{id: u.id, info: u}]}) // extend connections
+        if (u?.send){
+            if (peer?.send) {
+                u.send({route: "webrtc/connect", message: [{id:peer.id, info: peer}]}) // initialize connections
+                peer.send({route: "webrtc/connect", message: [{id: u.id, info: u}]}) // extend connections
+                
+                // Register Pair
+                if (!this.pairs[u.id]) this.pairs[u.id] ={}
+                if (!this.pairs[peer.id]) this.pairs[peer.id] ={}
+                this.pairs[u.id][peer.id] = true
+                this.pairs[peer.id][u.id] = true
+                
+                return peer
+            } 
             
-            // Register Pair
-            if (!this.pairs[u.id]) this.pairs[u.id] ={}
-            if (!this.pairs[peer.id]) this.pairs[peer.id] ={}
-            this.pairs[u.id][peer.id] = true
-            this.pairs[peer.id][u.id] = true
-            
-            return peer
-        } 
-        
-        // Default to Room
-        else {
-            if (!room) room = Object.values(this.rooms)[0] // Default to first room
-            if (room) room.addPeer(u) // Adding peer to room
-            return room.export()
+            // Default to Room
+            else {
+                if (!room) room = Object.values(this.rooms)[0] // Default to first room
+                if (room) room.addPeer(u) // Adding peer to room
+                return room.export()
+            }
+        } else {
+            console.log('User credentials not registered in the server.')
+            return false
         }
     }
 
@@ -217,4 +224,4 @@ export class WebRTCBackend extends Service {
     }
 }
 
-export default WebRTCBackend;
+export default WebRTCService;

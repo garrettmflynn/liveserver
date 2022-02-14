@@ -34,6 +34,7 @@ export class Room {
 
     addPeer = (o: UserObject) => {
 
+        // console.log(o)
         // Check User Existence
         if (this.peers[o.id]) console.error('User already added to room.')
 
@@ -48,8 +49,10 @@ export class Room {
 
             // Request Peer Connections
             Object.values(this.peers).forEach((peer) => {
-                o.send({route: "webrtc/connect", message: [{id:peer.id, info: peer}]}) // initialize connections
-                peer.send({route: "webrtc/connect", message: [{id:o.id, info: o}]}) // extend connections
+                if (o.send && peer.send) { // Only start when both can complete the negotiation
+                    o.send({route: "webrtc/connect", message: [{id:peer.id, info: peer}]}) // initialize connections
+                    peer.send({route: "webrtc/connect", message: [{id:o.id, info: o}]}) // extend connections
+                }
             })
 
             // Set in Room

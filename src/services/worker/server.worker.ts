@@ -4,9 +4,9 @@
 //if on frontend, the workers can't run backend env-required APIs like mongodb or http/socket/event routers
 //if on backend, the workers can't run DOM-related or rendering APIs like canvas or threejs
 
-import { SessionsService  } from"../sessions/sessions.service";
-import { UnsafeService   } from "../unsafe/unsafe.service";
-import { DatabaseService } from "../database/database.service";
+import SessionsService from"../sessions/sessions.service";
+import UnsafeService from "../unsafe/unsafe.service";
+import DatabaseService from "../database/database.service";
 //can import all
 
 let services = {

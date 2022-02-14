@@ -41,7 +41,7 @@ const defaultCollections = [
 type DatabaseMode = 'local' | ('mongodb' | 'mongo' | 'mongoose') | string 
 
 
-export class DatabaseService extends Service {
+class DatabaseService extends Service {
     
     name = 'database'
     controller: Router;

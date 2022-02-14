@@ -1,10 +1,11 @@
 import { SubscriptionService } from "../../router/SubscriptionService";
 import { createRoute } from "../../common/general.utils";
 
-class HTTPClient extends SubscriptionService {
+class HTTPService extends SubscriptionService {
 
     name = 'http'
     service = 'http'
+    static type = 'client'
 
     constructor(router) {
         super(router)
@@ -31,5 +32,5 @@ class HTTPClient extends SubscriptionService {
 // let http = new HTTPClient()
 
 // Export Instantiated Session
-export {HTTPClient}
+export default HTTPService
 // export default http
