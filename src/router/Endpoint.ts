@@ -257,12 +257,12 @@ export class Endpoint {
                     })
             }
 
-            const res = await response.json().then(json => {
+            const res = (response) ? await response.json().then(json => {
                 if (!response.ok) throw json.message
                 else return json
             }).catch(async (err)  => {
                 throw 'Invalid JSON'
-            })
+            }) : response
 
             if (res && !res?.route) {
                 res.route = o.route // Add send route if none provided

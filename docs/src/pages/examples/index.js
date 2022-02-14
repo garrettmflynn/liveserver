@@ -13,7 +13,7 @@ import WebsocketClient from './../../../../src/services/websocket/websocket.fron
 import { Router } from './../../../../src/router/Router';
 import { randomId } from '../../../../src/common/id.utils';
 
-import {settings} from '../../../../server_settings.js'
+import {settings} from '../../../../src/server_settings.js'
 
 let router = new Router()
 

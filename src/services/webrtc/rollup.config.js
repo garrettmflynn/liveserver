@@ -16,19 +16,24 @@ import commonjs from '@rollup/plugin-commonjs';
 /**
  * @type {import('rollup').RollupOptions}
  */
-const main = {
+const backend = {
   input: './webrtc.backend.ts', // our source file
-  output: [ { file: pkg.main, format: 'cjs', exports: 'default' } ],
+  output: [   {
+    file: pkg.main,
+    format: 'umd', // the preferred format
+    exports: 'default',
+    name: 'webrtc'
+  } ]
 }
 
-const es6 = {
+const frontend = {
   input: './webrtc.frontend.ts', // our source file
-  output: [ { file: pkg.module, format: 'es', exports: 'default'  } ]
-}
-
-const browser = {
-  input: './webrtc.frontend.ts', // our source file
-  output: [ { file: pkg.browser, format: 'iife', name: 'webrtc', exports: 'default' } ]
+  output: [   {
+    file: pkg.main,
+    format: 'umd', // the preferred format
+    exports: 'default',
+    name: 'webrtc'
+  } ]
 }
 
 
@@ -68,7 +73,6 @@ const common = {
 }
 
 export default [
-  Object.assign({}, main, common),
-  Object.assign({}, es6, common),
-  Object.assign({}, browser, common)
+  Object.assign({}, backend, common),
+  Object.assign({}, frontend, common),
 ]

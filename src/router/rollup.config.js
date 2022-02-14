@@ -16,19 +16,15 @@ import commonjs from '@rollup/plugin-commonjs';
 /**
  * @type {import('rollup').RollupOptions}
  */
-const main = {
-  input: './index.ts', // our source file
-  output: [ { file: pkg.main, format: 'cjs' } ],
-}
 
-const es6 = {
+const umd = {
   input: './index.ts', // our source file
-  output: [ { file: pkg.module, format: 'es'  } ]
-}
-
-const browser = {
-  input: './index.ts', // our source file
-  output: [ { file: pkg.browser, format: 'iife', name: 'router' } ]
+  output: [   {
+    file: pkg.main,
+    format: 'umd', // the preferred format
+    exports: 'named',
+    name: 'router'
+  } ]
 }
 
 
@@ -66,7 +62,5 @@ const common = {
 }
 
 export default [
-  Object.assign({}, main, common),
-  Object.assign({}, es6, common),
-  Object.assign({}, browser, common)
+  Object.assign({}, umd, common)
 ]

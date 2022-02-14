@@ -17,16 +17,15 @@ import commonjs from '@rollup/plugin-commonjs';
  * @type {import('rollup').RollupOptions}
  */
 
-const main = {
+const umd = {
   input: './index.ts', // our source file
-  output: [ { file: pkg.main, format: 'cjs' } ]
+  output: [   {
+    file: pkg.main,
+    format: 'umd', // the preferred format
+    exports: 'named',
+    name: 'liveserver'
+  } ]
 }
-
-const es6 = {
-  input: './index.ts', // our source file
-  output: [ { file: pkg.module, format: 'es' } ]
-}
-
 
 const common = {
  plugins: [
@@ -64,6 +63,5 @@ const common = {
 }
 
 export default [
-  Object.assign({}, main, common),
-  Object.assign({}, es6, common),
+  Object.assign({}, umd, common),
 ]

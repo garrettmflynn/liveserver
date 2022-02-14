@@ -18,8 +18,6 @@ class WebsocketService extends SubscriptionService {
     sendQueue: {[x:string]: Function[]} = {}
     streamUtils
     sockets: Map<string,any> = new Map();
-    readables: Map<string,any> = new Map();
-    writables: Map<string,any> = new Map();
 
     queue = {};
 

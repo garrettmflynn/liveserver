@@ -2,8 +2,7 @@
   "name": "liveserver-frontend",
   "version": "0.0.11",
   "description": "Websockets with user communication, access controls, and notifications. Clientside and serverside data management plus mongodb integration.",
-  "module": "./dist/index.mjs",
-  "browser": "./dist/browser.js",
+  "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
     "dist"

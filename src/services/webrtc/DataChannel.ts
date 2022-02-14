@@ -1,5 +1,6 @@
 // import datastreams from "datastreams-api"
-import * as datastreams from 'datastreams-api'
+import *  as datastreams from 'datastreams-api'
+console.log(datastreams)
 
 import { randomId } from '../../common/id.utils'
 import { MessageObject } from 'src/common/general.types'
