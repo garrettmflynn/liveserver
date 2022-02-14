@@ -1,6 +1,6 @@
 {
   "name": "liveserver-webrtc",
-  "version": "0.0.5",
+  "version": "0.0.10",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "browser": "./dist/browser.js",
