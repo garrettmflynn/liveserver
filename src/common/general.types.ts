@@ -2,6 +2,8 @@ import { Router } from '../router/Router'
 import { Endpoint } from '../router/Endpoint'
 export type RouterInterface = Partial<Router>
 
+export type ArbitraryObject = {[x:string]:any}
+
 export type RouteConfig = {
     route: string, // Route Name
     id?: string, // Basic identifier for Clients

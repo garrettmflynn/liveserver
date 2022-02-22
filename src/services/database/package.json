@@ -2,7 +2,7 @@
   "name": "liveserver-database",
   "version": "0.0.8",
   "main": "./dist/index.js",
-  "module": "./dist/module.js",
+  "module": "./dist/index.esm.js",
   "types": "./dist/services/database/index.d.ts",
   "repository": "https://github.com/brainsatplay/LiveServer",
   "author": "Joshua Brewster, Garrett Flynn",
@@ -11,11 +11,11 @@
     "dist"
   ],
   "scripts": {
-    "build": "webpack --config browser.config.js --mode production && webpack --config ../../module.config.js --mode production",
+    "build": "rollup -c && tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "brainsatplay-data": "^0.0.18",
+    "brainsatplay-data": "^0.0.21",
     "bson-objectid": "^2.0.2"
   }
 }

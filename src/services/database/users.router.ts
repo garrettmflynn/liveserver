@@ -1,5 +1,5 @@
 import { DataTablet, DS } from 'brainsatplay-data'
-import { UserObject, RouterOptions } from '../../common/general.types';
+import { UserObject, RouterOptions, ArbitraryObject } from '../../common/general.types';
 import { Router } from '../../router/Router'
 import { randomId } from '../../common/id.utils';
 import DatabaseService from './database.service';
@@ -10,7 +10,7 @@ import DatabaseService from './database.service';
 //
 
 export class UsersClient extends Router {
-
+f
     currentUser: Partial<UserObject> // Different from this.user (base user)
 		        
     tablet = new DataTablet(); //DataTablet 
@@ -262,8 +262,8 @@ export class UsersClient extends Router {
     async addStruct (
         structType:string='struct', 
         props:any={}, //add any props you want to set, adding users[] with ids will tell who to notify if this struct is updated
-        parentUser:string|undefined=undefined, 
-        parentStruct:string|undefined=undefined,
+        parentUser:any={}, 
+        parentStruct:any={}, 
         updateServer:boolean = true
     ) {
         let newStruct = DS.Struct(structType, props, parentUser, parentStruct);
@@ -855,7 +855,7 @@ export class UsersClient extends Router {
             } //delete non-dependent data (e.g. tokens we only want to keep in a secure collection)
         }
         if(currentUser) this.currentUser = user;
-        return user;
+        return user as ArbitraryObject
     }
 
     //TODO: Update the rest of these to use the DB structs but this should all work the same for now

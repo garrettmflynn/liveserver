@@ -2,7 +2,7 @@
   "name": "liveserver-backend",
   "version": "0.0.11",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/backend/index.d.ts",
   "files": [
     "dist"
   ],

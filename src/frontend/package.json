@@ -4,7 +4,7 @@
   "description": "Websockets with user communication, access controls, and notifications. Clientside and serverside data management plus mongodb integration.",
   "main": "./dist/index.js",
   "module": "dist/index.esm.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/frontend/index.d.ts",
   "files": [
     "dist"
   ],
@@ -25,7 +25,7 @@
   "license": "AGPL-3.0-or-later",
   "dependencies": {
     "anotherstatemanager": "^1.0.5",
-    "brainsatplay-storage": "^0.0.2"
+    "brainsatplay-storage": "^0.0.8"
   },
   "bugs": {
     "url": "https://github.com/brainsatplay/liveserver"
