@@ -6,6 +6,7 @@ import { useHistory } from 'react-router';
 import AllExample from './components/all';
 import WebRTCExample from './components/webrtc';
 import StreamsExample from './components/streams';
+import HIPAAExample from './components/hipaa';
 
 export default function ExampleSelector({server, endpoints, router, id}) {
    const history = useHistory();
@@ -44,6 +45,9 @@ export default function ExampleSelector({server, endpoints, router, id}) {
             router={router}
             endpoints={endpoints}
           />
+
+          case 'hipaa':
+            return <HIPAAExample />
         }
       }
 
@@ -66,6 +70,9 @@ export default function ExampleSelector({server, endpoints, router, id}) {
         </button>
         <button onClick={() => set('streams')}>
           Streams
+        </button>
+        <button onClick={() => set('hipaa')}>
+          HIPAA
         </button>
         </nav>
 

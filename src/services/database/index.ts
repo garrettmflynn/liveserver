@@ -1,2 +1,3 @@
 export * from './database.service'
-export * from './users.router'
+export * from './hipaa.router'
+export * from './hipaa.service'

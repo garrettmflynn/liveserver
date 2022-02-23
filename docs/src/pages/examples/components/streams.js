@@ -1,8 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import styles from '../examples.module.css'
-import synthetic from '@brainsatplay/device/dist/module.js';
-import * as datastreams from 'datastreams-api/dist/module.js';
 
 export default function StreamsExample({ server, endpoints, router, id }) {
 
@@ -15,13 +13,17 @@ export default function StreamsExample({ server, endpoints, router, id }) {
 
 
   useEffect(async () => {
+    
+    let synthetic = await import('@brainsatplay/device/dist/module')
+    if (synthetic.default) synthetic = synthetic.default
+    const datastreams = await import('datastreams-api/dist/index.esm')
 
 
     const pseudo = document.createElement('button')
     pseudo.click()
 
     // const synthetic = await import('@brainsatplay/device')
-    const components = await import('../../../../libraries/brainsatplay-components/dist/module.js')
+    const components = await import('../../../../libraries/brainsatplay-components/dist/module')
     // import RouteDisplay from '../routeDisplay';
     console.log(datastreams)
     console.log(synthetic)
@@ -31,7 +33,6 @@ export default function StreamsExample({ server, endpoints, router, id }) {
     const volume = new components.Volume()
     audio.current.insertAdjacentElement('beforeend', volume)
 
-    // const datastreams = await import('datastreams-api')
     const dataDevices = new datastreams.DataDevices()
 
     dataDevices.getUserDevice({ audio: true }).then((device) => {

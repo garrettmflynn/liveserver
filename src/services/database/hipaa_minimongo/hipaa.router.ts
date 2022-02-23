@@ -1,15 +1,16 @@
 import { DataTablet, DS } from 'brainsatplay-data'
-import { UserObject, RouterOptions, ArbitraryObject } from '../../common/general.types';
-import { Router } from '../../router/Router'
-import { randomId } from '../../common/id.utils';
-import DatabaseService from './database.service';
+import { UserObject, RouterOptions, ArbitraryObject } from '../../../common/general.types';
+import { Router } from '../../../router/Router'
+import { randomId } from '../../../common/id.utils';
+import HIPAAService from './hipaa.service';
+import { dbOptions } from '../types/database.types';
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 //
 // Description
-// A client-side Router class with macros
+// A client-side Router class with macros for HIPAA compliance
 //
 
-export class UsersClient extends Router {
+export class HIPAAClient extends Router {
 f
     currentUser: Partial<UserObject> // Different from this.user (base user)
 		        
@@ -18,13 +19,13 @@ f
     
     id: string = randomId()
 
-    constructor (userInfo:Partial<UserObject>={}, options?:RouterOptions) {
+    constructor (userInfo:Partial<UserObject>={}, options?:RouterOptions, dbOptions:dbOptions={}) {
         super(options)
 
         if (userInfo instanceof Object && Object.keys(userInfo).length > 0) this.setupUser(userInfo) // Declares currentUser
        
         // Auto-Connect Database Client Service
-        this.load(new DatabaseService(this))
+        this.load(new HIPAAService(this, dbOptions)) // TODO: Why load?
     }
 
     //TODO: make this able to be awaited to return the currentUser

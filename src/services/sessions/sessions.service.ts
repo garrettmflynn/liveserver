@@ -36,7 +36,7 @@ class SessionsService extends Service {
 		
 		this.services.stream = new StreamService(userinfo);
 
-		//  Pass Datastream Values to the UsersClient
+		//  Pass Datastream Values to the Router
 		this.services.stream.subscribe((o) => {
 			this.notify(o)
 		})

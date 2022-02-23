@@ -47,7 +47,7 @@ export class Service {
     }
 
 
-    // Notify subscribers (e.g. Router / UsersClient ) of a New Message
+    // Notify subscribers (e.g. Router / HIPAAClient ) of a New Message
     notify = async (
         o: MessageObject, // defines the route to activate
         type?: MessageType, // specifies whether the notification is internal (true) OR from a client (false / default). Internal notifications will be only forwarded to route subscribers.

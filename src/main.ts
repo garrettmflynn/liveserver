@@ -25,6 +25,7 @@ config({ path: resolve(__dirname, `../.env`) });
 config({ path: resolve(__dirname, `../.key`) });
 
 import {settings} from 'src/server_settings.js'
+import HIPAAService from './services/database/hipaa.service'
 
 const main = (port=settings.port, services:{[x:string] : boolean}={}) => {
 
@@ -56,7 +57,7 @@ mongoose.connection.on("open", () => console.log("DB Connected!"));
 mongoose
   .connect(process.env.DB_URI ?? "")
   .then(() => {
-    init()
+    init(mongoose.connections[0].db)
   })
   .catch(() => {
     console.error("Error: MongoDB not initialized...");
@@ -64,7 +65,7 @@ mongoose
   });
 
   // ----------------- Initialize API ------------------
-  function init() {
+  function init(db?:any) {
 
     // Instantiate the Router class to handle services
     let controller = new Router({ debug: false });
@@ -101,7 +102,7 @@ mongoose
 
     if (services.database){
 
-      let database = new DatabaseService(controller, { mode: "mongoose",
+      let database = new DatabaseService(controller, {
         collections: {
           // Included
           users: {
@@ -126,6 +127,11 @@ mongoose
       });
       
       controller.load(database)
+    }
+
+    if (services.hipaa){
+      const hipaa = new HIPAAService(controller, {db, mode: 'mongodb'})
+      controller.load(hipaa)
     }
 
     if (services.unsafe){
