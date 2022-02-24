@@ -261,7 +261,7 @@ class StructRouter extends Router {
     async addStruct (
         structType:string='struct', 
         props:any={}, //add any props you want to set, adding users[] with ids will tell who to notify if this struct is updated
-        parentUser:string=undefined, 
+        parentUser:ArbitraryObject=undefined, 
         parentStruct:ArbitraryObject=undefined,
         updateServer:boolean = true
     ) {

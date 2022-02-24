@@ -5,6 +5,21 @@ module.exports = function (context, options) {
       // eslint-disable-next-line
       configureWebpack(config, isServer, utils) {
         return {
+          externals: {
+           "node:buffer": "{}",
+           "node:fs": "{}",
+           "node:https": "{}",
+           "node:http": "{}",
+           "node:net": "{}",
+           "node:path": "{}",
+           "node:process": "{}",
+           "node:stream/web": "{}",
+           "node:stream": "{}",
+           "node:url": "{}",
+           "node:util": "{}",
+           "node:zlib": "{}",
+
+          },
           resolve: {
             fallback: {
               buffer: false,

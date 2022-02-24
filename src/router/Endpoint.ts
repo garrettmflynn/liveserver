@@ -164,7 +164,7 @@ export class Endpoint {
                   // Resolve Router Loading Promises
                   if (this.router?.SERVICES?.[name]?.status instanceof Function) this.router.SERVICES[name].status(route)
     
-                  if (this.clients[name].serviceType === 'subscription'){
+                  if (this.clients[name]?.serviceType === 'subscription'){
                       this.services.queue[name]?.forEach(f => f())
                       this.services.queue[name] = []
                   }
@@ -179,7 +179,7 @@ export class Endpoint {
     }
 
     // Send Message to Endpoint (mirror linked Endpoint if necessary)
-    send = async (route:RouteSpec, o: Partial<MessageObject> = {}) => {
+    send = async (route:RouteSpec, o: Partial<MessageObject> = {}, progressCallback:(ratio:number, total:number)=>void = () => {}) => {
 
 
             // Support String -> Object Specification
@@ -202,6 +202,7 @@ export class Endpoint {
             }
             
             // WS
+
             if (this.connection?.protocol === 'websocket') {
                 o.id = this.link.credentials?.id // Link ID
                 response = await this.link.connection.service.send(o as MessageObject, opts)
@@ -256,7 +257,7 @@ export class Endpoint {
                                     
                                             // If it's not done, increment the received variable, and the bar's fill.
                                             received += value.length
-                                            console.log(`${received / length * 100}%`)
+                                            progressCallback(received / length, length)
                                     
                                             // Keep reading, and keep doing this AS LONG AS IT'S NOT DONE.
                                             controller.enqueue(value);
@@ -270,23 +271,23 @@ export class Endpoint {
 
                             // Read the Response
                             return new Response(stream, { headers: response.headers });
-                        } else return response
-                    })
+                    } else return response
+                })
+
+                response = (response) ? await response.json().then(json => {
+                    if (!response.ok) throw json.message
+                    else return json
+                }).catch(async (err)  => {
+                    throw 'Invalid JSON'
+                }) : response
             }
 
-            const res = (response) ? await response.json().then(json => {
-                if (!response.ok) throw json.message
-                else return json
-            }).catch(async (err)  => {
-                throw 'Invalid JSON'
-            }) : response
-
-            if (res && !res?.route) {
-                res.route = o.route // Add send route if none provided
-                res.block = true // Block router activation if added
+            if (response && !response?.route) {
+                response.route = o.route // Add send route if none provided
+                response.block = true // Block router activation if added
             }
 
-            return res
+            return response
     }
 
     _subscribe = async (opts:any={}) => {
@@ -302,7 +303,7 @@ export class Endpoint {
   
                       if (
                           (client && opts.force) || // Required for Websocket Fallback
-                          (client?.status === true && (client.serviceType === 'subscription'))
+                          (client?.status === true && (client?.serviceType === 'subscription'))
                         ) {
 
                         let subscriptionEndpoint = `${this.link.services.available[client?.service] ?? client.name.toLowerCase()}/subscribe`
@@ -318,8 +319,8 @@ export class Endpoint {
                             // Always Have the Router Listen
                             if (this.router){
                                 client.addResponse('router', (o) => {
-                                    const data = (typeof o === 'string') ? JSON.parse(o) : o 
 
+                                    const data = (typeof o === 'string') ? JSON.parse(o) : o 
                                     // Activate Subscriptions
                                     Object.values(this.responses).forEach(f => {
                                         f(data)

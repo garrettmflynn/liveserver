@@ -130,7 +130,7 @@ mongoose
     }
 
     if (services.structs){
-      const structs = new StructService(controller, {db, mode: 'mongodb'})
+      const structs = new StructService(controller, {db, mode: 'local'})
       controller.load(structs)
     }
 

@@ -21,8 +21,7 @@ export default function MultipleExample({server, endpoints, router}) {
           output.current.innerHTML = err.error
         })
       }
-
-      ping2.current.onclick = () => {
+      ping2.current.onclick = () => {        
         router.get({
           route: 'services',
           endpoint: endpoints[1]

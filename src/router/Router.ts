@@ -61,7 +61,7 @@ export class Router {
         let keys = (args.length > 0) ? [args[0]] : Object.keys(reference)
         keys.forEach(k => {
           const o = reference[k]
-          if (o.serviceType === 'default') dict[k] = o.name;
+          if (o?.serviceType === 'default') dict[k] = o.name;
         })
 
         // Drill on Response
@@ -324,7 +324,7 @@ export class Router {
       })
     }
 
-    if (service.serviceType === 'subscription') this.SUBSCRIPTIONS.push((service  as SubscriptionService).updateSubscribers)
+    if (service?.serviceType === 'subscription') this.SUBSCRIPTIONS.push((service  as SubscriptionService).updateSubscribers)
   }
 
   _loadService = async (service: Service, name=service?.name) => {
@@ -542,6 +542,8 @@ export class Router {
 
           return await this.runCallback(route, (args as any), origin, method).then((dict:MessageObject|any) => {
             
+            if(this.DEBUG) console.log(`Result:`, dict);
+
             // Convert Output to Message Object
             if (dict === undefined) return
             else {

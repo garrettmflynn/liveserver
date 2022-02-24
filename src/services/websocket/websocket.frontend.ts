@@ -74,13 +74,15 @@ class WebsocketService extends SubscriptionService {
                 console.log('invalid protocol');
                 return undefined;
             }
+
+            socket.onmessage = this.onmessage
+            this.sockets.set(remote, socket)
+            return remote
         }
         catch(err) {
             console.error('Error with socket creation!',err);
             return undefined;
         }
-
-        return remote
 
     }
 
@@ -155,6 +157,7 @@ class WebsocketService extends SubscriptionService {
 
             let socket;
             const remote = new URL(options.id)
+
             socket = this.getSocket(remote)
             // message = JSON.stringifyWithCircularRefs(message)
 
@@ -173,34 +176,33 @@ class WebsocketService extends SubscriptionService {
 
     onmessage = (res) => {
 
-        // console.error('onmessage',res)
+        let data;
+        try {data = JSON.parse(res.data)} catch {data = res}
 
         //this.streamUtils.processSocketMessage(res);
     
         let runResponses = () => {
             this.responses.forEach((foo,i) => {
-                foo(res)
+                foo(data)
             });
         }
 
 
-        const callbackId = res.callbackId
+        const callbackId = data.callbackId
         if (callbackId) {
-            delete res.callbackId
+            delete data.callbackId
             const item = this.queue[callbackId]
-            if (item?.resolve) item.resolve(res) // Run callback
+            if (item?.resolve) item.resolve(data) // Run callback
             if (!item?.suppress) runResponses()
-            // runResponses() 
             delete this.queue[callbackId];
         } else {
             runResponses()
-            this.defaultCallback(res);
+            this.defaultCallback(data);
         }
 
         // State.data.serverResult = res;
 
         // UI.platform.receivedServerUpdate(res);
-
     }
 
     addCallback(name='',callback=(args)=>{}) {
