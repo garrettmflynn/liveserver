@@ -1,31 +1,29 @@
 import { DataTablet, DS } from 'brainsatplay-data'
-import { UserObject, RouterOptions, ArbitraryObject } from '../../../common/general.types';
-import { Router } from '../../../router/Router'
-import { randomId } from '../../../common/id.utils';
-import HIPAAService from './hipaa.service';
-import { dbOptions } from '../types/database.types';
+import { UserObject, RouterOptions, ArbitraryObject } from '../../common/general.types';
+import { Router } from '../../router/Router'
+import { randomId } from '../../common/id.utils';
+import StructService from './structs.service';
+
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 //
 // Description
-// A client-side Router class with macros for HIPAA compliance
+// A client-side Router class with macros
 //
 
-export class HIPAAClient extends Router {
-f
+class StructRouter extends Router {
+
     currentUser: Partial<UserObject> // Different from this.user (base user)
-		        
     tablet = new DataTablet(); //DataTablet 
     collections = this.tablet.collections;
-    
     id: string = randomId()
 
-    constructor (userInfo:Partial<UserObject>={}, options?:RouterOptions, dbOptions:dbOptions={}) {
+    constructor (userInfo:Partial<UserObject>={}, options?:RouterOptions) {
         super(options)
 
         if (userInfo instanceof Object && Object.keys(userInfo).length > 0) this.setupUser(userInfo) // Declares currentUser
        
-        // Auto-Connect Database Client Service
-        this.load(new HIPAAService(this, dbOptions)) // TODO: Why load?
+        // Auto-Connect Struct Client Service
+        this.load(new StructService(this))
     }
 
     //TODO: make this able to be awaited to return the currentUser
@@ -263,11 +261,11 @@ f
     async addStruct (
         structType:string='struct', 
         props:any={}, //add any props you want to set, adding users[] with ids will tell who to notify if this struct is updated
-        parentUser:any={}, 
-        parentStruct:any={}, 
+        parentUser:string=undefined, 
+        parentStruct:ArbitraryObject=undefined,
         updateServer:boolean = true
     ) {
-        let newStruct = DS.Struct(structType, props, parentUser, parentStruct);
+        let newStruct = DS.Struct(structType, props, {_id: parentUser}, parentStruct);
 
         if(updateServer) newStruct = await this.updateServerData([newStruct])[0];
 
@@ -293,48 +291,42 @@ f
 
     //info can be email, id, username, or name. Returns their profile and authorizations
     async getUser (info:string|number='',callback=this.baseServerCallback) {
-        let res = (await this.send({
-            service: 'database',
-            route: 'users'
-        }, info))?.[0]
+        let res = (await this.send('structs/getUser', info))?.[0]
         callback(res)
         return res
     }
 
     //get user basic info by id
     async getUsers (ids:string|number[]=[],callback=this.baseServerCallback) {
-        let res = (await this.send({
-            route:  'users',
-            service: 'database'
-        }, ...ids))?.[0] // Pass Array
+        let res = (await this.send('structs/getUsers', ...ids))?.[0] // Pass Array
         callback(res)
         return res
     }
     
     //info can be email, id, username, or name. Returns their profile and authorizations
     async getUsersByRoles (userRoles:string[]=[],callback=this.baseServerCallback) {
-        let res = (await this.send('database/getUsersByRoles', userRoles))?.[0]
+        let res = (await this.send('structs/getUsersByRoles', userRoles))?.[0]
         callback(res)
         return res
     }
 
     //pull all of the collections (except excluded collection names e.g. 'groups') for a user from the server
     async getAllUserData(ownerId:string|number, excluded=[], callback=this.baseServerCallback) {
-        let res = (await this.send('database/getAllData', ownerId, excluded))?.[0]
+        let res = (await this.send('structs/getAllData', ownerId, excluded))?.[0]
         callback(res)
         return res
     }
 
     //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
     async getData(collection:string,ownerId?:string|number|undefined,searchDict?,limit:number=0,skip:number=0,callback=this.baseServerCallback) {
-        let res = (await this.send('database/getData', collection,ownerId,searchDict,limit,skip))?.[0]
+        let res = (await this.send('structs/getData', collection,ownerId,searchDict,limit,skip))?.[0]
         callback(res);
         return res;
     }
 
     //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
     async getDataByIds(structIds=[],ownerId?:string|number|undefined,collection?:string|undefined,callback=this.baseServerCallback) {
-        let res = (await this.send('database/getDataByIdss', structIds, ownerId, collection))?.[0]
+        let res = (await this.send('structs/getDataByIdss', structIds, ownerId, collection))?.[0]
         callback(res);
         return res
     }
@@ -344,7 +336,7 @@ f
         if(!struct.parent) return;
         let args = [struct.parent?.structType,'_id',struct.parent?._id];
 
-        let res = (await this.send('database/getData', ...args))?.[0]
+        let res = (await this.send('structs/getData', ...args))?.[0]
         callback(res);
         return res;
     }
@@ -366,7 +358,7 @@ f
     
     //sets the user profile data on the server
     async setUser (userStruct={},callback=this.baseServerCallback) {
-        let res = (await this.send('database/users', this.stripStruct(userStruct)))?.[0]
+        let res = (await this.send('structs/setUser', this.stripStruct(userStruct)))?.[0]
         callback(res)
         return res
     }
@@ -415,7 +407,7 @@ f
             copies.push(this.stripStruct(struct));
         })
 
-        let res = (await this.send('database/setData', ...copies))?.[0]
+        let res = (await this.send('structs/setData', ...copies))?.[0]
         callback(res)
         return res
 
@@ -437,7 +429,7 @@ f
         });
 
         console.log('deleting',toDelete);
-        let res = (await this.send('database/deleteData', ...toDelete))?.[0]
+        let res = (await this.send('structs/deleteData', ...toDelete))?.[0]
         callback(res)
         return res
 
@@ -447,30 +439,21 @@ f
     async deleteUser (userId, callback=this.baseServerCallback) {
         if(!userId) return;
 
-        let res = (await this.delete({
-            route:  'users',
-            service: 'database'
-        }, userId))?.[0]
+        let res = (await this.send('structs/deleteUser', userId))?.[0]
         callback(res)
         return res
     }
 
     //set a group struct on the server
     async setGroup (groupStruct={},callback=this.baseServerCallback) {
-        let res = (await this.send({
-            route:  'groups',
-            service: 'database'
-        }, this.stripStruct(groupStruct)))?.[0]
+        let res = (await this.send('structs/setGroup', this.stripStruct(groupStruct)))?.[0]
         callback(res)
         return res
     }
 
     //get group structs or single one by Id
     async getGroups (userId=this.currentUser._id, groupId='',callback=this.baseServerCallback) {
-        let res = (await this.get({
-            route:  'groups',
-            service: 'database'
-        }, userId,groupId))?.[0]
+        let res = (await this.send('structs/getGroups', userId,groupId))?.[0]
         callback(res)
         return res
     }
@@ -480,10 +463,7 @@ f
         if(!groupId) return;
         this.deleteLocalData(groupId);
 
-        let res = (await this.delete({
-            route:  'groups',
-            service: 'database'
-        }, groupId))?.[0]
+        let res = (await this.send('structs/deleteGroup', groupId))?.[0]
         callback(res)
         return res
     }
@@ -491,10 +471,7 @@ f
     //set an authorization struct on the server
     async setAuthorization (authorizationStruct={},callback=this.baseServerCallback) {
 
-        let res = (await this.send({
-            route:  'authorizations',
-            service: 'database'
-        }, this.stripStruct(authorizationStruct)))?.[0]
+        let res = (await this.send('structs/setAuth', this.stripStruct(authorizationStruct)))?.[0]
         callback(res)
         return res
     }
@@ -502,10 +479,7 @@ f
     //get an authorization struct by Id
     async getAuthorizations (userId=this.currentUser?._id, authorizationId='',callback=this.baseServerCallback) {
         if(userId === undefined) return;
-        let res = (await this.get({
-            route:  'authorizations/'+ userId,
-            service: 'database'
-        }, authorizationId))?.[0]
+        let res = (await this.send('structs/getAuths', userId, authorizationId))?.[0]
         callback(res)
         return res
     }
@@ -515,10 +489,7 @@ f
         if(!authorizationId) return;
         this.deleteLocalData(authorizationId);
         
-        let res = (await this.delete({
-            route:  'authorizations',
-            service: 'database'
-        }, authorizationId))?.[0]
+        let res = (await this.send('structs/deleteAuth', authorizationId))?.[0]
         callback(res)
         return res
     }
@@ -609,7 +580,7 @@ f
                                 });
 
                                 if(!found) this.authorizeUser(
-                                    user,
+                                    DS.ProfileStruct('user', user, user),
                                     groupie.id,
                                     theirname,
                                     user.id,
@@ -626,7 +597,7 @@ f
                                 });
 
                                 if(!found) this.authorizeUser(
-                                    user,
+                                    DS.ProfileStruct('user', user, user),
                                     user.id,
                                     myname,
                                     groupie.id,
@@ -843,7 +814,7 @@ f
         _id?: string
         id?: string
     }={}, currentUser=false) {
-        let user = DS.ProfileStruct(undefined,props,undefined,props);
+        let user = DS.ProfileStruct('user', props, props);
 
         if(props._id) user.id = props._id; //references the token id
         else if(props.id) user.id = props.id;
@@ -856,7 +827,7 @@ f
             } //delete non-dependent data (e.g. tokens we only want to keep in a secure collection)
         }
         if(currentUser) this.currentUser = user;
-        return user as ArbitraryObject
+        return user;
     }
 
     //TODO: Update the rest of these to use the DB structs but this should all work the same for now
@@ -1084,3 +1055,6 @@ f
             return newComment;
     }
 }
+
+
+export default StructRouter

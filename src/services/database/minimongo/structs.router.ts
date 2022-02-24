@@ -1,28 +1,31 @@
 import { DataTablet, DS } from 'brainsatplay-data'
-import { UserObject, RouterOptions, ArbitraryObject } from '../../common/general.types';
-import { Router } from '../../router/Router'
-import { randomId } from '../../common/id.utils';
-import HIPAAService from './hipaa.service';
+import { UserObject, RouterOptions, ArbitraryObject } from '../../../common/general.types';
+import { Router } from '../../../router/Router'
+import { randomId } from '../../../common/id.utils';
+import StructService from './structs.service';
+import { dbOptions } from '../types/database.types';
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 //
 // Description
-// A client-side Router class with macros
+// A client-side Router class with macros for struct management
 //
 
-export class HIPAARouter extends Router {
+export default class StructRouter extends Router {
 
     currentUser: Partial<UserObject> // Different from this.user (base user)
+		        
     tablet = new DataTablet(); //DataTablet 
     collections = this.tablet.collections;
+    
     id: string = randomId()
 
-    constructor (userInfo:Partial<UserObject>={}, options?:RouterOptions) {
+    constructor (userInfo:Partial<UserObject>={}, options?:RouterOptions, dbOptions:dbOptions={}) {
         super(options)
 
         if (userInfo instanceof Object && Object.keys(userInfo).length > 0) this.setupUser(userInfo) // Declares currentUser
        
         // Auto-Connect Database Client Service
-        this.load(new HIPAAService(this))
+        this.load(new StructService(this, dbOptions)) // TODO: Why load?
     }
 
     //TODO: make this able to be awaited to return the currentUser
@@ -260,11 +263,11 @@ export class HIPAARouter extends Router {
     async addStruct (
         structType:string='struct', 
         props:any={}, //add any props you want to set, adding users[] with ids will tell who to notify if this struct is updated
-        parentUser:string=undefined, 
-        parentStruct:ArbitraryObject=undefined,
+        parentUser:any={}, 
+        parentStruct:any={}, 
         updateServer:boolean = true
     ) {
-        let newStruct = DS.Struct(structType, props, {_id: parentUser}, parentStruct);
+        let newStruct = DS.Struct(structType, props, parentUser, parentStruct);
 
         if(updateServer) newStruct = await this.updateServerData([newStruct])[0];
 
@@ -290,14 +293,20 @@ export class HIPAARouter extends Router {
 
     //info can be email, id, username, or name. Returns their profile and authorizations
     async getUser (info:string|number='',callback=this.baseServerCallback) {
-        let res = (await this.send('database/users', info))?.[0]
+        let res = (await this.send({
+            service: 'database',
+            route: 'getUser'
+        }, info))?.[0]
         callback(res)
         return res
     }
 
     //get user basic info by id
     async getUsers (ids:string|number[]=[],callback=this.baseServerCallback) {
-        let res = (await this.send('database/users', ...ids))?.[0] // Pass Array
+        let res = (await this.send({
+            route:  'getUsers',
+            service: 'structs'
+        }, ...ids))?.[0] // Pass Array
         callback(res)
         return res
     }
@@ -311,21 +320,21 @@ export class HIPAARouter extends Router {
 
     //pull all of the collections (except excluded collection names e.g. 'groups') for a user from the server
     async getAllUserData(ownerId:string|number, excluded=[], callback=this.baseServerCallback) {
-        let res = (await this.send('database/getAllData', ownerId, excluded))?.[0]
+        let res = (await this.send('structs/getAllData', ownerId, excluded))?.[0]
         callback(res)
         return res
     }
 
     //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
     async getData(collection:string,ownerId?:string|number|undefined,searchDict?,limit:number=0,skip:number=0,callback=this.baseServerCallback) {
-        let res = (await this.send('database/getData', collection,ownerId,searchDict,limit,skip))?.[0]
+        let res = (await this.send('structs/getData', collection,ownerId,searchDict,limit,skip))?.[0]
         callback(res);
         return res;
     }
 
     //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
     async getDataByIds(structIds=[],ownerId?:string|number|undefined,collection?:string|undefined,callback=this.baseServerCallback) {
-        let res = (await this.send('database/getDataByIdss', structIds, ownerId, collection))?.[0]
+        let res = (await this.send('structs/getDataByIdss', structIds, ownerId, collection))?.[0]
         callback(res);
         return res
     }
@@ -335,7 +344,7 @@ export class HIPAARouter extends Router {
         if(!struct.parent) return;
         let args = [struct.parent?.structType,'_id',struct.parent?._id];
 
-        let res = (await this.send('database/getData', ...args))?.[0]
+        let res = (await this.send('structs/getData', ...args))?.[0]
         callback(res);
         return res;
     }
@@ -357,7 +366,7 @@ export class HIPAARouter extends Router {
     
     //sets the user profile data on the server
     async setUser (userStruct={},callback=this.baseServerCallback) {
-        let res = (await this.send('database/users', this.stripStruct(userStruct)))?.[0]
+        let res = (await this.send('structs/users', this.stripStruct(userStruct)))?.[0]
         callback(res)
         return res
     }
@@ -406,7 +415,7 @@ export class HIPAARouter extends Router {
             copies.push(this.stripStruct(struct));
         })
 
-        let res = (await this.send('database/setData', ...copies))?.[0]
+        let res = (await this.send('structs/setData', ...copies))?.[0]
         callback(res)
         return res
 
@@ -428,7 +437,7 @@ export class HIPAARouter extends Router {
         });
 
         console.log('deleting',toDelete);
-        let res = (await this.send('database/deleteData', ...toDelete))?.[0]
+        let res = (await this.send('structs/deleteData', ...toDelete))?.[0]
         callback(res)
         return res
 
@@ -438,21 +447,30 @@ export class HIPAARouter extends Router {
     async deleteUser (userId, callback=this.baseServerCallback) {
         if(!userId) return;
 
-        let res = (await this.delete('database/users', userId))?.[0]
+        let res = (await this.send({
+            route:  'deleteUser',
+            service: 'structs'
+        }, userId))?.[0]
         callback(res)
         return res
     }
 
     //set a group struct on the server
     async setGroup (groupStruct={},callback=this.baseServerCallback) {
-        let res = (await this.send('database/setGroup', this.stripStruct(groupStruct)))?.[0]
+        let res = (await this.send({
+            route:  'setGroup',
+            service: 'structs'
+        }, this.stripStruct(groupStruct)))?.[0]
         callback(res)
         return res
     }
 
     //get group structs or single one by Id
     async getGroups (userId=this.currentUser._id, groupId='',callback=this.baseServerCallback) {
-        let res = (await this.send('database/getGroups', userId,groupId))?.[0]
+        let res = (await this.send({
+            route:  'setGroups',
+            service: 'structs'
+        }, userId,groupId))?.[0]
         callback(res)
         return res
     }
@@ -462,7 +480,10 @@ export class HIPAARouter extends Router {
         if(!groupId) return;
         this.deleteLocalData(groupId);
 
-        let res = (await this.send('database/deleteGroup', groupId))?.[0]
+        let res = (await this.send({
+            route:  'deleteGroup',
+            service: 'structs'
+        }, groupId))?.[0]
         callback(res)
         return res
     }
@@ -470,7 +491,10 @@ export class HIPAARouter extends Router {
     //set an authorization struct on the server
     async setAuthorization (authorizationStruct={},callback=this.baseServerCallback) {
 
-        let res = (await this.send('database/setAuth', this.stripStruct(authorizationStruct)))?.[0]
+        let res = (await this.send({
+            route:  'setAuthorization',
+            service: 'structs'
+        }, this.stripStruct(authorizationStruct)))?.[0]
         callback(res)
         return res
     }
@@ -478,7 +502,10 @@ export class HIPAARouter extends Router {
     //get an authorization struct by Id
     async getAuthorizations (userId=this.currentUser?._id, authorizationId='',callback=this.baseServerCallback) {
         if(userId === undefined) return;
-        let res = (await this.send('database/getAuths', userId, authorizationId))?.[0]
+        let res = (await this.send({
+            route:  'getAuthorization/'+ userId,
+            service: 'structs'
+        }, authorizationId))?.[0]
         callback(res)
         return res
     }
@@ -488,7 +515,10 @@ export class HIPAARouter extends Router {
         if(!authorizationId) return;
         this.deleteLocalData(authorizationId);
         
-        let res = (await this.send('database/deleteAuth', authorizationId))?.[0]
+        let res = (await this.send({
+            route:  'deleteAuthorization',
+            service: 'structs'
+        }, authorizationId))?.[0]
         callback(res)
         return res
     }
@@ -579,7 +609,7 @@ export class HIPAARouter extends Router {
                                 });
 
                                 if(!found) this.authorizeUser(
-                                    DS.ProfileStruct('user', user, user),
+                                    user,
                                     groupie.id,
                                     theirname,
                                     user.id,
@@ -596,7 +626,7 @@ export class HIPAARouter extends Router {
                                 });
 
                                 if(!found) this.authorizeUser(
-                                    DS.ProfileStruct('user', user, user),
+                                    user,
                                     user.id,
                                     myname,
                                     groupie.id,
@@ -813,7 +843,7 @@ export class HIPAARouter extends Router {
         _id?: string
         id?: string
     }={}, currentUser=false) {
-        let user = DS.ProfileStruct('user', props, props);
+        let user = DS.ProfileStruct(undefined,props,undefined,props);
 
         if(props._id) user.id = props._id; //references the token id
         else if(props.id) user.id = props.id;
@@ -826,7 +856,7 @@ export class HIPAARouter extends Router {
             } //delete non-dependent data (e.g. tokens we only want to keep in a secure collection)
         }
         if(currentUser) this.currentUser = user;
-        return user;
+        return user as ArbitraryObject
     }
 
     //TODO: Update the rest of these to use the DB structs but this should all work the same for now

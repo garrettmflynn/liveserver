@@ -1,3 +1,8 @@
 export * from './database.service'
-export * from './hipaa.router'
-export * from './hipaa.service'
+import StructRouter from './structs.router'
+import StructService from './structs.service'
+
+export {
+    StructRouter,
+    StructService
+}

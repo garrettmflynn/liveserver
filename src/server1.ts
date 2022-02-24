@@ -9,7 +9,7 @@ main(settings.port, {
   
   ssr:true,
   database: true,
-  hipaa: true,
+  structs: true,
   sessions: true,
   unsafe: true,
 })

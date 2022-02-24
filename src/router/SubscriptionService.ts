@@ -10,6 +10,7 @@ export class SubscriptionService extends Service {
     service?: string;
     connection?: any; // Networking object connection
     responses?: Map<string, Function> = new Map()
+    serviceType: 'subscription' = 'subscription'
 
     // Message Handler
     subscribers: Map<string, any> = new Map()

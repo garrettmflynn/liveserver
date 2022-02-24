@@ -5,4 +5,5 @@
         "outDir": "./dist",
     },
     "include": ["./"],
+    "exclude": ["./rollup.config.js", "./dist", "./minimongo"],
 }

@@ -9,7 +9,7 @@ import typescript from 'rollup-plugin-typescript2';
 import pkg from './package.json';
 import {terser} from "rollup-plugin-terser";
 import css from "rollup-plugin-import-css";
-import node_resolve from "@rollup/plugin-node-resolve";
+import { nodeResolve } from "@rollup/plugin-node-resolve";
 import { babel } from '@rollup/plugin-babel';
 import commonjs from '@rollup/plugin-commonjs';
 
@@ -35,9 +35,13 @@ const es6 = {
 
 
 const common = {
+  external: [
+    "stream"
+  // ...Object.keys(pkg.dependencies || {})
+ ],
  plugins: [
     commonjs(),
-    node_resolve(),
+    nodeResolve(),
     babel({
         babelHelpers: 'bundled',
         plugins: ["@babel/plugin-proposal-class-properties"]

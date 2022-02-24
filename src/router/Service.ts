@@ -11,6 +11,7 @@ export class Service {
     endpoint?: Endpoint
     route?: string; // Expected server name (added in router)
     status: boolean = false // Is connected with server (set externally by router)
+    serviceType: 'default' | 'subscription' = 'default'
 
     router: RouterInterface
 
@@ -47,7 +48,7 @@ export class Service {
     }
 
 
-    // Notify subscribers (e.g. Router / HIPAAClient ) of a New Message
+    // Notify subscribers (e.g. Router / StructsRouter ) of a New Message
     notify = async (
         o: MessageObject, // defines the route to activate
         type?: MessageType, // specifies whether the notification is internal (true) OR from a client (false / default). Internal notifications will be only forwarded to route subscribers.

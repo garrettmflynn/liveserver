@@ -31,8 +31,10 @@ export type RouterOptions = {
     interval?:number
   }
 
+  export type EndpointType = 'http' | 'websocket' | 'webrtc'
+
 export type EndpointConfig = string | URL | {
-    type?: 'server' | 'webrtc'
+    type?: EndpointType
     target?: string|URL,
     link?: Endpoint
     credentials: Partial<UserObject>

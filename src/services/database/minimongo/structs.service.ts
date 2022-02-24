@@ -25,9 +25,9 @@ const defaultCollections = [
 ];
 
 
-class HIPAAService extends Service {
+class StructService extends Service {
 
-    name = 'hipaa'
+    name = 'structs'
     controller: Router;
     db: any;
 
@@ -1009,4 +1009,4 @@ class HIPAAService extends Service {
 
 }
 
-export default HIPAAService
+export default StructService

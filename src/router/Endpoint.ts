@@ -1,4 +1,4 @@
-import { EndpointConfig, RouteSpec, RouteConfig, MessageType, MessageObject, UserObject } from '../common/general.types';
+import { EndpointConfig, EndpointType, RouteSpec, RouteConfig, MessageType, MessageObject, UserObject } from '../common/general.types';
 import { SubscriptionService } from './SubscriptionService';
 import { safeStringify } from '../common/parse.utils';
 import { createRoute } from '../common/general.utils';
@@ -6,13 +6,14 @@ import Router from './Router';
 // import { Service } from './Service';
 import { randomId , pseudoObjectId} from '../common/id.utils';
 
+
 // Load Node Polyfills
 try {
     if(typeof process === 'object') { //indicates node
         // NODE = true
-        const polyFetch = require('node-fetch-polyfill')
-        if (typeof fetch !== 'function') {
-          globalThis.fetch = polyFetch
+        const fetch = require('node-fetch')
+        if (typeof globalThis.fetch !== 'function') {
+          globalThis.fetch = fetch
         }
     }
 } catch (err) {}
@@ -21,7 +22,7 @@ export class Endpoint {
 
     id: string = null
     target: URL = null
-    type: string = null
+    type: EndpointType = null
     link: Endpoint = null
 
     credentials: Partial<UserObject> = {}
@@ -75,10 +76,10 @@ export class Endpoint {
 
         } else target = config
 
-        if (!type) type = 'server'
+        if (!type) type = 'http'
         if (!this.link) this.link = this
 
-        if (type === 'server') {
+        if (type === 'http' || type === 'websocket') {
             target = (target instanceof URL) ? target : new URL(target) // Convert to URL
             this.id = target.origin
         } else {
@@ -114,26 +115,42 @@ export class Endpoint {
                 this.status = true
             }).catch(e => console.log(`Link doesn't have WebRTC enabled.`, e))
         }
+
+        const connectWS = async () => {
+            await this._subscribe({protocol: 'websocket', force: true}).then(res => {
+                this.status = true
+                return res
+            })
+            return await this.send('services')
+        }
+
+        const connectHTTP = async () => await this.send('services')
         
 
-        let res = await this.send('services').then(res => {
-            this.status = true
-            return res
-        }).catch(async (e) => {
-
-            // Fallback to WS (server types only)
-            if (this.type === 'server'){
+        let res;
+        if (this.type === 'websocket'){       
+            let res = await connectWS().then(res => {
+                this.status = true
+                return res
+            }).catch(async (e) => {
+                if (this.type === 'websocket'){
+                    console.log('Falling back to http')
+                    return await connectHTTP()
+                }
+            })
+        } else {
+            res = await connectHTTP().then(res => {
+                this.status = true
+                return res
+            }).catch(async (e) => {
                 console.log('Falling back to websockets')
-                await this._subscribe({protocol: 'websocket', force: true}).then(res => {
-                        this.status = true
-                        return res
-                    })
-                return await this.send('services')
-            }
-
-          })
+                return await connectWS()
+            })
+        }
 
           if (res) {
+
+            console.log('Connection successful!')
     
             const routes = res.message[0]
               let serviceNames = []
@@ -147,7 +164,7 @@ export class Endpoint {
                   // Resolve Router Loading Promises
                   if (this.router?.SERVICES?.[name]?.status instanceof Function) this.router.SERVICES[name].status(route)
     
-                  if (this.clients[name] instanceof SubscriptionService){
+                  if (this.clients[name].serviceType === 'subscription'){
                       this.services.queue[name]?.forEach(f => f())
                       this.services.queue[name] = []
                   }
@@ -156,7 +173,7 @@ export class Endpoint {
               // General Subscription Check
               this.services.queue['undefined']?.forEach(f => f())
               this.services.queue['undefined'] = []
-          }
+          } else console.log('Connection failed!')
 
           return res?.message
     }
@@ -285,7 +302,7 @@ export class Endpoint {
   
                       if (
                           (client && opts.force) || // Required for Websocket Fallback
-                          (client?.status === true && (client instanceof SubscriptionService))
+                          (client?.status === true && (client.serviceType === 'subscription'))
                         ) {
 
                         let subscriptionEndpoint = `${this.link.services.available[client?.service] ?? client.name.toLowerCase()}/subscribe`
@@ -294,7 +311,7 @@ export class Endpoint {
                     
                         // Note: Only One Subscription per Endpoint
                         if (!this.connection){
-                            const target = (this.type === 'server') ? new URL(subscriptionEndpoint, this.target) : this.target
+                            const target = (this.type === 'http' || this.type === 'websocket') ? new URL(subscriptionEndpoint, this.target) : this.target
                             
                             const id = await client.add(this.credentials, target.href) // Pass full target string
 

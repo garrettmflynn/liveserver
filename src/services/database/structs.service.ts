@@ -19,7 +19,6 @@ type CollectionsType = {
     [x:string]: CollectionType
 }
 
-
 type CollectionType = any | {
     instance?: any; // MongoDB Collection Instance
     reference: ArbitraryObject
@@ -45,9 +44,9 @@ const defaultCollections = [
     'date'
 ];
 
-export class HIPAAService extends Service {
+export class StructService extends Service {
     
-    name = 'hipaa'
+    name = 'structs'
     controller: Router;
     db: any;
     collections: CollectionsType = {}
@@ -1352,4 +1351,4 @@ export class HIPAAService extends Service {
 
 }
 
-export default HIPAAService
+export default StructService

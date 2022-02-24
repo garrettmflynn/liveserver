@@ -25,7 +25,7 @@ config({ path: resolve(__dirname, `../.env`) });
 config({ path: resolve(__dirname, `../.key`) });
 
 import {settings} from 'src/server_settings.js'
-import HIPAAService from './services/database/hipaa.service'
+import StructService from './services/database/structs.service'
 
 const main = (port=settings.port, services:{[x:string] : boolean}={}) => {
 
@@ -129,9 +129,9 @@ mongoose
       controller.load(database)
     }
 
-    if (services.hipaa){
-      const hipaa = new HIPAAService(controller, {db, mode: 'mongodb'})
-      controller.load(hipaa)
+    if (services.structs){
+      const structs = new StructService(controller, {db, mode: 'mongodb'})
+      controller.load(structs)
     }
 
     if (services.unsafe){
