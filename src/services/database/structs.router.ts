@@ -184,7 +184,7 @@ class StructRouter extends Router {
             structs.forEach((struct)=>{
                 if((!struct.structType) || struct.structType === 'USER') {
                     // console.log(struct)
-                    if(struct.email) struct.structType = 'profile';
+                    if(struct.email) struct.structType = 'user';
                     else struct.structType = 'uncategorized';
                 }
                 if(struct.structType === 'user' || struct.structType === 'authorization' || struct.structType === 'group') {

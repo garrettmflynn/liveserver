@@ -762,6 +762,9 @@ export class Router {
           let routeInfo = this.ROUTES[possibleRoute]
 
           if (routeInfo) {
+
+            if(this.DEBUG) console.log('routeInfo', routeInfo);
+
             try {
               let res;
 

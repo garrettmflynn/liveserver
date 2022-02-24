@@ -79,6 +79,111 @@ export class StructService extends Service {
 
         // Overwrite Other Routes
         this.routes = [
+            {
+                route:'getUser',
+                post:async (self,args,origin) => {
+                    const u = self.USERS[origin]
+                    if (!u) return false
+    
+                    let data;
+                    if(this.mode === 'mongo') {
+                        data = await this.getMongoUser(u,args[0]);
+                    } else {
+                        let struct = this.getLocalData('user',{_id:args[0]});
+                        if(!struct) data = {user:{}};
+                        else {
+                            let passed = await this.checkAuthorization(u,struct);
+                            if(passed) {
+                                let groups = this.getLocalData('group',{ownerId:args[0]});
+                                let auths = this.getLocalData('authorization',{ownerId:args[0]});
+                                data = {user:struct,groups:groups,authorizations:auths};
+                            } else data = {user:{}};
+                        }
+                    }
+                    return data;
+                }
+            },
+            {
+                route:'setUser',
+                aliases: ['addUser'],
+                post:async (self,args,origin) => {
+                    const u = self.USERS[origin]
+                    if (!u) return false
+                    let data;
+                    if(this.mode === 'mongo') {
+                        data = await this.setMongoUser(u,args[0]);
+                    } else {
+                        let passed = await this.checkAuthorization(u,args[0], this.mode);
+                        if(passed) this.setLocalData(args[0]);
+                        return true;
+                    }
+                    return data;
+                }
+            },
+            {
+                route:'getUsersByIds',
+                post:async (self,args,origin) => { 
+                    const u = self.USERS[origin]
+                    if (!u) return false
+    
+                    let data;
+                    if(this.mode === 'mongo') {
+                        data = await this.getMongoUsersByIds(u,args[0]);
+                    } else {
+                        data = [];
+                        if(Array.isArray(args[0])) {
+                            let struct = this.getLocalData('user',{_id:args[0]});
+                            if(struct) data.push(struct);
+                        }
+                    }
+                    return data;
+                }
+            },
+            {
+                route:'getUsersByRoles',
+                post:async (self,args,origin) => {
+                    const u = self.USERS[origin]
+                    if (!u) return false
+    
+                    let data;
+                    if(this.mode.includes('mongo')) {
+                        data = await this.getMongoUsersByRoles(u,args[0]);
+                    } else {
+                        let profiles = this.getLocalData('user');
+                        data = [];
+                        profiles.forEach((struct) => {
+                            if(struct.userRoles?.includes(args[0])) {
+                                data.push(struct);
+                            }
+                        });
+                    }
+                    return data;
+                }
+            },
+
+            {
+                route:'deleteUser',
+                aliases: ['removeUser'],
+                post:async (self,args,origin) => {
+                    const u = self.USERS[origin]
+                    if (!u) return false
+    
+                    let data;
+                    if(this.mode === 'mongo') {
+                        data = await this.deleteMongoUser(u,args[0]);
+                    } else {
+                        data = false;
+                        let struct = this.getLocalData(args[0]);
+                        if(struct) {
+                            let passed = this.checkAuthorization(u,struct, this.mode);
+                            if(passed) data = this.deleteLocalData(struct);
+                        }
+                    }
+                    return data;
+                }
+            },
+
+
             {   
                 route:'setData', 
             aliases:['setMongoData'],
@@ -200,27 +305,6 @@ export class StructService extends Service {
                         if(passed) this.deleteLocalData(struct);
                         data = true;
                     }));
-                }
-                return data;
-            }
-        },
-        {
-            route:'getUsersByRoles',
-            post:async (self,args,origin) => {
-                const u = self.USERS[origin]
-                if (!u) return false
-
-                let data;
-                if(this.mode.includes('mongo')) {
-                    data = await this.getMongoUsersByRoles(u,args[0]);
-                } else {
-                    let profiles = this.getLocalData('users');
-                    data = [];
-                    profiles.forEach((struct) => {
-                        if(struct.userRoles?.includes(args[0])) {
-                            data.push(struct);
-                        }
-                    });
                 }
                 return data;
             }
@@ -634,7 +718,7 @@ export class StructService extends Service {
                 }
             } else {
                 allusers.forEach((search) => {
-                    let result = this.getLocalData('users',search);
+                    let result = this.getLocalData('user',search);
                     if(result.length > 0) {
                         users.push(result[0]);
                         ids.push(result[0].id);
@@ -1061,8 +1145,8 @@ export class StructService extends Service {
             u1 = await this.getMongoUser(user, authStruct.authorizedId, true); //can authorize via email, id, or username
             u2 = await this.getMongoUser(user, authStruct.authorizerId, true);
         } else {
-            u1 = this.getLocalData('users',{'_id':authStruct.authorizedId});
-            u2 = this.getLocalData('users',{'_id':authStruct.authorizedId});
+            u1 = this.getLocalData('user',{'_id':authStruct.authorizedId});
+            u2 = this.getLocalData('user',{'_id':authStruct.authorizedId});
         }
 
         if(!u1 || !u2) return false; //no profile data
