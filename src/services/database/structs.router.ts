@@ -265,7 +265,7 @@ class StructRouter extends Router {
         parentStruct:ArbitraryObject=undefined,
         updateServer:boolean = true
     ) {
-        let newStruct = DS.Struct(structType, props, {_id: parentUser}, parentStruct);
+        let newStruct = DS.Struct(structType, props, parentUser, parentStruct);
 
         if(updateServer) newStruct = await this.updateServerData([newStruct])[0];
 
