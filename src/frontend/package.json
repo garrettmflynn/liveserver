@@ -24,8 +24,8 @@
   "author": "Joshua Brewster, Garrett Flynn",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
-    "anotherstatemanager": "^1.0.20",
-    "brainsatplay-storage": "^0.0.15"
+    "anotherstatemanager": "^1.1.0",
+    "brainsatplay-storage": "^0.0.19"
   },
   "bugs": {
     "url": "https://github.com/brainsatplay/liveserver"
