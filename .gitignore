@@ -13,3 +13,4 @@ docs/docs/reference
 
 # Library Builds
 src/**/dist
+src/services/database/package-lock.json
