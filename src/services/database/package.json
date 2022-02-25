@@ -15,8 +15,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "brainsatplay-data": "^0.0.21",
-    "brainsatplay-storage": "^0.0.9",
+    "brainsatplay-data": "^0.0.23",
+    "brainsatplay-storage": "^0.0.15",
     "bson-objectid": "^2.0.2"
   }
 }

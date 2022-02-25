@@ -45,8 +45,8 @@ class StructRouter extends Router {
         // console.log("getUser", user);
         let u;
         let newu = false;
-        if (!user) return false
-        else if(!user._id) { //no profile, create new one and push initial results
+        
+        if(!user?._id) { //no profile, create new one and push initial results
             // if(!userinfo._id) userinfo._id = userinfo._id;
             u = this.userStruct(userinfo,true);
             newu = true;
