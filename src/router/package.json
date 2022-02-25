@@ -1,6 +1,6 @@
 {
   "name": "liveserver-router",
-  "version": "0.0.21",
+  "version": "0.0.22",
   "main": "./dist/index.js",
   "module": "dist/index.esm.js",
   "types": "./dist/router/index.d.ts",
@@ -14,7 +14,7 @@
   "author": "Joshua Brewster, Garrett Flynn",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
-    "anotherstatemanager": "^1.0.12"
+    "anotherstatemanager": "^1.0.15"
   },
   "bugs": {
     "url": "https://github.com/brainsatplay/liveserver"
