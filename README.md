@@ -12,7 +12,7 @@ This monorepo contains several NPM libraries for live communications.
 - **liveserver-webrtc:** Pass messages to peers over WebRTC.
 
 ## Goals
-- Clarify the possibilities of LiveServer as a remote procedure call (RPC) handler and an [inter-process communication (IPC)](https://en.wikipedia.org/wiki/Inter-process_communication) framework.
+- Clarify the possibilities of **liveserver** as a remote procedure call (RPC) handler and an [inter-process communication (IPC)](https://en.wikipedia.org/wiki/Inter-process_communication) framework.
 - WebTorrent integration for creating P2P file servers
 
 ## Acknowledgments
