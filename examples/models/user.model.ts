@@ -36,7 +36,7 @@ export class UserObj extends BaseObj<typeof UserModelType> {
     // Original Requirements
     email: string = '';
     username: string = '';
-    userRoles: string[] = [];
+    userRoles: {} = {};
     missingKeyVals: (keyof UserObj)[] = [];
     firstName: string = '';
     lastName: string = '';

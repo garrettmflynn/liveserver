@@ -65,4 +65,4 @@ export class Volume extends LitElement {
     `;
     }
 }
-customElements.define('brainsatplay-audio-volume', Volume);
+customElements.define('liveserver-audio-volume', Volume);

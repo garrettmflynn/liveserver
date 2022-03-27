@@ -1,6 +1,6 @@
 import StateManager from 'anotherstatemanager'
 import { SettingsObject, UserObject } from "../../common/general.types";
-import { DONOTSEND } from "../../router/Router";
+import { DONOTSEND } from "../../router";
 import { Service } from "../../router/Service";
 import StreamService from '../stream/stream.service';
 

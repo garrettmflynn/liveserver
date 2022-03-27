@@ -6,7 +6,7 @@
   "browser": "./dist/browser.js",
   "types": "./dist/index.d.ts",
   "type": "module",
-  "repository": "https://github.com/brainsatplay/LiveServer",
+  "repository": "https://github.com/brainsatplay/liveserver",
   "author": "Joshua Brewster, Garrett Flynn",
   "license": "AGPL-3.0-or-later",
   "private": false,

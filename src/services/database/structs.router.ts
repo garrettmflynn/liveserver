@@ -1,8 +1,9 @@
 import { DataTablet, DS } from 'brainsatplay-data'
-import { UserObject, RouterOptions, ArbitraryObject } from '../../common/general.types';
+import { RouterOptions, ArbitraryObject } from '../../common/general.types';
 import { Router } from '../../router/Router'
 import { randomId } from '../../common/id.utils';
 import StructService from './structs.service';
+import { Data, ProfileStruct, AuthorizationStruct, GroupStruct, DataStruct, EventStruct, ChatroomStruct, CommentStruct, Struct } from 'brainsatplay-data/dist/src/types';
 
 //Joshua Brewster, Garrett Flynn   -   GNU Affero GPL V3.0 License
 //
@@ -12,12 +13,12 @@ import StructService from './structs.service';
 
 class StructRouter extends Router {
 
-    currentUser: Partial<UserObject> // Different from this.user (base user)
+    currentUser: Partial<ProfileStruct> // Different from this.user (base user)
     tablet = new DataTablet(); //DataTablet 
     collections = this.tablet.collections;
     id: string = randomId()
 
-    constructor (userInfo:Partial<UserObject>={}, options?:RouterOptions) {
+    constructor (userInfo:Partial<ProfileStruct>={}, options?:RouterOptions) {
         super(options)
 
         if (userInfo instanceof Object && Object.keys(userInfo).length > 0) this.setupUser(userInfo) // Declares currentUser
@@ -28,7 +29,7 @@ class StructRouter extends Router {
 
     //TODO: make this able to be awaited to return the currentUser
     //uses a bunch of the functions below to set up a user and get their data w/ some cross checking for consistent profiles
-    async setupUser(userinfo:Partial<UserObject>, callback=(currentUser)=>{}) {
+    async setupUser(userinfo:Partial<ProfileStruct>, callback=(currentUser)=>{}) {
 
         if(!userinfo) {
             console.error('must provide an info object! e.g. {_id:"abc123"}');
@@ -37,86 +38,62 @@ class StructRouter extends Router {
         }
         let changed = false;
 
-        if(userinfo.id) userinfo._id = userinfo.id;
+        if(userinfo.id && !userinfo._id) userinfo._id = userinfo.id;
+        else if (userinfo._id) userinfo.id = userinfo._id;
 
         // let res = await this.login();
-        console.log("Generating/Getting User: ", userinfo._id)
-        let user = await this.getUser(userinfo._id);
+        //console.log("Generating/Getting User: ", userinfo._id)
+
+        let res = await this.getUser(userinfo._id);
+        let user = res?.user;
+        // console.log('user gotten', user)
         // console.log("getUser", user);
         let u;
         let newu = false;
         
-        if(!user?._id) { //no profile, create new one and push initial results
+        console.log('getUser result',user);
+        if(!user || !user._id) { //no profile, create new one and push initial results
             // if(!userinfo._id) userinfo._id = userinfo._id;
+            console.log('creating new profile');
             u = this.userStruct(userinfo,true);
             newu = true;
             let wasSet = await this.setUser(u);
             let structs = this.getLocalData(undefined,{'ownerId': u._id});
-            if(structs?.length > 0) this.updateServerData(structs, (data)=>{
-                console.log('setData', data);
-            });
+            if(structs?.length > 0) this.updateServerData(structs);//, 
+            //     (data)=>{
+            //     console.log('setData', data);
+            // }
 
             this.setAuthorizationsByGroup(u);
         }
         else {
-            u = user.user;
+            u = user;
             // u._id = user._id; //replace the unique mongo id for the secondary profile struct with the id for the userinfo for temp lookup purposes
-            
-            for(const prop in userinfo) { //checking that the token and user profile overlap correctly
-                let dummystruct = this.userStruct();
-                if(u[prop] && prop !== '_id') {
-                    if(Array.isArray(userinfo[prop])) {
-                        for(let i = 0; i < u[prop].length; i++) { //check user props that are not in the token
-                            //console.log(userinfo[prop][i]);
-                            if(userinfo[prop].indexOf(u[prop][i]) < 0) {
-                                u[prop] = userinfo[prop]; 
-                                changed = true;
-                                break;
-                            }
-                        }
-                        if(!changed) for(let i = 0; i < userinfo[prop].length; i++) { //check tlken props that are not in the user
-                            //console.log(userinfo[prop][i]);
-                            if(u[prop].indexOf(userinfo[prop][i]) < 0) {
-                                u[prop] = userinfo[prop]; 
-                                changed = true;
-                                break;
-                            }
-                        }
-                    }
-                    else if(u[prop] !== userinfo[prop]) { 
-                        u[prop] = userinfo[prop];  
-                        changed = true;
-                    }
-                } else if (u[prop] !== userinfo[prop] && typeof dummystruct[prop] == 'string' && prop !== '_id') {
-                    //console.log(prop, u[prop])
-                    u[prop] = userinfo[prop];  
-                    changed = true;
+
+            if(res?.authorizations){
+                if(Array.isArray(res.authorizations)) {
+                    this.setLocalData(res.authorizations);
                 }
             }
 
-            if(user?.authorizations){
-                if(Array.isArray(user.authorizations)) {
-                    this.setLocalData(user.authorizations);
-                }
-            }
-
-            if (user?.groups){
-                if(Array.isArray(user.groups)) {
-                    this.setLocalData(user.groups);
+            if (res?.groups){
+                if(Array.isArray(res.groups)) {
+                    this.setLocalData(res.groups);
                 }
             }
         }
 
-        if(newu) {this.currentUser = u; this.setLocalData(u);}
+        if(newu) {this.setLocalData(u);}
         else {
             let data = await this.getAllUserData(u._id,undefined);
 
-            console.log("getServerData", data);
+            //console.log("getServerData", data);
             if(!data || data.length === 0) { 
             } else {
                 this.setLocalData(data);
                 
                 //resolve redundant notifications
+                //console.log('DATA',data);
                 let notes = data.filter((s) => {
                     if(s.structType === 'notification') {
                         if(this.getLocalData('authorization',s.parent._id)) {  
@@ -159,21 +136,25 @@ class StructRouter extends Router {
             // u = new UserObj(u)
             // u = getUserCodes(u, true)
             this.setLocalData(u); //user is now set up in whatever case 
-            
-            console.log('currentUser', u)
-            this.currentUser = u;  
             console.log('collections', this.tablet.collections);
         }
-        callback(this.currentUser);
-        return this.currentUser;
+        //console.log('u::',u)
+        if(u)  {
+            this.currentUser = u;  
+            callback(this.currentUser);
+            //console.log('currentUser', u)
+            return this.currentUser;
+        } else {
+            callback(u);
+            return u;
+        }
     }
 
     //default socket response for the platform
     baseServerCallback = (data) => {
-
         let structs = data;
         if(typeof data === 'object' && data?.structType) structs = [data];
-        if(Array.isArray(data)) { //getUserData response
+        if(Array.isArray(structs)) { //getUserData response
             
             let filtered = structs.filter((o) => {
                 if(o.structType !== 'notification') return true;
@@ -182,54 +163,87 @@ class StructRouter extends Router {
             if(this.tablet) this.tablet.sortStructsIntoTable(filtered);
 
             structs.forEach((struct)=>{
-                if((!struct.structType) || struct.structType === 'USER') {
-                    // console.log(struct)
-                    if(struct.email) struct.structType = 'user';
-                    else struct.structType = 'uncategorized';
-                }
-                if(struct.structType === 'user' || struct.structType === 'authorization' || struct.structType === 'group') {
-                    if(struct.structType === 'user') {
-                        struct._id = struct.id; //replacer
-                        // struct = new UserObj(struct); // set user obj
-                        // struct = getUserCodes(struct, true);
+                if(typeof struct === 'object') {
+                    if((!struct.structType) || struct.structType === 'USER') {
+                        // console.log(struct)
+                        if(struct.email) struct.structType = 'user';
+                        else struct.structType = 'uncategorized';
                     }
-                    this.setLocalData(struct);
-                } else {
-
-                    if(struct.structType === 'notification') {
-                        let found = this.getLocalData('notification',{'ownerId': struct.ownerId, '_id':struct.parent._id});
-                        if(found) {
-                            this.setLocalData(struct);
-                        } else {
-                            if(this.getLocalData(struct.structType,{'_id':struct.parent._id})) {
-                                //this.resolveNotifications([struct],false);
-                            } else {
-                                this.overwriteLocalData(struct);
+                    if(struct.structType === 'user' || struct.structType === 'authorization' || struct.structType === 'group') {
+                        if(struct.structType === 'user') {
+                            struct._id = struct.id; //replacer
+                            // struct = new UserObj(struct); // set user obj
+                            // struct = getUserCodes(struct, true);
+                        }
+                        else if (struct.structType === 'group') {
+                            if(this.currentUser) {
+                                let uset = false;
+                                if(struct.admins[this.currentUser?._id] && !this.currentUser.userRoles[struct.name+'_admin']) {
+                                    this.currentUser.userRoles[struct.name+'_admin'] = true;
+                                    uset = true;
+                                }
+                                else if (!struct.admins[this.currentUser?._id] && this.currentUser.userRoles[struct.name+'_admin']) {
+                                    delete this.currentUser.userRoles[struct.name+'_admin'];
+                                    uset = true;
+                                }
+                                if(struct.admins[this.currentUser?._id] && !this.currentUser.userRoles[struct.name+'_peer']) {
+                                    this.currentUser.userRoles[struct.name+'_peer'] = true;
+                                    uset = true;
+                                }
+                                else if (!struct.admins[this.currentUser?._id] && this.currentUser.userRoles[struct.name+'_peer']) {
+                                    delete this.currentUser.userRoles[struct.name+'_peer'];
+                                    uset = true;
+                                }if(struct.admins[this.currentUser?._id] && !this.currentUser.userRoles[struct.name+'_client']) {
+                                    this.currentUser.userRoles[struct.name+'_client'] = true;
+                                    uset = true;
+                                }
+                                else if (!struct.admins[this.currentUser?._id] && this.currentUser.userRoles[struct.name+'_client']) {
+                                    delete this.currentUser.userRoles[struct.name+'_client'];
+                                    uset = true;
+                                }
+                                if(uset) this.setUser(this.currentUser); //update roles
                             }
                         }
+                        this.setLocalData(struct);
+                    } else {
 
-                        // TODO: Ignores notifications when the current user still has not resolved
-                        if(struct.ownerId === this.currentUser?._id && 
-                            (struct.parent.structType === 'user' || //all of the notification instances we want to pull automatically, chats etc should resolve when we want to view/are actively viewing them
-                            struct.parent.structType === 'dataInstance'  || 
-                            struct.parent.structType === 'schedule'  || 
-                            struct.parent.structType === 'authorization')) 
-                            {
-                            this.resolveNotifications([struct],true);
+                        if(struct.structType === 'notification') {
+                            let found = this.getLocalData('notification',{'ownerId': struct.ownerId, '_id':struct.parent._id});
+                            if(found) {
+                                this.setLocalData(struct);
+                            } else {
+                                if(this.getLocalData(struct.structType,{'_id':struct.parent._id})) {
+                                    //this.resolveNotifications([struct],false);
+                                } else {
+                                    this.overwriteLocalData(struct);
+                                }
+                            }
+
+                            // TODO: Ignores notifications when the current user still has not resolved
+                            if(struct.ownerId === this.currentUser?._id && 
+                                (struct.parent.structType === 'user' || //all of the notification instances we want to pull automatically, chats etc should resolve when we want to view/are actively viewing them
+                                struct.parent.structType === 'dataInstance'  || 
+                                struct.parent.structType === 'schedule'  || 
+                                struct.parent.structType === 'authorization')) 
+                                {
+                                this.resolveNotifications([struct],true);
+                            }
+                        } else { 
+                            this.overwriteLocalData(struct);
+                            //console.log(struct)
                         }
-                    } else { 
-                        this.overwriteLocalData(struct);
-                        //console.log(struct)
                     }
                 }
             });
         } 
 
+        //console.log(data);
         if (data?.message === 'notifications') {
+            //console.log('notifications', this.currentUser);
             this.checkForNotifications(); //pull notifications
         }
         if (data?.message === 'deleted') {
-            this.deleteLocalData(data.id); //remove local instance
+            this.deleteLocalData(data.data); //remove local instance
         }
         
         this.onResult(data);
@@ -273,14 +287,14 @@ class StructRouter extends Router {
     }
     
     //simple response test
-    async ping(callback=(res)=>{console.log(res);}) {
+    ping = async (callback=(res)=>{console.log(res);}) => {
         let res = (await this.send('ping'))?.[0]
         callback(res)
-        return res
+        return res;
     }
 
     //send a direct message to somebody
-    async sendMessage(userId:string='',message:any='',data:any=undefined,callback=(res)=>{console.log(res);}) {
+    sendMessage = async (userId:string='',message:any='',data:any=undefined,callback=(res)=>{console.log(res);}) => {
         let args = [userId,message];
         if(data) args[2] = data;
 
@@ -290,54 +304,62 @@ class StructRouter extends Router {
     }
 
     //info can be email, id, username, or name. Returns their profile and authorizations
-    async getUser (info:string|number='',callback=this.baseServerCallback) {
-        let res = (await this.send('structs/getUser', info))?.[0]
-        callback(res)
-        return res
+    getUser = async (info:string|number='',callback=this.baseServerCallback) => {
+        let res = (await this.send('structs/getUser', info))?.[0];
+        callback(res);
+        return (res as {user:ProfileStruct, groups:[], authorizations:[]} | undefined);
     }
 
     //get user basic info by id
-    async getUsers (ids:string|number[]=[],callback=this.baseServerCallback) {
-        let res = (await this.send('structs/getUsers', ...ids))?.[0] // Pass Array
+    getUsers = async (ids:(string|number)[]=[],callback=this.baseServerCallback) => {
+        let res = (await this.send('structs/getUsersByIds', ...ids)) // Pass Array
         callback(res)
         return res
     }
     
     //info can be email, id, username, or name. Returns their profile and authorizations
-    async getUsersByRoles (userRoles:string[]=[],callback=this.baseServerCallback) {
-        let res = (await this.send('structs/getUsersByRoles', userRoles))?.[0]
+    getUsersByRoles = async (userRoles:{}={},callback=this.baseServerCallback) => {
+        let res = (await this.send('structs/getUsersByRoles', userRoles));
         callback(res)
         return res
     }
 
     //pull all of the collections (except excluded collection names e.g. 'groups') for a user from the server
-    async getAllUserData(ownerId:string|number, excluded=[], callback=this.baseServerCallback) {
-        let res = (await this.send('structs/getAllData', ownerId, excluded))?.[0]
+    getAllUserData = async (ownerId:string|number, excluded=[], callback=this.baseServerCallback) => {
+        let res = (await this.send('structs/getAllData', ownerId, excluded));
         callback(res)
         return res
     }
 
-    //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
-    async getData(collection:string,ownerId?:string|number|undefined,searchDict?,limit:number=0,skip:number=0,callback=this.baseServerCallback) {
-        let res = (await this.send('structs/getData', collection,ownerId,searchDict,limit,skip))?.[0]
-        callback(res);
+    query = async (collection:string, queryObj={}, findOne=false, skip=0, callback=this.baseServerCallback) => {
+        if(!collection || !queryObj) return undefined;
+        let res = (await this.send('structs/query',[collection,queryObj,findOne,skip]));
+        if(typeof callback === 'function') callback(res);
         return res;
     }
 
     //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
-    async getDataByIds(structIds=[],ownerId?:string|number|undefined,collection?:string|undefined,callback=this.baseServerCallback) {
-        let res = (await this.send('structs/getDataByIdss', structIds, ownerId, collection))?.[0]
-        callback(res);
+    getData = async (collection:string,ownerId?:string|number|undefined,searchDict?,limit:number=0,skip:number=0,callback=this.baseServerCallback) => {
+        let res = (await this.send('structs/getData', collection, ownerId, searchDict, limit, skip));//?.[0]
+        //console.log('GET DATA RES', res, JSON.stringify(collection), JSON.stringify(ownerId));
+        if(typeof callback === 'function') callback(res);
+        return res;
+    }
+
+    //get data by specified details from the server. You can provide only one of the first 3 elements. The searchDict is for mongoDB search keys
+    getDataByIds = async (structIds:any[]=[],ownerId?:string|number|undefined,collection?:string|undefined,callback=this.baseServerCallback) => {
+        let res = (await this.send('structs/getDataByIds', structIds, ownerId, collection));
+        if(typeof callback === 'function') callback(res);
         return res
     }
 
     //get struct based on the parentId 
-    async getStructParentData (struct:any,callback=this.baseServerCallback) {
+    getStructParentData = async (struct:any,callback=this.baseServerCallback) => {
         if(!struct.parent) return;
         let args = [struct.parent?.structType,'_id',struct.parent?._id];
 
         let res = (await this.send('structs/getData', ...args))?.[0]
-        callback(res);
+        if(typeof callback === 'function') callback(res);
         return res;
     }
     
@@ -357,14 +379,14 @@ class StructRouter extends Router {
 
     
     //sets the user profile data on the server
-    async setUser (userStruct={},callback=this.baseServerCallback) {
+    setUser = async (userStruct={},callback=this.baseServerCallback) => {
         let res = (await this.send('structs/setUser', this.stripStruct(userStruct)))?.[0]
-        callback(res)
+        if(typeof callback === 'function') callback(res)
         return res
     }
 
     //updates a user's necessary profile details if there are any discrepancies with the token
-    async checkUserToken(usertoken,user=this.currentUser,callback=this.baseServerCallback) {
+    checkUserToken = async (usertoken,user=this.currentUser,callback=this.baseServerCallback) => {
         if(!usertoken) return false;
         let changed = false;
         for(const prop in usertoken) {
@@ -400,108 +422,129 @@ class StructRouter extends Router {
         return changed;
     }
 
-    /* strip circular references and update data on the server */
-    async updateServerData (structs=[],callback=this.baseServerCallback) {
+    /* strip circular references and update data on the server, default callback will process the returned structs back into  */
+    setData = async (structs:Partial<Struct>|Partial<Struct>[]=[],notify=true,callback=this.baseServerCallback) => {
         const copies = new Array();
+        if(!Array.isArray(structs) && typeof structs === 'object') structs = [structs];
         structs.forEach((struct)=>{
             copies.push(this.stripStruct(struct));
         })
 
-        let res = (await this.send('structs/setData', ...copies))?.[0]
-        callback(res)
-        return res
+        let res = (await this.send('structs/setData', [copies,notify]));
+        if(typeof callback === 'function') callback(res);
+        return res;
 
     }
+
+    updateServerData = this.setData;
     
     //delete a list of structs from local and server
-    async deleteData (structs=[],callback=this.baseServerCallback) {
+    deleteData = async (structs:any[]=[],callback=this.baseServerCallback) => {
         let toDelete = [];
+        //console.log('LOCAL TABLET DATA: ',this.tablet.collections)
         structs.forEach((struct) => {
-            if(struct?.structType && struct?._id) {
-            toDelete.push(
-                {
-                    structType:struct.structType,
-                    _id:struct._id
+            if(typeof struct === 'object') {
+                if(struct?.structType && struct?._id) {
+                toDelete.push(
+                    {
+                        structType:struct.structType,
+                        _id:struct._id
+                    }
+                );
+                this.deleteLocalData(struct);
                 }
-            );
-            this.deleteLocalData(struct);
+            }
+            else if (typeof struct === 'string'){
+                let localstruct = this.getLocalData(undefined,{_id:struct});
+                if(localstruct && !Array.isArray(localstruct)) {
+                    toDelete.push(
+                        {
+                            structType:localstruct.structType,
+                            _id:localstruct._id
+                        }
+                    );
+                } else {
+                    toDelete.push(
+                        {
+                            _id:struct
+                        } //still need a structType but we'll pass this anyway for now
+                    );
+                }
             }
         });
-
-        console.log('deleting',toDelete);
+        //console.log('deleting',toDelete);
         let res = (await this.send('structs/deleteData', ...toDelete))?.[0]
-        callback(res)
+        if(typeof callback === 'function') callback(res)
         return res
 
     }
 
     //delete user profile by ID on the server
-    async deleteUser (userId, callback=this.baseServerCallback) {
+    deleteUser = async (userId, callback=this.baseServerCallback) => {
         if(!userId) return;
 
         let res = (await this.send('structs/deleteUser', userId))?.[0]
-        callback(res)
+        if(typeof callback === 'function') callback(res)
         return res
     }
 
     //set a group struct on the server
-    async setGroup (groupStruct={},callback=this.baseServerCallback) {
+    setGroup = async (groupStruct={},callback=this.baseServerCallback) => {
         let res = (await this.send('structs/setGroup', this.stripStruct(groupStruct)))?.[0]
-        callback(res)
+        if(typeof callback === 'function') callback(res)
         return res
     }
 
     //get group structs or single one by Id
-    async getGroups (userId=this.currentUser._id, groupId='',callback=this.baseServerCallback) {
-        let res = (await this.send('structs/getGroups', userId,groupId))?.[0]
-        callback(res)
+    getGroups = async (userId=this.currentUser._id, groupId='',callback=this.baseServerCallback) => {
+        let res = (await this.send('structs/getGroups', userId,groupId))
+        if(typeof callback === 'function') callback(res)
         return res
     }
 
     //deletes a group off the server
-    async deleteGroup (groupId,callback=this.baseServerCallback) {
+    deleteGroup = async (groupId,callback=this.baseServerCallback) => {
         if(!groupId) return;
         this.deleteLocalData(groupId);
 
         let res = (await this.send('structs/deleteGroup', groupId))?.[0]
-        callback(res)
+        if(typeof callback === 'function') callback(res)
         return res
     }
 
     //set an authorization struct on the server
-    async setAuthorization (authorizationStruct={},callback=this.baseServerCallback) {
-
+    setAuthorization = async (authorizationStruct={},callback=this.baseServerCallback) => {
         let res = (await this.send('structs/setAuth', this.stripStruct(authorizationStruct)))?.[0]
-        callback(res)
+        if(typeof callback === 'function') callback(res)
         return res
     }
 
     //get an authorization struct by Id
-    async getAuthorizations (userId=this.currentUser?._id, authorizationId='',callback=this.baseServerCallback) {
+    getAuthorizations = async (userId=this.currentUser?._id, authorizationId='',callback=this.baseServerCallback) => {
         if(userId === undefined) return;
-        let res = (await this.send('structs/getAuths', userId, authorizationId))?.[0]
-        callback(res)
+        let res = (await this.send('structs/getAuths', userId, authorizationId))
+        if(typeof callback === 'function') callback(res)
         return res
     }
 
     //delete an authoriztion off the server
-    async deleteAuthorization (authorizationId,callback=this.baseServerCallback) {
+    deleteAuthorization = async (authorizationId,callback=this.baseServerCallback) => {
         if(!authorizationId) return;
         this.deleteLocalData(authorizationId);
         
         let res = (await this.send('structs/deleteAuth', authorizationId))?.[0]
-        callback(res)
+        if(typeof callback === 'function') callback(res)
         return res
     }
 
     //notifications are GENERALIZED for all structs, where all authorized users will receive notifications when those structs are updated
-    async checkForNotifications(userId=this.currentUser?._id) {
+    checkForNotifications = async (userId:string=this.currentUser?._id) => {
         return await this.getData('notification',userId);
     }
 
     
     //pass notifications you're ready to resolve and set pull to true to grab the associated data structure.
-    resolveNotifications = async (notifications=[], pull=true, user=this.currentUser) => {
+    resolveNotifications = async (notifications:any[]=[], pull:boolean=true, user:Partial<ProfileStruct>=this.currentUser) => {
         if(!user || notifications.length === 0) return;
         let structIds = [];
         let notificationIds = [];
@@ -512,14 +555,14 @@ class StructRouter extends Router {
         notifications.forEach((struct)=>{
             if(struct.parent.structType === 'user') unote = true;
             nTypes.push(struct.parent.structType);
-            structIds.push(struct.parent._id);
-            notificationIds.push(struct._id);
+            structIds.push(struct.parent._id); //
+            notificationIds.push(struct._id); //ids of the notifications structs
             //console.log(struct)
             this.deleteLocalData(struct); //delete local entries and update profile
             //console.log(this.structs.get(struct._id));
         });
 
-        this.deleteData(notificationIds); //delete server entries
+        this.deleteData(notifications); //delete server entries for the notifications
         if(pull) {
             nTypes.reverse().forEach((note,i)=>{
                 // if(note === 'comment') { //when resolving comments we need to pull the tree (temp)
@@ -530,93 +573,104 @@ class StructRouter extends Router {
                 //     structIds.splice(i,1);
                 // }
                 if(note === 'user') {
-                    this.getUser(notificationIds[i]);
+                    this.getUser(structIds[i]);
                     structIds.splice(structIds.length-i-1,1);
                 }
-            });
-            if(structIds.length > 0) return await this.getDataByIds(structIds,user._id,'notification');
+            }); 
+            if(structIds.length === 1) return await this.getDataByIds(structIds,undefined,notifications[0].parent.structType)
+            if(structIds.length > 0) return await this.getDataByIds(structIds);
         }
         return true;
     } 
 
 
     //setup authorizations automatically based on group
-    async setAuthorizationsByGroup(user=this.currentUser) {
+    setAuthorizationsByGroup = async (user=this.currentUser) => {
 
         let auths = this.getLocalData('authorization',{'ownerId': user._id});
-        // console.log(u);
-
-        user.userRoles.forEach((group)=>{ //auto generate access authorizations accordingly
+        //console.log('auths',auths, 'user', user);
+        let newauths = [];
+        await Promise.all(Object.keys(user.userRoles).map(async (role)=>{ //auto generate access authorizations accordingly
             //group format e.g.
             //reddoor_client
             //reddoor_peer
-            let split = group.split('_');
+            let split = role.split('_');
             let team = split[0];
             let otherrole;
-            if(group.includes('client')) {
+            if(role.includes('client')) {
                 otherrole = team+'_peer';
-            } else if (group.includes('peer')) {
+            } else if (role.includes('peer')) {
                 otherrole = team+'_client';
-            } else if (group.includes('admin')) {
+            } else if (role.includes('admin')) {
                 otherrole = team+'_owner';
             }
             if(otherrole) {
-                this.getUsersByRoles([otherrole],(data) => {
+                let users = await this.getUsersByRoles([otherrole]);
                     //console.log(res.data)
-                    data?.forEach((groupie)=>{
-                        let theirname = groupie.username;
-                        if(!theirname) theirname = groupie.email;
-                        if(!theirname) theirname = groupie.id;
-                        let myname = user.username;
-                        if(!myname) myname = user.email;
-                        if(!myname) myname = user.id;
+                
+                if(users) await Promise.all(users.map(async (groupie)=>{
+                    let theirname = groupie.username;
+                    if(!theirname) theirname = groupie.email;
+                    if(!theirname) theirname = groupie._id;
+                    let myname = user.username;
+                    if(!myname) myname = user.email;
+                    if(!myname) myname = user._id;
 
-                        if(theirname !== myname) {
-                            if(group.includes('client')) {
+                    if(theirname !== myname) {
+                        if(role.includes('client')) {
 
-                                //don't re-set up existing authorizations 
-                                let found = auths.find((a)=>{
-                                    if(a.authorizerId === groupie.id && a.authorizedId === user.id) return true;
-                                });
+                            //don't re-set up existing authorizations 
+                            let found = auths.find((a)=>{
+                                if(a.authorizerId === groupie._id && a.authorizedId === user._id) return true;
+                            });
 
-                                if(!found) this.authorizeUser(
+                            if(!found) {
+                                let auth = await this.authorizeUser(
                                     DS.ProfileStruct('user', user, user),
-                                    groupie.id,
+                                    groupie._id,
                                     theirname,
-                                    user.id,
+                                    user._id,
                                     myname,
-                                    ['peer'],
+                                    {'peer':true},
                                     undefined,
-                                    [group]
-                                )   
-                            } else if (group.includes('peer')) {
+                                    {group:team}
+                                );
+                                newauths.push(auth);
+                            }
+                        } else if (role.includes('peer')) {
 
-                                //don't re-set up existing authorizations 
-                                let found = auths.find((a)=>{
-                                    if(a.authorizedId === groupie.id && a.authorizerId === user.id) return true;
-                                });
+                            //don't re-set up existing authorizations 
+                            let found = auths.find((a)=>{
+                                if(a.authorizedId === groupie._id && a.authorizerId === user._id) return true;
+                            });
 
-                                if(!found) this.authorizeUser(
+                            if(!found) {
+                                let auth = await this.authorizeUser(
                                     DS.ProfileStruct('user', user, user),
-                                    user.id,
+                                    user._id,
                                     myname,
-                                    groupie.id,
+                                    groupie._id,
                                     theirname,
-                                    ['peer'],
+                                    {'peer':true},
                                     undefined,
-                                    [group]
-                                )   
+                                    {group:team}
+                                );
+                                newauths.push(auth);
                             }
                         }
-                    });
-                });
+                    }
+                }));
             }
-        });
+        }));
+        if(newauths.length > 0)
+            return newauths;
+
+        return undefined;
     }
 
     
     //delete a discussion or chatroom and associated comments
-    async deleteRoom(roomStruct) {
+    deleteRoom = async (roomStruct) => {
         if(!roomStruct) return false;
 
         let toDelete = [roomStruct];
@@ -633,7 +687,7 @@ class StructRouter extends Router {
     }
 
     //delete comment and associated replies by recursive gets
-    async deleteComment(commentStruct) {
+    deleteComment = async (commentStruct) => {
         let allReplies = [commentStruct];
         let getRepliesRecursive = (head=commentStruct) => {
             if(head?.replies) {
@@ -678,7 +732,7 @@ class StructRouter extends Router {
     }
 
     //get user data by their auth struct (e.g. if you don't grab their id directly), includes collection, limits, skips
-    async getUserDataByAuthorization (authorizationStruct, collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) {
+    getUserDataByAuthorization = async (authorizationStruct, collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) => {
 
         let u = authorizationStruct.authorizerId;
         if(u) {
@@ -695,7 +749,7 @@ class StructRouter extends Router {
     }
 
     //get user data for all users in a group, includes collection, limits, skips
-    async getUserDataByAuthorizationGroup (groupId='', collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) {
+    getUserDataByAuthorizationGroup = async (groupId='', collection, searchDict, limit=0, skip=0, callback=this.baseServerCallback) => {
         let auths = this.getLocalData('authorization');
 
         let results = [];
@@ -754,7 +808,7 @@ class StructRouter extends Router {
         let result = [];
         let authorizations = this.getLocalData('authorization',user._id);
         authorizations.forEach((a)=>{
-            if(a.authorizations.indexOf('peer') > -1 && a.authorizerId === user._id) result.push(a.authorizedId);
+            if(a.authorizations['peer'] && a.authorizerId === user._id) result.push(a.authorizedId);
         });
         return result;
     }
@@ -810,11 +864,11 @@ class StructRouter extends Router {
         return struct;
     }
 
-    userStruct (props: {
-        _id?: string
-        id?: string
-    }={}, currentUser=false) {
-        let user = DS.ProfileStruct('user', props, props);
+    userStruct (
+        props: Partial<ProfileStruct>={}, 
+        currentUser=false
+    ) {
+        let user = DS.ProfileStruct(undefined, props, props);
 
         if(props._id) user.id = props._id; //references the token id
         else if(props.id) user.id = props.id;
@@ -827,50 +881,54 @@ class StructRouter extends Router {
             } //delete non-dependent data (e.g. tokens we only want to keep in a secure collection)
         }
         if(currentUser) this.currentUser = user;
-        return user;
+        return user as ProfileStruct;
     }
 
     //TODO: Update the rest of these to use the DB structs but this should all work the same for now
     authorizeUser = async (
-        parentUser=this.userStruct(),
+        parentUser:Partial<ProfileStruct>,
         authorizerUserId='',
         authorizerUserName='',
         authorizedUserId='',
         authorizedUserName='',
-        authorizations=[], // TODO: really any[] or has type??
-        structs=[],
-        excluded=[],
-        groups=[],
+        authorizations:{}={}, // TODO: really any[] or has type??
+        structs:{}={},
+        excluded:{}={},
+        groups:{}={},
         expires=false
     ) => {
+        if(!parentUser) return undefined;
+
         let newAuthorization = this.createStruct('authorization',undefined,parentUser,undefined);  
         newAuthorization.authorizedId = authorizedUserId; // Only pass ID
         newAuthorization.authorizedName = authorizedUserName; //set name
         newAuthorization.authorizerId = authorizerUserId; // Only pass ID
         newAuthorization.authorizerName = authorizerUserName; //set name
-        newAuthorization.authorizations = authorizations;
-        newAuthorization.structs = structs;
-        newAuthorization.excluded = excluded;
-        newAuthorization.groups = groups;
-        newAuthorization.expires = expires;
+        newAuthorization.authorizations = authorizations; //object
+        newAuthorization.structs = structs;   // object
+        newAuthorization.excluded = excluded; // object
+        newAuthorization.groups = groups;     // array 
+        newAuthorization.expires = expires; 
         newAuthorization.status = 'PENDING';
         newAuthorization.associatedAuthId = '';
         newAuthorization.ownerId = parentUser._id;
-
+        //console.log('new authorization', newAuthorization)
         newAuthorization = await this.setAuthorization(newAuthorization);
        
-        return newAuthorization;
+        return newAuthorization as AuthorizationStruct;
     }
 
     addGroup = async (
-        parentUser= this.userStruct(), 
+        parentUser:Partial<ProfileStruct>,
         name='',  
         details='',
-        admins=[], 
-        peers=[], 
-        clients=[], 
+        admins:{}={}, 
+        peers:{}={}, 
+        clients:{}={}, 
         updateServer=true
     ) => {
+        if(!parentUser) return undefined;
+
         let newGroup = this.createStruct('group',undefined,parentUser); //auto assigns instances to assigned users' data views
 
         newGroup.name = name;
@@ -878,7 +936,10 @@ class StructRouter extends Router {
         newGroup.admins = admins;
         newGroup.peers = peers;
         newGroup.clients = clients;
-        newGroup.users = [...admins,...peers,...clients];
+        newGroup.users = {};
+        Object.assign(newGroup.users, newGroup.admins);
+        Object.assign(newGroup.users, newGroup.peers);
+        Object.assign(newGroup.users, newGroup.clients);
         newGroup.ownerId = parentUser._id;
         
         //this.setLocalData(newGroup);
@@ -887,7 +948,7 @@ class StructRouter extends Router {
             newGroup = await this.setGroup(newGroup);
         }
 
-        return newGroup;
+        return newGroup as GroupStruct;
     }
 
     //these can be used to add some metadata to arrays of data kept in a DataStruct
@@ -904,14 +965,16 @@ class StructRouter extends Router {
     }
 
     addData = async (
-        parentUser= this.userStruct(), 
+        parentUser:Partial<ProfileStruct>, 
         author='', 
         title='', 
         type='', 
-        data=[], 
+        data:string|Data[]=[], 
         expires=false, 
         updateServer=true
     ) => {
+        if(!parentUser) return undefined;
+
         let newDataInstance = this.createStruct('dataInstance',undefined,parentUser); //auto assigns instances to assigned users' data views
         newDataInstance.author = author;
         newDataInstance.title = title;
@@ -924,22 +987,23 @@ class StructRouter extends Router {
         
         if(updateServer) newDataInstance = await this.updateServerData([newDataInstance])[0];
 
-        return newDataInstance;
+        return newDataInstance as DataStruct;
     }
 
     addEvent = async (
-        parentUser=this.userStruct(), 
+        parentUser:Partial<ProfileStruct>,
         author='', 
         event='', 
         notes='', 
         startTime=0, 
         endTime=0,
         grade=0, 
-        attachments=[], 
-        users=[], 
+        attachments:string|Data[]=[], 
+        users:{}={}, 
         updateServer=true
     ) => {
-        if(users.length === 0) users = this.getLocalUserPeerIds(parentUser);
+        if(!parentUser) return undefined;
+        if(Object.keys(users).length === 0) users = this.getLocalUserPeerIds(parentUser);
         
         let newEvent = this.createStruct('event',undefined,parentUser);
         newEvent.author = author;
@@ -955,49 +1019,19 @@ class StructRouter extends Router {
         //this.setLocalData(newEvent);
         if(updateServer) newEvent = await this.updateServerData([newEvent])[0];
 
-        return newEvent;
-    }
-
-    //create discussion board topic
-    addDiscussion = async (
-        parentUser=this.userStruct(), 
-        authorId='',  
-        topic='', 
-        category='', 
-        message='',
-        attachments=[], 
-        users=[], 
-        updateServer=true) => {
-        
-        if(users.length === 0) users = this.getLocalUserPeerIds(parentUser); //adds the peer ids if none other provided
-        
-        let newDiscussion = this.createStruct('discussion',undefined,parentUser);
-        newDiscussion.topic = topic;
-        newDiscussion.category = category;
-        newDiscussion.message = message;
-        newDiscussion.attachments = attachments;
-        newDiscussion.authorId = authorId;
-        newDiscussion.users = users; 
-        newDiscussion.comments = [];
-        newDiscussion.replies = [];
-        newDiscussion.ownerId = parentUser._id;
-
-        //this.setLocalData(newDiscussion);
-    
-        let update = [newDiscussion];
-        if(updateServer) newDiscussion = await this.updateServerData(update)[0];
-        return newDiscussion;
+        return newEvent as EventStruct;
     }
 
     addChatroom = async (
-        parentUser=this.userStruct(), 
+        parentUser:Partial<ProfileStruct>,
         authorId='', 
         message='', 
-        attachments=[], 
-        users=[], 
+        attachments:string|Data[]=[], 
+        users:{}={}, 
         updateServer=true
     ) => {
-        if(users.length === 0) users = this.getLocalUserPeerIds(parentUser); //adds the peer ids if none other provided
+        if(!parentUser) return undefined;
+        if(Object.keys(users).length === 0) users = this.getLocalUserPeerIds(parentUser); //adds the peer ids if none other provided
         
         let newChatroom = this.createStruct('chatroom',undefined,parentUser);
         newChatroom.message = message;
@@ -1011,12 +1045,12 @@ class StructRouter extends Router {
         let update = [newChatroom];
         if(updateServer) newChatroom = await this.updateServerData(update)[0];
 
-        return newChatroom;
+        return newChatroom as ChatroomStruct;
     }
 
     //add comment to chatroom or discussion board
     addComment = async (
-        parentUser=this.userStruct(), 
+        parentUser:Partial<ProfileStruct>,
         roomStruct?:{
             _id: string;
             users: any[];
@@ -1028,9 +1062,13 @@ class StructRouter extends Router {
         }, 
         authorId='', 
         message='', 
-        attachments=[],
+        attachments:string|Data[]=[],
         updateServer=true
         ) => {
+            if(!roomStruct) return undefined;
+            if(!replyTo) replyTo = (roomStruct as any);
+
+            if(!parentUser) return undefined;
             let newComment = this.createStruct('comment',undefined,parentUser,roomStruct);
             newComment.authorId = authorId;
             newComment.replyTo = replyTo?._id;
@@ -1041,18 +1079,27 @@ class StructRouter extends Router {
             newComment.ownerId = parentUser._id;
 
 
-            if (updateServer) replyTo?.replies.push(newComment._id);
-            else replyTo?.replies.push(newComment); // push full reply if not on server
+            if (!updateServer) replyTo?.replies.push(newComment._id); //keep a local reference
+            //else replyTo?.replies.push(newComment._id); // push full reply if not on server
             
-            if (updateServer) roomStruct?.comments.push(newComment._id);
-            else roomStruct?.comments.push(newComment); // push full comment if not on server
+            if (!updateServer) roomStruct?.comments.push(newComment._id); //keep a local reference
+            //else roomStruct?.comments.push(newComment._id); // push full comment if not on server
 
             //this.setLocalData(newComment);
             let update = [newComment,roomStruct];
             if(replyTo._id !== roomStruct._id) update.push(replyTo);
-            if(updateServer) newComment = await this.updateServerData(update)[0];
-
-            return newComment;
+            let res;
+            if(updateServer) res = await this.updateServerData(update);
+            let updatedComment;
+            if(typeof res === 'object') { //comment results will return all updated structs (replies and chatrooms, etc) so find the right struct
+                updatedComment = res.find((s) => {
+                    if(newComment.ownerId === s.ownerId && newComment.timestamp === s.timestamp && newComment.message === s.message) {
+                        return true;
+                    }
+                });
+            }
+            if(updatedComment) return updatedComment as CommentStruct;
+            return res as Array<any>;
     }
 }
 

@@ -1,6 +1,6 @@
 import osc from "osc"
-import { DONOTSEND } from "../../router/Router";
-import { SubscriptionService } from "../../router";
+import { DONOTSEND } from "../../router";
+import { SubscriptionService } from "../../router/SubscriptionService";
 
 // Garrett Flynn, AGPL v3.0
 
@@ -76,7 +76,7 @@ class OSCService extends SubscriptionService {
             message[key].forEach(v => {
                 args.push({value: v})
             })
-            bundle.packets.push({address: `/brainsatplay/${key}`, args: message[key]})
+            bundle.packets.push({address: `/liveserver/${key}`, args: message[key]})
         }
 
         return bundle;

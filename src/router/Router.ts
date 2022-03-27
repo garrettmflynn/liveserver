@@ -1,6 +1,6 @@
 import StateManager from 'anotherstatemanager'
 import { getRouteMatches } from '../common/general.utils'
-import { randomId, pseudoObjectId,  } from '../common/id.utils'
+import { randomId, pseudoObjectId, generateCredentials,  } from '../common/id.utils'
 import { RouterOptions, AllMessageFormats, EndpointConfig, FetchMethods, MessageObject, MessageType, RouteConfig, RouteSpec, UserObject } from '../common/general.types';
 import { Service } from './Service';
 import { getParamNames } from '../common/parse.utils';
@@ -225,8 +225,9 @@ export class Router {
     route:'login',
     aliases:['addUser', 'startSession'],
     post: async (Router, args, origin) => {
-      let u = await Router.addUser(...args)
-      return { message: !!u, id: u.id }
+      //console.log('logging in', args);
+      const u = await Router.addUser(args[0])
+      return { message: u, id: u.origin }
     }
   },
   {
@@ -284,25 +285,23 @@ export class Router {
     // 
     // -----------------------------------------------
     connect = (config:EndpointConfig, onconnect?:Function) => {
-
       let endpoint = new Endpoint(config, this.SERVICES, this)
-
       // Register User and Get Available Functions
-      this.ENDPOINTS[endpoint.id] = endpoint
-
+      this.ENDPOINTS[endpoint.id] = endpoint;
+      //console.log('CONNECTING')
       endpoint.check().then(res => {
+        //console.log('CHECKING RES')
           if (res) {
-            if (onconnect) onconnect(endpoint)
-            this.login(endpoint) // Login user to connect to new remote
+            if (onconnect) onconnect(endpoint);
+            this.login(endpoint, endpoint.credentials); // Login user to connect to new remote
           }
       })
-
-      return endpoint
+      return endpoint;
   }
 
   disconnect = async (id) => {
-    this.logout(this.ENDPOINTS[id])
-    delete this.ENDPOINTS[id]
+    this.logout(this.ENDPOINTS[id]);
+    delete this.ENDPOINTS[id];
   }
 
 
@@ -392,33 +391,46 @@ export class Router {
 
   }
 
-    async login(endpoint?:Endpoint, user?:Partial<UserObject>) {
+  async login(endpoint?:Endpoint, user?:Partial<UserObject>) {
 
-        await this.logout(endpoint)
+    await this.logout(endpoint);
 
-        const arr = Object.values((endpoint) ? {endpoint} : this.ENDPOINTS)
+    //console.log('logging in')
 
-        let res = await Promise.all(arr.map(async (endpoint) => {
-          if (user) endpoint.setCredentials(user)
-          return await this.send({
-            route: 'login',
-            endpoint
-          }, endpoint.credentials)
-        }))
+    const arr = Object.values((endpoint) ? {endpoint} : this.ENDPOINTS)
+    
+    let res = await Promise.all(arr.map(async (endpoint) => {
+      
+      let res = await this.send({
+        route: 'login',
+        endpoint
+      }, user);
 
-        return res.reduce((a,b) => a*b[0], true) === 1
+      //console.log('logging in res', res)
+      //console.log('Resolved from server', res[0])
+      endpoint.setCredentials(res[0]);
+      return res;
+    }))
+
+    //console.log('Res', res)
+    if(res) return res[0];
+    return res.reduce((a,b) => a*b[0], true) === 1
   }
 
   async logout(endpoint?:Endpoint) {
 
-        const res = await Promise.all(Object.values((endpoint) ? {endpoint} : this.ENDPOINTS).map(async (endpoint) => {
-          return await this.send({
-            route: 'logout',
-            endpoint
-          }, endpoint.credentials)
-        }))
+    const res = await Promise.all(Object.values((endpoint) ? {endpoint} : this.ENDPOINTS).map(async (endpoint) => {
+      const res = await this.send({
+        route: 'logout',
+        endpoint
+      }, endpoint.credentials)
 
-        return res.reduce((a,b) => a*b[0], true) === 1
+      return res
+    }))
+
+    //console.log('Res', res)
+    if (!res) return false
+    return res.reduce((a,b) => a*b?.[0], true) === 1
   }
   
   get = (routeSpec:RouteSpec, ...args:any[]) => {
@@ -564,22 +576,19 @@ export class Router {
   }
 
   // Track Users Connected to the LiveServer
-  addUser(userinfo:Partial<UserObject>) {
+  addUser(userinfo:Partial<UserObject> = {}, credentials:Partial<UserObject> = generateCredentials(userinfo)) {
 
-    if (userinfo && (userinfo.id || userinfo._id)) {
-      // Grab Proper Id
-      if (!userinfo._id) userinfo._id = pseudoObjectId()
-      if (!userinfo.id) userinfo.id = userinfo._id
-
+    //console.log('Trying to add', userinfo, credentials)
+    if (userinfo) {
+      
       // Get Current User if Exists
-      const u = this.USERS[userinfo.id]
-
+      const u = this.USERS[credentials._id] // Reference by credentials
       // Grab Base
       let newuser: UserObject = u ?? {
-        id: userinfo.id, 
-        _id: userinfo._id, //second reference (for mongodb parity)
-        username:userinfo.id,
-        origin: userinfo.id,
+        _id: userinfo._id ?? userinfo.id, //second reference (for mongodb parity)
+        id:userinfo.id ?? userinfo._id,
+        username: userinfo.username,
+        origin: credentials._id,
         props: {},
         updatedPropNames: [],
         sessions:[],
@@ -592,9 +601,9 @@ export class Router {
 
       Object.assign(newuser,userinfo); //assign any supplied info to the base
 
-      if(this.DEBUG) console.log('Adding User, Id:', userinfo._id);
+      if(this.DEBUG) console.log('Adding User, Id:', userinfo._id, 'Credentials:', credentials);
 
-      this.USERS[userinfo.id] =  newuser
+      this.USERS[credentials._id] =  newuser;
 
       //add any additional properties sent. remote.service has more functions for using these
       for (let key in this.SERVICES){
@@ -604,12 +613,12 @@ export class Router {
               const possibilities = getRouteMatches(route)
               possibilities.forEach(r => {
                 if (this.ROUTES[r]) {
-                  this.runRoute(r, 'POST', [newuser], userinfo.id) 
+                  this.runRoute(r, 'POST', [newuser], credentials._id) 
                 }
               })
             }
       }
-
+      //console.log('ADDED USER',newuser)
       return newuser; //returns the generated id so you can look up
     } else return false
   }
@@ -666,8 +675,6 @@ export class Router {
             
       if(o.route != null) {
         
-        let u = this.USERS[o?.id]
-
         console.log('runRoute', o.route)
 
         // TODO: Allow Server to Target Remote too
@@ -676,7 +683,7 @@ export class Router {
         //   res = await this.runRoute(o.route, o.method, o.message, u?.id ?? o.id, o.callbackId);
         //   if (o.suppress) res.suppress = o.suppress // only suppress when handling messages here
         // } else {
-          const res = await this.runRoute(o.route, o.method, o.message, u?.id ?? o.id, o.callbackId);
+          const res = await this.runRoute(o.route, o.method, o.message, o._id ?? o.id, o.callbackId);
           if (res && o.suppress) res.suppress = o.suppress // only suppress when handling messages here
         // }
         
@@ -690,16 +697,24 @@ export class Router {
   //pass user Id or object
   sendMsg(user:string|UserObject='',message='',data=undefined) {
 
-      let toSend = (data) ? Object.assign(data, { message }) : { message }
+      //let toSend = (data) ? Object.assign(data, { message }) : { message }
+      let toSend = {message:message, data:data};
 
       if(typeof user === 'string') {
-          let u = this.USERS[user]
-          if(u) {
-            u.send(toSend)
-          }
-      } else if (typeof user === 'object') {
-        user.send(toSend);
-        return true;
+        //console.log(user, message, data);
+          let u = this.USERS[user];
+          if(typeof u === 'object') {
+            if(typeof u?.send === 'function') {
+              u.send(toSend)
+              return true
+            } else console.log("\x1b[31m", `[LIVESERVER-ROUTER] ${user} does not have anything to receive your message...`)
+          } else console.log("\x1b[31m", `[LIVESERVER-ROUTER] ${user} does not have anything to receive your message...`)
+      } else if (user && typeof user === 'object') {
+        if(typeof user.send !== 'function' && user._id) { user = this.USERS[user._id] }
+        if (typeof user.send === 'function') {
+          user.send(toSend);
+          return true;
+        } else console.log("\x1b[31m", `[LIVESERVER-ROUTER] ${user.username ?? user.id} does not have anything to receive your message...`)
       }
       return false;
   }

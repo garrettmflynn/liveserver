@@ -16,7 +16,7 @@ This monorepo contains several NPM libraries for live communications.
 - WebTorrent integration for creating P2P file servers
 
 ## Acknowledgments
-Made for [Brains@Play](https://github.com/brainsatplay/brainsatplay) and [MyAlyce](https://github.com/MyAlyce/myalyce) projects, free for anyone (AGPL v3.0 copyleft).
+Made for [Brains@Play](https://github.com/brainsatplay/liveserver) and [MyAlyce](https://github.com/MyAlyce/myalyce) projects, free for anyone (AGPL v3.0 copyleft).
 
 ## Contributors
 

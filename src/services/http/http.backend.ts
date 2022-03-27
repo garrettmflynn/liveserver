@@ -90,11 +90,13 @@ class HTTPService extends SubscriptionService {
             } 
         } else {
 
+
             this.handleRoute(route, (info as MessageObject)).then(res => {
 
 
+                if (res == null) res = new Error(`Response value doesn't exist`)
                 if (res instanceof Error) response.status(404).send(JSON.stringify(res, Object.getOwnPropertyNames(res))) 
-                else if (res != null) {
+                else {
 
                     for (let header in res?.headers){
                         response.setHeader(header, res.headers[header]);
@@ -104,7 +106,7 @@ class HTTPService extends SubscriptionService {
 
                     // Only Send HTML for SSR
                     if (contentType ===  'text/html') {
-                        response.send(res.message?.[0]?.html) // send back  
+                        response.send(res?.message?.[0]?.html) // send back  
                     } else {
                         response.setHeader('Content-Type','application/json')
                         response.send(JSON.stringify(res as any)) // send back  

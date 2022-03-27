@@ -108,6 +108,9 @@ export type UserObject = {
     routes: Map<string, RouteConfig>
 
     // To Determine if Useful
-    userRoles?: any[]
+    userRoles?: {}
     email?: string,
+    phone?: string,
+    socials?: {},
+    data?: {}
   }

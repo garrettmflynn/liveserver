@@ -4,7 +4,7 @@ import { safeStringify } from '../common/parse.utils';
 import { createRoute } from '../common/general.utils';
 import Router from './Router';
 // import { Service } from './Service';
-import { randomId , pseudoObjectId} from '../common/id.utils';
+import { randomId , pseudoObjectId, generateCredentials} from '../common/id.utils';
 
 
 // Load Node Polyfills
@@ -95,40 +95,41 @@ export class Endpoint {
     }
 
     setCredentials = (o?:Partial<UserObject>) => {
-
-        // Fill in the details if enough is provided
-        if (o && (o._id || o.id)) this.credentials = {
-            _id: o._id ?? pseudoObjectId(),
-            id: o.id || o._id
-        }
+        this.credentials = generateCredentials(o)
+        console.log('Using Credentials:', this.credentials)
     }
 
     check = async () => {
-
         if (this.type === 'webrtc'){
 
             // if (!this.link || this.link === this){
             //     console.log('no link', this.link)
             // }
 
-            await this._subscribe({ protocol: 'webrtc', force: true }).then(res => {
-                this.status = true
-            }).catch(e => console.log(`Link doesn't have WebRTC enabled.`, e))
+            if (this.clients['webrtc']){
+                await this._subscribe({ protocol: 'webrtc', force: true }).then(res => {
+                    this.status = true
+                }).catch(e => console.log(`Link doesn't have WebRTC enabled.`, e))
+            } else console.error('WebRTC client not added...')
         }
 
         const connectWS = async () => {
-            await this._subscribe({protocol: 'websocket', force: true}).then(res => {
-                this.status = true
-                return res
-            })
-            return await this.send('services')
+            if (this.clients['websocket']){
+                await this._subscribe({protocol: 'websocket', force: true}).then(res => {
+                    this.status = true
+                    return res
+                })
+                return await this.send('services')
+            } else console.error('Websocket client not added...')
         }
 
         const connectHTTP = async () => await this.send('services')
         
 
         let res;
+        console.log('endpoint type', this.type)
         if (this.type === 'websocket'){       
+            console.log('connecting ws')
             let res = await connectWS().then(res => {
                 this.status = true
                 return res
@@ -137,7 +138,8 @@ export class Endpoint {
                     console.log('Falling back to http')
                     return await connectHTTP()
                 }
-            })
+            });
+            console.log('endpoint res', res);
         } else {
             res = await connectHTTP().then(res => {
                 this.status = true
@@ -200,6 +202,8 @@ export class Endpoint {
                 suppress: o.suppress,
                 id: this.link.connection?.id
             }
+
+            //console.log('Creds', opts, this.link)
             
             // WS
 
@@ -297,7 +301,6 @@ export class Endpoint {
                     let clientName = opts.protocol ?? this.type
 
                   let servicesToCheck = (clientName) ? [this.clients[clientName]] : Object.values(this.clients)
-                  
 
                   servicesToCheck.forEach(async client => {
   
@@ -314,13 +317,16 @@ export class Endpoint {
                         if (!this.connection){
                             const target = (this.type === 'http' || this.type === 'websocket') ? new URL(subscriptionEndpoint, this.target) : this.target
                             
+                            console.log(target, this.target, subscriptionEndpoint)
                             const id = await client.add(this.credentials, target.href) // Pass full target string
 
                             // Always Have the Router Listen
                             if (this.router){
                                 client.addResponse('router', (o) => {
-
-                                    const data = (typeof o === 'string') ? JSON.parse(o) : o 
+                                    let data = o;
+                                    if(typeof o === 'string') {
+                                        try { let parsed = JSON.parse(o); data = parsed; } catch(e) {}
+                                    }
                                     // Activate Subscriptions
                                     Object.values(this.responses).forEach(f => {
                                         f(data)
@@ -345,7 +351,7 @@ export class Endpoint {
                             message: opts.message,
                             protocol: opts.protocol,
                         }, {
-                          message: [opts.routes, this.connection.id] // Routes to Subscribe + Reference ID
+                          message: [opts.routes, this.credentials.id] // Routes to Subscribe + Reference ID
                         }))
 
                         resolve(this.connection)

@@ -1,6 +1,6 @@
 {
   "name": "liveserver-database",
-  "version": "0.0.22",
+  "version": "0.0.24",
   "main": "./dist/index.js",
   "module": "./dist/index.esm.js",
   "types": "./dist/services/database/index.d.ts",
@@ -11,12 +11,21 @@
     "dist"
   ],
   "scripts": {
-    "build": "rollup -c && tsc",
+    "build":  "rollup -c && tsc",
+    "esbuild": "node bundler.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "brainsatplay-data": "^0.0.23",
+    "brainsatplay-data": "^0.0.47",
     "brainsatplay-storage": "^0.0.19",
-    "bson-objectid": "^2.0.2"
+    "bson-objectid": "^2.0.2",
+    "esbuild": "^0.14.23",
+    "esbuild-plugin-d.ts": "^1.1.0"
+  },
+  "devDependencies": {
+    "rollup": "^2.68.0",
+    "esbuild": "^0.14.23",
+    "esbuild-plugin-d.ts": "^1.1.0",
+    "tslib":"^2.3.1"
   }
 }

@@ -42,7 +42,7 @@ class WebsocketService extends SubscriptionService {
             delete dict._id
         }
 
-        Object.keys(dict).forEach((str) => subprotocol.push(`brainsatplay.com/${str}/${dict[str]}?arr=` + Array.isArray(dict[str])))
+        Object.keys(dict).forEach((str) => subprotocol.push(`liveserver.com/${str}/${dict[str]}?arr=` + Array.isArray(dict[str])))
         let res = encodeURIComponent(subprotocol.join(';'));
         return res || undefined
 

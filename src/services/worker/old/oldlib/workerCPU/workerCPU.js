@@ -1,6 +1,6 @@
 //Adds Math functions and stuff that are CPU-based. Not much here right now
 
-import { Math2 } from "brainsatplay-math";
+import { Math2 } from "liveserver-math";
 
 export class workerCPU {
 

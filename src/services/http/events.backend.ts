@@ -24,21 +24,21 @@ export class EventsBackend extends SubscriptionService {
     updateUser = async (info:any, request: Request, response: Response) => {
         
         const tempId = info.message?.[1]
-        const id = info.id ?? tempId ?? randomId('sse') // temporary id (since EventSource cannot pass a body)
+        const _id = info.id ?? tempId ?? randomId('sse') // temporary id (since EventSource cannot pass a body)
         const routes = info.message?.[0]
-        let u = this.subscribers.get(tempId ?? id)
+        let u = this.subscribers.get(tempId ?? _id)
 
         if (tempId && u) {
-            u.id = id
-            if (u.id != tempId) {
+            u._id = _id
+            if (u._id != tempId) {
                 this.subscribers.delete(tempId)
-                await this.notify({route: 'addUser', message: [{id, send: u.send}]});
+                await this.notify({route: 'addUser', message: [{_id, send: u.send}]});
             }
             response.send(JSON.stringify({message: [true]})) // Return to ensure client is not blocked
         } else if (!u) {
 
             // Initialize Subscription
-            u = {id, routes: {}, send: (data:any) => {
+            u = {_id, routes: {}, send: (data:any) => {
                 if(data?.message && data?.route) {
                     response.write(`data: ${JSON.stringify(data)}\n\n`);
                 }
@@ -53,15 +53,15 @@ export class EventsBackend extends SubscriptionService {
 
             response.writeHead(200, headers);
             
-            u.send({route:'events/subscribe', message: [id]}) // send initial value
+            u.send({route:'events/subscribe', message: [_id]}) // send initial value
 
             // Cancel Subscriptions
             request.on('close', () => {
-                this.subscribers.delete(u.id)
+                this.subscribers.delete(u._id)
             });
         } 
 
-        this.subscribers.set(id, u)
+        this.subscribers.set(_id, u)
 
         // Always Add New Routes
         if (routes){
@@ -70,7 +70,7 @@ export class EventsBackend extends SubscriptionService {
             })
         }
 
-        return id
+        return _id
     }
 }
 

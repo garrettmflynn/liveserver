@@ -1,5 +1,5 @@
 import {gpuUtils} from 'gpujsutils'
-import {Math2} from 'brainsatplay-math'
+import {Math2} from 'liveserver-math'
 import { parseFunctionFromText } from '../utils/Parsing';
 
 //GPU.js utilities for the web worker callback manager
