@@ -17,8 +17,3 @@ This monorepo contains several NPM libraries for live communications.
 
 ## Acknowledgments
 Made for [Brains@Play](https://github.com/brainsatplay/liveserver) and [MyAlyce](https://github.com/MyAlyce/myalyce) projects, free for anyone (AGPL v3.0 copyleft).
-
-## Contributors
-
-- Garrett Flynn
-- Joshua Brewster
