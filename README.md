@@ -1,6 +1,8 @@
 # liveserver
 This monorepo contains several NPM libraries for live communications.
 
+> **Note:** This project is still in active development at the [brainsatplay](https://github.com/brainsatplay/brainsatplay) repo of the [Brains@Play project](https://github.com/brainsatplay/project).
+
 ## Contents
 ### Core
 - **liveserver-router:** A set of generic message handlers written in Universal JavaScript.
